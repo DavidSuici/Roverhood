@@ -2,15 +2,20 @@ package com.suici.roverhood;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
+import java.util.Objects;
 import java.util.Vector;
 
 public class RoverFeed extends Fragment {
@@ -18,7 +23,9 @@ public class RoverFeed extends Fragment {
     private RoverFeedBinding binding;
     Vector<Post> posts = new Vector<Post>();
     Vector<Post> announcements = new Vector<Post>();
-    MainActivity main;
+    MainActivity activity;
+    MenuItem announcementsFilter;
+    SwitchCompat announcementsSwitch;
 
     @Override
     public View onCreateView(
@@ -26,16 +33,16 @@ public class RoverFeed extends Fragment {
             Bundle savedInstanceState
     ) {
         binding = RoverFeedBinding.inflate(inflater, container, false);
-        main = (MainActivity) getParentFragment().getActivity();
-        main.onFeed = true;
+        activity = (MainActivity) requireActivity();
 
-
-
-        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
+        announcementsFilter = activity.getOptionsMenu().findItem(R.id.checkable_menu);
+        announcementsFilter.setVisible(true);
+        announcementsSwitch = Objects.requireNonNull(announcementsFilter.getActionView()).findViewById(R.id.switch2);
 
         populatePosts();
 
-        if(main.onlyAnnouncements) {
+        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
+        if(announcementsSwitch.isChecked()) {
             for(Post post : announcements) {
                 linearLayout.addView(post.getUserView());
                 linearLayout.addView(post.getDateView());
@@ -65,20 +72,59 @@ public class RoverFeed extends Fragment {
 
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        if(main.onlyAnnouncements) {
-            main.getFloatingButton().setVisibility(View.INVISIBLE);
-        } else {
-            main.getFloatingButton().setVisibility(View.VISIBLE);
+
+        if(!announcementsSwitch.isChecked()) {
+            activity.getFloatingButton().setVisibility(View.VISIBLE);
         }
+
+        binding.buttonLogOut.setOnClickListener(v -> {
+            NavHostFragment.findNavController(RoverFeed.this)
+                    .navigate(R.id.action_RoverFeed_to_LogIn);
+        });
+
+        binding.refreshButton.setOnClickListener(v -> {
+            NavHostFragment.findNavController(RoverFeed.this)
+                    .navigate(R.id.action_RoverFeed_to_loading);
+        });
+
+        activity.getFloatingButton().setOnClickListener(v -> {
+            NavHostFragment.findNavController(RoverFeed.this)
+                    .navigate(R.id.action_RoverFeed_to_LogIn);
+        });
+
+        announcementsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            NavHostFragment.findNavController(RoverFeed.this)
+                    .navigate(R.id.action_RoverFeed_to_loading);
+        });
+
+        // Press back to refresh
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        // Navigate to loading screen from within RoverFeed
+                        NavHostFragment.findNavController(RoverFeed.this)
+                                .navigate(R.id.action_RoverFeed_to_loading);
+
+                        // Keep the behaviour from MainActivity, with double back exit
+                        setEnabled(false);
+                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                    }
+                });
     }
 
     @Override
     public void onDestroyView() {
-        main.onFeed = false;
-        main.getFloatingButton().setVisibility(View.INVISIBLE);
+        if (announcementsSwitch != null) {
+            announcementsSwitch.setOnCheckedChangeListener(null); // remove listener cleanly
+        }
+
+        activity.getFloatingButton().setVisibility(View.INVISIBLE);
+        announcementsFilter.setVisible(false);
+
         super.onDestroyView();
         binding = null;
-
     }
 
     private void populatePosts() {
