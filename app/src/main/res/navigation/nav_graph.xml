@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/RoverFeed"
-        android:name="com.example.roverhood.RoverFeed"
+        android:name="com.suici.roverhood.RoverFeed"
         android:label="@string/first_fragment_label"
         tools:layout="@layout/rover_feed">
         <action
@@ -19,7 +19,7 @@
     </fragment>
     <fragment
         android:id="@+id/LogIn"
-        android:name="com.example.roverhood.LogIn"
+        android:name="com.suici.roverhood.LogIn"
         android:label="Log In"
         tools:layout="@layout/log_in">
         <action
@@ -28,7 +28,7 @@
     </fragment>
     <fragment
         android:id="@+id/loading"
-        android:name="com.example.roverhood.Loading"
+        android:name="com.suici.roverhood.Loading"
         android:label="RoverFeed"
         tools:layout="@layout/loading">
         <action

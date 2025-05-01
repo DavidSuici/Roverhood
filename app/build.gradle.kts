@@ -1,13 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.roverhood"
+    namespace = "com.suici.roverhood"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.roverhood"
+        applicationId = "com.suici.roverhood"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -46,6 +47,8 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     implementation(libs.core.ktx)
+    implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
+    implementation("com.google.firebase:firebase-database")
 //    implementation(libs.play.services.auth)
 //    implementation(libs.google.api.client.android)
 //    implementation(libs.google.api.services.photoslibrary)

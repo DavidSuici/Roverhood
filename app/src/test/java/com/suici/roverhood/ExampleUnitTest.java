@@ -1,4 +1,4 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
 import org.junit.Test;
 

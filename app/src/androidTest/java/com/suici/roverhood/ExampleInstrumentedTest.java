@@ -1,4 +1,4 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("com.example.roverhood", appContext.getPackageName());
+        assertEquals("com.suici.roverhood", appContext.getPackageName());
     }
 }
