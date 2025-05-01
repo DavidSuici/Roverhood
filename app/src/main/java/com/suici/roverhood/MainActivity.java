@@ -1,4 +1,4 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
 import android.os.Bundle;
 
@@ -6,6 +6,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Log;
 import android.view.View;
 
 import androidx.appcompat.widget.SwitchCompat;
@@ -17,13 +18,18 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
-import com.example.roverhood.databinding.ActivityMainBinding;
+import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Toast;
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.database.Logger;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -38,6 +44,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        FirebaseApp.initializeApp(this);
+        DatabaseReference ref = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("testNode");
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

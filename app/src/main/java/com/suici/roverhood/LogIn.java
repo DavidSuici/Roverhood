@@ -1,25 +1,20 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
-import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
-import com.example.roverhood.databinding.LogInBinding;
-import com.example.roverhood.databinding.RoverFeedBinding;
-
-import java.util.Objects;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.suici.roverhood.databinding.LogInBinding;
+import com.suici.roverhood.databinding.RoverFeedBinding;
 
 public class LogIn extends Fragment {
 
@@ -32,6 +27,18 @@ public class LogIn extends Fragment {
             Bundle savedInstanceState
     ) {
         binding = LogInBinding.inflate(inflater, container, false);
+
+        DatabaseReference usersRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("users");
+
+        usersRef.get().addOnSuccessListener(snapshot -> {
+            for (DataSnapshot child : snapshot.getChildren()) {
+                String userId = child.getKey();
+                User user = child.getValue(User.class);
+                Log.d("FirebaseTest", "User ID: " + userId + ", Name: " + user.username);
+            }
+        });
 
         if(loggedIn) {
             NavHostFragment.findNavController(LogIn.this)

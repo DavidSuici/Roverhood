@@ -1,4 +1,4 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -9,8 +9,8 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
-import com.example.roverhood.databinding.LoadingBinding;
-import com.example.roverhood.databinding.LogInBinding;
+import com.suici.roverhood.databinding.LoadingBinding;
+import com.suici.roverhood.databinding.LogInBinding;
 
 public class Loading extends Fragment {
 

@@ -1,4 +1,4 @@
-package com.example.roverhood;
+package com.suici.roverhood;
 
 import android.graphics.Typeface;
 import android.view.View;
@@ -7,6 +7,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
+
+import java.util.Objects;
 
 public class Post {
     Fragment activeFragment;
@@ -112,8 +114,6 @@ public class Post {
     }
 
     public boolean isAnnouncement() {
-        if(user == "Admin")
-            return true;
-        return false;
+        return Objects.equals(user, "Admin");
     }
 }
