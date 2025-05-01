@@ -3,10 +3,13 @@ package com.suici.roverhood;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
@@ -15,6 +18,8 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.LogInBinding;
 import com.suici.roverhood.databinding.RoverFeedBinding;
+
+import java.util.Objects;
 
 public class LogIn extends Fragment {
 
@@ -40,21 +45,38 @@ public class LogIn extends Fragment {
             }
         });
 
-        if(loggedIn) {
-            NavHostFragment.findNavController(LogIn.this)
-                    .navigate(R.id.action_LogIn_to_loading);
-        }
-
         return binding.getRoot();
     }
 
+    @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        if (loggedIn) {
+            // Delay navigation until view is ready
+            view.post(() -> {
+                if (NavHostFragment.findNavController(LogIn.this)
+                        .getCurrentDestination().getId() == R.id.LogIn) {
+                    NavHostFragment.findNavController(LogIn.this)
+                            .navigate(R.id.action_LogIn_to_loading);
+                }
+            });
+        }
+
+        binding.buttonLogIn.setOnClickListener(v -> {
+            NavHostFragment.findNavController(LogIn.this)
+                    .navigate(R.id.action_LogIn_to_loading);
+        });
     }
 
     @Override
     public void onDestroyView() {
+        MainActivity activity = (MainActivity) requireActivity();
+        SwitchCompat announcementsFilter = Objects.requireNonNull(activity.getOptionsMenu()
+                        .findItem(R.id.checkable_menu).getActionView())
+                        .findViewById(R.id.switch2);
+        announcementsFilter.setChecked(false);
+
         super.onDestroyView();
         binding = null;
     }
