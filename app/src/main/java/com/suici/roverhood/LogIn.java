@@ -1,7 +1,6 @@
 package com.suici.roverhood;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -18,11 +17,8 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.LogInBinding;
-import com.suici.roverhood.databinding.RoverFeedBinding;
 import android.view.inputmethod.EditorInfo;
 import android.view.KeyEvent;
-
-import java.util.Objects;
 
 public class LogIn extends Fragment {
 
@@ -35,20 +31,8 @@ public class LogIn extends Fragment {
     ) {
         binding = LogInBinding.inflate(inflater, container, false);
 
-        DatabaseReference usersRef = FirebaseDatabase
-                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                .getReference("users");
-
-        LocalDatabase dbHelper = new LocalDatabase(requireContext());
-        usersRef.get().addOnSuccessListener(snapshot -> {
-            for (DataSnapshot child : snapshot.getChildren()) {
-                String userId = child.getKey();
-                User user = child.getValue(User.class);
-                user.setId(userId);
-                dbHelper.insertUser(user);
-            }
-        });
-        dbHelper.logAllUsers();
+        // Perform sync with Firebase
+        syncUserDB();
 
         return binding.getRoot();
     }
@@ -56,60 +40,63 @@ public class LogIn extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        LocalDatabase localDB = new LocalDatabase(requireContext());
 
-        LocalDatabase dbHelper = new LocalDatabase(requireContext());
-        if (dbHelper.getLoggedInUser() != null)
-            ((MainActivity) requireActivity()).setCurrentUser(dbHelper.getLoggedInUser());
-        if(((MainActivity) requireActivity()).getCurrentUser() != null) {
+        // If any user is logged in, set current user information in textboxes
+        if (localDB.getLoggedInUser() != null) {
+            ((MainActivity) requireActivity()).setCurrentUser(localDB.getLoggedInUser());
             binding.usernameText.setText(((MainActivity) requireActivity()).getCurrentUser().username);
             binding.accessCodeText.setText(((MainActivity) requireActivity()).getCurrentUser().accessCode);
         }
-        else
-            if(dbHelper.getPrevLoggedInUser() != null) {
-                binding.usernameText.setText(dbHelper.getPrevLoggedInUser().username);
-                binding.accessCodeText.setText(dbHelper.getPrevLoggedInUser().accessCode);
+        else {
+            // Set last logged user information in textboxes
+            if (localDB.getPrevLoggedInUser() != null) {
+                binding.usernameText.setText(localDB.getPrevLoggedInUser().username);
+                binding.accessCodeText.setText(localDB.getPrevLoggedInUser().accessCode);
             }
+        }
 
+        // If there is a loggedIn user, skip to the Feed
         view.post(() -> {
-            User currentUser = ((MainActivity) requireActivity()).getCurrentUser();
-            User dbUser = dbHelper.getLoggedInUser();
-
-            if (currentUser != null && dbUser != null &&
-                    currentUser.username != null && dbUser.username != null &&
-                    currentUser.username.equals(dbUser.username)) {
-
+            if (localDB.getLoggedInUser() != null) {
                 NavHostFragment.findNavController(LogIn.this)
                         .navigate(R.id.action_LogIn_to_RoverFeed);
             }
         });
 
+        // LogIn when pressed enter in AccesCode textbox
         binding.accessCodeText.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                    (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                            && event.getAction() == KeyEvent.ACTION_DOWN)) {
 
-                binding.buttonLogIn.performClick();  // Simulate button click
-                return true; // Handled
+                binding.buttonLogIn.performClick();
+                return true;
             }
             return false;
         });
 
+        // LogIn - button logic
         binding.buttonLogIn.setOnClickListener(v -> {
+            syncUserDB();
             String username = binding.usernameText.getText().toString().trim();
             String accessCode = binding.accessCodeText.getText().toString().trim();
-            User user = dbHelper.getUserByUsernameAndAccessCode(username, accessCode);
-            ((MainActivity) requireActivity()).setCurrentUser(user);
+            User user = localDB.getUserByUsernameAndAccessCode(username, accessCode);
+
             if (user != null) {
-                dbHelper.markLoggedIn(user.id);
+                ((MainActivity) requireActivity()).setCurrentUser(user);
+                localDB.markLoggedIn(user.id);
                 NavHostFragment.findNavController(LogIn.this)
                         .navigate(R.id.action_LogIn_to_RoverFeed);
             } else {
-                Toast.makeText(requireContext(), "Username or AccessCode wrong", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Username or AccessCode are wrong", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     @Override
     public void onDestroyView() {
+        // Set announcement filter to false
         MainActivity activity = (MainActivity) requireActivity();
         Menu menu = activity.getOptionsMenu();
         if (menu != null) {
@@ -124,5 +111,31 @@ public class LogIn extends Fragment {
 
         super.onDestroyView();
         binding = null;
+    }
+
+    private void syncUserDB()
+    {
+        // Store all users from Firebase to Local DB
+        DatabaseReference usersRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("users");
+
+        LocalDatabase localDB = new LocalDatabase(requireContext());
+
+        usersRef.get()
+                .addOnSuccessListener(snapshot -> {
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        String userId = child.getKey();
+                        User user = child.getValue(User.class);
+                        user.setId(userId);
+
+                        localDB.insertUser(user);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(requireContext(), "Failed to connect to online Database.", Toast.LENGTH_LONG).show();
+                });
+
+        localDB.logAllUsers();
     }
 }
