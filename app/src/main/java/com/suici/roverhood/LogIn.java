@@ -7,6 +7,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
@@ -37,13 +38,16 @@ public class LogIn extends Fragment {
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                 .getReference("users");
 
+        LocalDatabase dbHelper = new LocalDatabase(requireContext());
         usersRef.get().addOnSuccessListener(snapshot -> {
             for (DataSnapshot child : snapshot.getChildren()) {
                 String userId = child.getKey();
                 User user = child.getValue(User.class);
-                Log.d("FirebaseTest", "User ID: " + userId + ", Name: " + user.username);
+                user.setId(userId);
+                dbHelper.insertUser(user);
             }
         });
+        dbHelper.logAllUsers();
 
         return binding.getRoot();
     }
@@ -52,30 +56,56 @@ public class LogIn extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        if (loggedIn) {
-            // Delay navigation until view is ready
-            view.post(() -> {
-                if (NavHostFragment.findNavController(LogIn.this)
-                        .getCurrentDestination().getId() == R.id.LogIn) {
-                    NavHostFragment.findNavController(LogIn.this)
-                            .navigate(R.id.action_LogIn_to_loading);
-                }
-            });
-        }
+        LocalDatabase dbHelper = new LocalDatabase(requireContext());
+        if (dbHelper.getLoggedInUser() != null)
+            ((MainActivity) requireActivity()).setCurrentUser(dbHelper.getLoggedInUser());
+        if(((MainActivity) requireActivity()).getCurrentUser() != null)
+            binding.editTextText.setText(((MainActivity) requireActivity()).getCurrentUser().username);
+        else
+            if(dbHelper.getPrevLoggedInUser() != null)
+                binding.editTextText.setText(dbHelper.getPrevLoggedInUser().username);
+
+        view.post(() -> {
+            User currentUser = ((MainActivity) requireActivity()).getCurrentUser();
+            User dbUser = dbHelper.getLoggedInUser();
+
+            if (currentUser != null && dbUser != null &&
+                    currentUser.username != null && dbUser.username != null &&
+                    currentUser.username.equals(dbUser.username)) {
+
+                NavHostFragment.findNavController(LogIn.this)
+                        .navigate(R.id.action_LogIn_to_RoverFeed);
+            }
+        });
 
         binding.buttonLogIn.setOnClickListener(v -> {
-            NavHostFragment.findNavController(LogIn.this)
-                    .navigate(R.id.action_LogIn_to_loading);
+            String username = binding.editTextText.getText().toString().trim();
+            User user = dbHelper.getUserByUsername(username);
+            ((MainActivity) requireActivity()).setCurrentUser(user);
+            if (user != null) {
+                dbHelper.markLoggedIn(user.id);
+                NavHostFragment.findNavController(LogIn.this)
+                        .navigate(R.id.action_LogIn_to_RoverFeed);
+            } else {
+                Toast.makeText(requireContext(), "Username or Password wrong", Toast.LENGTH_SHORT).show();
+            }
+
         });
     }
 
     @Override
     public void onDestroyView() {
         MainActivity activity = (MainActivity) requireActivity();
-        SwitchCompat announcementsFilter = Objects.requireNonNull(activity.getOptionsMenu()
-                        .findItem(R.id.checkable_menu).getActionView())
-                        .findViewById(R.id.switch2);
-        announcementsFilter.setChecked(false);
+        Menu menu = activity.getOptionsMenu();
+        if (menu != null) {
+            MenuItem item = menu.findItem(R.id.checkable_menu);
+            if (item != null && item.getActionView() != null) {
+                SwitchCompat announcementsFilter = item.getActionView().findViewById(R.id.switch2);
+                if (announcementsFilter != null) {
+                    announcementsFilter.setChecked(false);
+                }
+            }
+        }
 
         super.onDestroyView();
         binding = null;

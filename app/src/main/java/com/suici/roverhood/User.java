@@ -16,4 +16,8 @@ public class User {
         this.team = team;
         this.id = id;
     }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 }
