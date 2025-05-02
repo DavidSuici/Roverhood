@@ -2,6 +2,7 @@ package com.suici.roverhood;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
@@ -35,81 +37,62 @@ public class RoverFeed extends Fragment {
         binding = RoverFeedBinding.inflate(inflater, container, false);
         activity = (MainActivity) requireActivity();
 
-        announcementsFilter = activity.getOptionsMenu().findItem(R.id.checkable_menu);
-        announcementsFilter.setVisible(true);
-        announcementsSwitch = Objects.requireNonNull(announcementsFilter.getActionView()).findViewById(R.id.switch2);
-
         populatePosts();
-
-        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
-        if(announcementsSwitch.isChecked()) {
-            for(Post post : announcements) {
-                linearLayout.addView(post.getUserView());
-                linearLayout.addView(post.getDateView());
-                linearLayout.addView(post.getDescriptionView());
-                linearLayout.addView(post.getImageView());
-                if(post != posts.lastElement())
-                    linearLayout.addView(post.getDividerView());
-                else
-                    linearLayout.addView(post.getEndView());
-            }
-        }
-        else {
-            for(Post post : posts) {
-                linearLayout.addView(post.getUserView());
-                linearLayout.addView(post.getDateView());
-                linearLayout.addView(post.getDescriptionView());
-                linearLayout.addView(post.getImageView());
-                if(post != posts.lastElement())
-                    linearLayout.addView(post.getDividerView());
-                else
-                    linearLayout.addView(post.getEndView());
-            }
-        }
-
         return binding.getRoot();
     }
 
+    @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        activity = (MainActivity) requireActivity();
 
-        if(!announcementsSwitch.isChecked()) {
-            activity.getFloatingButton().setVisibility(View.VISIBLE);
+        if (activity.getCurrentUser() != null) {
+            binding.username.setText(activity.getCurrentUser().username);
+            binding.team.setText(activity.getCurrentUser().team);
+            binding.usernameLabel.setText(activity.getCurrentUser().userType);
         }
 
+        view.post(() -> {
+            Menu optionsMenu = activity.getOptionsMenu();
+            if (optionsMenu != null) {
+                announcementsFilter = optionsMenu.findItem(R.id.checkable_menu);
+                if (announcementsFilter != null && announcementsFilter.getActionView() != null) {
+                    announcementsFilter.setVisible(true);
+
+                    announcementsSwitch = (SwitchCompat) announcementsFilter.getActionView().findViewById(R.id.switch2);
+                    if (announcementsSwitch != null) {
+                        announcementsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> refreshFeed());
+                        refreshFeed();  // safe to call now
+                    }
+                }
+            }
+        });
+
+        SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
+        swipeRefreshLayout.setProgressViewOffset(true, 100, 250);
+        swipeRefreshLayout.setOnRefreshListener(this::refreshFeed);
+
+        LocalDatabase dbHelper = new LocalDatabase(requireContext());
         binding.buttonLogOut.setOnClickListener(v -> {
-            NavHostFragment.findNavController(RoverFeed.this)
-                    .navigate(R.id.action_RoverFeed_to_LogIn);
+            dbHelper.markLoggedOut();
+            NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn);
         });
 
-        binding.refreshButton.setOnClickListener(v -> {
-            NavHostFragment.findNavController(RoverFeed.this)
-                    .navigate(R.id.action_RoverFeed_to_loading);
-        });
+        if (activity.getFloatingButton() != null) {
+            activity.getFloatingButton().setOnClickListener(v ->
+                    NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn)
+            );
+        }
 
-        activity.getFloatingButton().setOnClickListener(v -> {
-            NavHostFragment.findNavController(RoverFeed.this)
-                    .navigate(R.id.action_RoverFeed_to_LogIn);
-        });
-
-        announcementsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            NavHostFragment.findNavController(RoverFeed.this)
-                    .navigate(R.id.action_RoverFeed_to_loading);
-        });
-
-        // Press back to refresh
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(),
                 new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
-                        // Navigate to loading screen from within RoverFeed
-                        NavHostFragment.findNavController(RoverFeed.this)
-                                .navigate(R.id.action_RoverFeed_to_loading);
-
-                        // Keep the behaviour from MainActivity, with double back exit
+                        refreshFeed();
                         setEnabled(false);
                         requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        setEnabled(true);
                     }
                 });
     }
@@ -117,11 +100,18 @@ public class RoverFeed extends Fragment {
     @Override
     public void onDestroyView() {
         if (announcementsSwitch != null) {
-            announcementsSwitch.setOnCheckedChangeListener(null); // remove listener cleanly
+            announcementsSwitch.setOnCheckedChangeListener(null);
+            announcementsSwitch = null;
         }
 
-        activity.getFloatingButton().setVisibility(View.INVISIBLE);
-        announcementsFilter.setVisible(false);
+        if (announcementsFilter != null) {
+            announcementsFilter.setVisible(false);
+            announcementsFilter = null;
+        }
+
+        if (activity.getFloatingButton() != null) {
+            activity.getFloatingButton().setVisibility(View.INVISIBLE);
+        }
 
         super.onDestroyView();
         binding = null;
@@ -160,5 +150,47 @@ public class RoverFeed extends Fragment {
             if(post.isAnnouncement())
                 announcements.add(post);
         }
+    }
+    private void drawPosts() {
+        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
+        if (announcementsSwitch.isChecked()) {
+            for (Post post : announcements) {
+                linearLayout.addView(post.getUserView());
+                linearLayout.addView(post.getDateView());
+                linearLayout.addView(post.getDescriptionView());
+                linearLayout.addView(post.getImageView());
+                if (post != posts.lastElement())
+                    linearLayout.addView(post.getDividerView());
+                else
+                    linearLayout.addView(post.getEndView());
+            }
+        } else {
+            for (Post post : posts) {
+                linearLayout.addView(post.getUserView());
+                linearLayout.addView(post.getDateView());
+                linearLayout.addView(post.getDescriptionView());
+                linearLayout.addView(post.getImageView());
+                if (post != posts.lastElement())
+                    linearLayout.addView(post.getDividerView());
+                else
+                    linearLayout.addView(post.getEndView());
+            }
+        }
+    }
+
+    private void refreshFeed() {
+        binding.buttonLogOut.setEnabled(false); // 🔒 Disable logout during refresh
+
+        LinearLayout postLayout = binding.getRoot().findViewById(R.id.info);
+        SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
+
+        postLayout.removeAllViews();
+        swipeRefreshLayout.setRefreshing(true);
+
+        new android.os.Handler().postDelayed(() -> {
+            drawPosts();
+            swipeRefreshLayout.setRefreshing(false);
+            binding.buttonLogOut.setEnabled(true); // ✅ Re-enable logout after refresh
+        }, 500);
     }
 }

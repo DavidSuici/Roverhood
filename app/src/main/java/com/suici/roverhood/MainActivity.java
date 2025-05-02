@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     private FloatingActionButton floatingButton;
     private Menu optionsMenu;
+    public User currentUser = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(binding.toolbar);
 
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
-        appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed, R.id.loading).build();
+        appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
         floatingButton =  findViewById(R.id.fab);
@@ -78,4 +79,13 @@ public class MainActivity extends AppCompatActivity {
     public FloatingActionButton getFloatingButton() {
         return floatingButton;
     }
+
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
+    }
+
+    public User getCurrentUser() {
+        return this.currentUser;
+    }
 }
+
