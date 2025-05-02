@@ -28,6 +28,7 @@ public class RoverFeed extends Fragment {
     MainActivity activity;
     MenuItem announcementsFilter;
     SwitchCompat announcementsSwitch;
+    private OnBackPressedCallback backCallback;
 
     @Override
     public View onCreateView(
@@ -38,6 +39,20 @@ public class RoverFeed extends Fragment {
         activity = (MainActivity) requireActivity();
 
         populatePosts();
+
+        backCallback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                setEnabled(false);
+                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+
+                refreshFeed();
+            }
+        };
+
+        requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
+
         return binding.getRoot();
     }
 
@@ -45,6 +60,10 @@ public class RoverFeed extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         activity = (MainActivity) requireActivity();
+
+        if (activity.getFloatingButton() != null) {
+            activity.getFloatingButton().setVisibility(View.VISIBLE);
+        }
 
         if (activity.getCurrentUser() != null) {
             binding.username.setText(activity.getCurrentUser().username);
@@ -84,17 +103,7 @@ public class RoverFeed extends Fragment {
             );
         }
 
-        requireActivity().getOnBackPressedDispatcher().addCallback(
-                getViewLifecycleOwner(),
-                new OnBackPressedCallback(true) {
-                    @Override
-                    public void handleOnBackPressed() {
-                        refreshFeed();
-                        setEnabled(false);
-                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
-                        setEnabled(true);
-                    }
-                });
+
     }
 
     @Override
@@ -112,8 +121,9 @@ public class RoverFeed extends Fragment {
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setVisibility(View.INVISIBLE);
         }
-
+        if (backCallback != null) backCallback.remove();
         super.onDestroyView();
+
         binding = null;
     }
 

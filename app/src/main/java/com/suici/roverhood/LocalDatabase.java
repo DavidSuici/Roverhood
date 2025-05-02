@@ -10,12 +10,12 @@ import android.util.Log;
 public class LocalDatabase extends SQLiteOpenHelper {
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 6;
+    public static final int DATABASE_VERSION = 7;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
     public static final String COLUMN_USERNAME = "username";
-    public static final String COLUMN_PASSWORD = "password";
+    public static final String COLUMN_ACCESSCODE = "accessCode";
     public static final String COLUMN_USERTYPE = "userType";
     public static final String COLUMN_TEAM = "team";
 
@@ -23,7 +23,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
             "CREATE TABLE " + TABLE_USERS + " (" +
                     COLUMN_ID + " TEXT PRIMARY KEY, " +
                     COLUMN_USERNAME + " TEXT, " +
-                    COLUMN_PASSWORD + " TEXT, " +
+                    COLUMN_ACCESSCODE + " TEXT, " +
                     COLUMN_USERTYPE + " TEXT, " +
                     COLUMN_TEAM + " TEXT, " +
                     "loggedIn INTEGER DEFAULT 0);";
@@ -67,7 +67,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(COLUMN_ID, user.id);
         values.put(COLUMN_USERNAME, user.username);
-        values.put(COLUMN_PASSWORD, user.password);
+        values.put(COLUMN_ACCESSCODE, user.accessCode);
         values.put(COLUMN_USERTYPE, user.userType);
         values.put(COLUMN_TEAM, user.team);
 
@@ -83,11 +83,11 @@ public class LocalDatabase extends SQLiteOpenHelper {
             do {
                 String id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
                 String username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-                String password = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD));
+                String accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
                 String userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
                 String team = cursor.getString(cursor.getColumnIndexOrThrow("team")); // if you added it
 
-                Log.d("SQLiteTest", "User: " + id + ", " + username + ", " + password + ", " + userType + ", " + team);
+                Log.d("SQLiteTest", "User: " + id + ", " + username + ", " + accessCode + ", " + userType + ", " + team);
             } while (cursor.moveToNext());
         } else {
             Log.d("SQLiteTest", "No users found");
@@ -112,7 +112,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
             User user = new User();
             user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
             user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-            user.password = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD));
+            user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
             user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
             user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
             cursor.close();
@@ -123,6 +123,32 @@ public class LocalDatabase extends SQLiteOpenHelper {
         if (cursor != null) cursor.close();
         db.close();
         return null; // Not found
+    }
+
+    public User getUserByUsernameAndAccessCode(String username, String accessCode) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query(
+                TABLE_USERS,
+                null,
+                COLUMN_USERNAME + " = ? AND " + COLUMN_ACCESSCODE + " = ?",
+                new String[]{username, accessCode},
+                null, null, null
+        );
+
+        User user = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            user = new User();
+            user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
+            user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
+            user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
+            user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
+            user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
+            cursor.close();
+        }
+
+        db.close();
+        return user;
     }
 
     public User getUserById(String userId) {
@@ -141,7 +167,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
             user = new User();
             user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
             user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-            user.password = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PASSWORD));
+            user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
             user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
             user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
             cursor.close();
