@@ -4,6 +4,5 @@
     <string name="action_settings2">Log Out</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">RoverFeed</string>
-    <string name="Post1">Este o zi frumoasa astazi la Roverhood!</string>
-    <string name="Post2">Este o zi frumoasa astazi la Roverhood!asdasdasdasdasdasdasdasdasdadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd</string>
+    <string name="logout">Log out</string>
 </resources>
