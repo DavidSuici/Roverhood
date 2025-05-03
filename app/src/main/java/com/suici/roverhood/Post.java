@@ -49,6 +49,7 @@ public class Post {
     ConstraintLayout postContainer;
     private TextView heartNrView;
     private ImageView imageView;
+    private boolean imageLoaded = false;
 
     public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Set<String> likedBy) {
         this.id = id;
@@ -130,6 +131,22 @@ public class Post {
         imageView.setAdjustViewBounds(true);
         imageView.setId(View.generateViewId());
 
+        Glide.with(activeFragment.requireContext())
+                .load(imageUrl)
+                .placeholder(R.drawable.title)
+                .override(Target.SIZE_ORIGINAL)
+                .into(new CustomTarget<Drawable>() {
+                    @Override
+                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                        imageView.setImageDrawable(resource);
+                        imageLoaded = true;
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                    }
+                });
+
         return imageView;
     }
 
@@ -159,21 +176,13 @@ public class Post {
         heartButton.setChecked(likedBy.contains(currentUserId)); // Initially check if liked
 
         heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            // Update likedBy list in database
             DatabaseReference likedByRef = FirebaseDatabase
                     .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                     .getReference("posts")
-                    .child(id) // id is postId (make sure this is set correctly)
+                    .child(id)
                     .child("likedBy")
                     .child(currentUserId);
 
-            if (isChecked) {
-                likedByRef.setValue(true);
-            } else {
-                likedByRef.removeValue();
-            }
-
-            // Update likes counter transactionally
             DatabaseReference likesRef = FirebaseDatabase
                     .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                     .getReference("posts")
@@ -188,9 +197,11 @@ public class Post {
                     if (currentLikes == null) currentLikes = 0;
 
                     if (isChecked) {
+                        likedByRef.setValue(true);
                         currentData.setValue(currentLikes + 1);
                     } else {
                         currentData.setValue(Math.max(currentLikes - 1, 0));
+                        likedByRef.removeValue();
                     }
 
                     return com.google.firebase.database.Transaction.success(currentData);
@@ -290,24 +301,6 @@ public class Post {
         set.applyTo(postContainer);
     }
 
-    public void loadImageInto(ImageView imageView, Runnable onReady) {
-        Glide.with(activeFragment.requireContext())
-                .load(imageUrl)
-                .placeholder(R.drawable.title)
-                .override(Target.SIZE_ORIGINAL)
-                .into(new CustomTarget<Drawable>() {
-                    @Override
-                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
-                        imageView.setImageDrawable(resource);
-                        if (onReady != null) onReady.run();
-                    }
-
-                    @Override
-                    public void onLoadCleared(@Nullable Drawable placeholder) {
-                    }
-                });
-    }
-
     public ConstraintLayout getPostContainer() {
         return postContainer;
     }
@@ -317,17 +310,5 @@ public class Post {
         return Objects.equals(user.username, "admin");
     }
 
-    public ImageView getImageView() { return imageView; }
-
-    public boolean isLikedBy(String userId) {
-        return likedBy.contains(userId);
-    }
-
-    public void addLike(String userId) {
-        likedBy.add(userId);
-    }
-
-    public void removeLike(String userId) {
-        likedBy.remove(userId);
-    }
+    public boolean isImageLoaded() { return imageLoaded; }
 }
