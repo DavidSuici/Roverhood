@@ -206,12 +206,7 @@ public class RoverFeed extends Fragment {
                 Integer likes = postSnap.child("likes").getValue(Integer.class);
                 String userId = postSnap.child("userId").getValue(String.class);
                 String postId = postSnap.getKey();
-
-                DataSnapshot likedBySnap = postSnap.child("likedBy");
-                Set<String> likedBySet = new HashSet<>();
-                for (DataSnapshot child : likedBySnap.getChildren()) {
-                    likedBySet.add(child.getKey());
-                }
+                Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
 
                 if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
                     continue;
@@ -221,7 +216,7 @@ public class RoverFeed extends Fragment {
                     User user = userSnap.getValue(User.class);
                     if (user != null) {
                         user.setId(userId);
-                        Post post = new Post(RoverFeed.this,postId, date, user, description, imageUrl, likes,likedBySet);
+                        Post post = new Post(RoverFeed.this,postId, date, user, description, imageUrl, likes, likedByMap);
 
                         postMap.put(post.id, post);
                     }
