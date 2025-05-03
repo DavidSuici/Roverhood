@@ -3,42 +3,62 @@ package com.suici.roverhood;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Typeface;
-import android.text.TextUtils;
+import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.target.Target;
+import com.bumptech.glide.request.transition.Transition;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
+
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class Post {
     Fragment activeFragment;
-    String date;
+    Long date;
     User user;
     String id;
     String description;
-    int picture;
+    String imageUrl;
     int likes;
+    private Set<String> likedBy = new HashSet<>();
 
     int dp = 0;
     ConstraintLayout postContainer;
     private TextView heartNrView;
+    private ImageView imageView;
 
-    public Post(Fragment fragment, String date, User user, String description, int picture, int likes) {
+    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Set<String> likedBy) {
+        this.id = id;
         this.activeFragment = fragment;
         this.date = date;
         this.user = user;
-        this.id = "1";
         this.description = description;
-        this.picture = picture;
+        this.imageUrl = imageUrl;
         this.likes = likes;
+        this.likedBy = likedBy;
 
         createPostContainer();
     }
@@ -84,7 +104,7 @@ public class Post {
 
     public View createDateView() {
         TextView dateView = new TextView(activeFragment.requireContext());
-        dateView.setText(this.date);
+        dateView.setText(DateUtil.formatTimestamp(this.date));
         dateView.setTypeface(dateView.getTypeface(), Typeface.ITALIC);
         ConstraintLayout.LayoutParams params = new ConstraintLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -106,8 +126,7 @@ public class Post {
     }
 
     public View createImageView() {
-        ImageView imageView = new ImageView(activeFragment.requireContext());
-        imageView.setImageResource(picture);
+        imageView = new ImageView(activeFragment.requireContext());
         imageView.setAdjustViewBounds(true);
         imageView.setId(View.generateViewId());
 
@@ -127,23 +146,67 @@ public class Post {
 
     public View createHeartButton() {
         CheckBox heartButton = new CheckBox(activeFragment.requireContext());
-        heartButton.setButtonDrawable(R.drawable.heart_layer); // <-- use layer-list here
+        heartButton.setButtonDrawable(R.drawable.heart_layer); // Your heart icon
 
         ConstraintLayout.LayoutParams params = new ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.WRAP_CONTENT,
                 ConstraintLayout.LayoutParams.WRAP_CONTENT
         );
-
         heartButton.setLayoutParams(params);
         heartButton.setId(View.generateViewId());
 
+        String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
+        heartButton.setChecked(likedBy.contains(currentUserId)); // Initially check if liked
+
         heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            // Update likedBy list in database
+            DatabaseReference likedByRef = FirebaseDatabase
+                    .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("posts")
+                    .child(id) // id is postId (make sure this is set correctly)
+                    .child("likedBy")
+                    .child(currentUserId);
+
             if (isChecked) {
-                likes++;
+                likedByRef.setValue(true);
             } else {
-                likes--;
+                likedByRef.removeValue();
             }
-            heartNrView.setText(String.valueOf(likes));
+
+            // Update likes counter transactionally
+            DatabaseReference likesRef = FirebaseDatabase
+                    .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("posts")
+                    .child(id)
+                    .child("likes");
+
+            likesRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
+                @NonNull
+                @Override
+                public com.google.firebase.database.Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                    Integer currentLikes = currentData.getValue(Integer.class);
+                    if (currentLikes == null) currentLikes = 0;
+
+                    if (isChecked) {
+                        currentData.setValue(currentLikes + 1);
+                    } else {
+                        currentData.setValue(Math.max(currentLikes - 1, 0));
+                    }
+
+                    return com.google.firebase.database.Transaction.success(currentData);
+                }
+
+                @Override
+                public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                    if (committed && currentData != null) {
+                        Integer newLikes = currentData.getValue(Integer.class);
+                        if (newLikes != null) {
+                            likes = newLikes;
+                            heartNrView.setText(String.valueOf(newLikes));
+                        }
+                    }
+                }
+            });
         });
 
         return heartButton;
@@ -208,9 +271,10 @@ public class Post {
         set.connect(descView.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 8*dp);
         set.connect(descView.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 8 * dp);
 
-        set.connect(imageView.getId(), ConstraintSet.TOP, descView.getId(), ConstraintSet.BOTTOM, 8*dp);
-        set.connect(imageView.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0*dp);
-        set.connect(imageView.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0*dp);
+        set.constrainWidth(imageView.getId(), ConstraintSet.MATCH_CONSTRAINT);
+        set.connect(imageView.getId(), ConstraintSet.TOP, descView.getId(), ConstraintSet.BOTTOM, 8 * dp);
+        set.connect(imageView.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
+        set.connect(imageView.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END);
 
         set.connect(shadowView.getId(), ConstraintSet.TOP, imageView.getId(), ConstraintSet.BOTTOM, 0);
         set.connect(shadowView.getId(), ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START);
@@ -226,6 +290,24 @@ public class Post {
         set.applyTo(postContainer);
     }
 
+    public void loadImageInto(ImageView imageView, Runnable onReady) {
+        Glide.with(activeFragment.requireContext())
+                .load(imageUrl)
+                .placeholder(R.drawable.title)
+                .override(Target.SIZE_ORIGINAL)
+                .into(new CustomTarget<Drawable>() {
+                    @Override
+                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                        imageView.setImageDrawable(resource);
+                        if (onReady != null) onReady.run();
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                    }
+                });
+    }
+
     public ConstraintLayout getPostContainer() {
         return postContainer;
     }
@@ -233,5 +315,19 @@ public class Post {
     // TO_DO Change when proper filters are implemented
     public boolean isAnnouncement() {
         return Objects.equals(user.username, "admin");
+    }
+
+    public ImageView getImageView() { return imageView; }
+
+    public boolean isLikedBy(String userId) {
+        return likedBy.contains(userId);
+    }
+
+    public void addLike(String userId) {
+        likedBy.add(userId);
+    }
+
+    public void removeLike(String userId) {
+        likedBy.remove(userId);
     }
 }

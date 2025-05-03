@@ -1,12 +1,15 @@
 package com.suici.roverhood;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -15,19 +18,29 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RoverFeed extends Fragment {
 
     private RoverFeedBinding binding;
-    Vector<Post> posts = new Vector<Post>();
-    Vector<Post> announcements = new Vector<Post>();
+    Map<String, Post> postMap = new LinkedHashMap<>();
     MainActivity activity;
     MenuItem announcementsFilter;
     SwitchCompat announcementsSwitch;
     private OnBackPressedCallback backCallback;
+    private Runnable timeoutRunnable;
 
     @Override
     public View onCreateView(
@@ -36,9 +49,6 @@ public class RoverFeed extends Fragment {
     ) {
         binding = RoverFeedBinding.inflate(inflater, container, false);
         activity = (MainActivity) requireActivity();
-
-        // Temporary posts creation method - TO_DO get posts from Firebase
-        populatePosts();
 
         // Refresh on back pressed when on feed, but keep the general back pressed logic as well
         backCallback = new OnBackPressedCallback(true) {
@@ -131,84 +141,136 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
-    private void populatePosts() {
-        Post temp = new Post(this,
-                "21 martie 2025  -  00:17",
-                new User("David Suici", "1234", "PARTICIPANT", "EagleWatchers", "user001"),
-                "Este o zi frumoasa astazi la Roverhood!",
-                R.drawable.img1,
-                1);
+    private void populatePosts(Runnable onFinished) {
+        DatabaseReference postsRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("posts");
 
-        Post temp2 = new Post(this,
-                "20 martie 2025  -  15:12",
-                new User("David Suici", "1234", "PARTICIPANT", "EagleWatchers", "user001"),
-                "Text lung de test text lung de test. Text lung de test text lung de test. Text lung de test text lung de test. Text lung de test text lung de test. Text lung de test text lung de test.",
-                R.drawable.img2,
-                12345);
+        DatabaseReference usersRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("users");
 
-        Post temp3 = new Post(this,
-                "19 martie 2025  -  14:32",
-                new User("David Suici", "1234", "PARTICIPANT", "EagleWatchers", "user001"),
-                "Dupa atata asteptare, in sfarsit am terminat cel mai nou costum posibil!",
-                R.drawable.img3,
-                200);
-        Post temp4 = new Post(this,
-                "10 februarie 2025  -  00:00",
-                new User("admin", "admin", "ORGANIZER", "The Admins", "user002"),
-                "S-au pornit inscrierile! La treaba! Va invitam pe toti sa completati formularul, si ne vedem curand!",
-                R.drawable.title,
-                5);
+        postMap.clear();
 
-        posts.add(temp);
-        posts.add(temp2);
-        posts.add(temp3);
-        posts.add(temp4);
+        postsRef.get().addOnSuccessListener(snapshot -> {
+            if (!snapshot.hasChildren()) {
+                onFinished.run(); // No posts
+                return;
+            }
 
-        for(Post post : posts) {
-            if(post.isAnnouncement())
-                announcements.add(post);
-        }
+            AtomicInteger pending = new AtomicInteger((int) snapshot.getChildrenCount());
+
+            for (DataSnapshot postSnap : snapshot.getChildren()) {
+                Long date = postSnap.child("date").getValue(Long.class);
+                String description = postSnap.child("description").getValue(String.class);
+                String imageUrl = postSnap.child("imageUrl").getValue(String.class);
+                Integer likes = postSnap.child("likes").getValue(Integer.class);
+                String userId = postSnap.child("userId").getValue(String.class);
+                String postId = postSnap.getKey();
+
+                DataSnapshot likedBySnap = postSnap.child("likedBy");
+                Set<String> likedBySet = new HashSet<>();
+                for (DataSnapshot child : likedBySnap.getChildren()) {
+                    likedBySet.add(child.getKey());
+                }
+
+                if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
+                    if (pending.decrementAndGet() == 0) onFinished.run();
+                    continue;
+                }
+
+                usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
+                    User user = userSnap.getValue(User.class);
+                    if (user != null) {
+                        user.setId(userId);
+                        Post post = new Post(RoverFeed.this,postId, date, user, description, imageUrl, likes,likedBySet);
+
+                        postMap.put(post.id, post);
+                    }
+
+                    if (pending.decrementAndGet() == 0) {
+                        onFinished.run();
+                    }
+                }).addOnFailureListener(e -> {
+                    if (pending.decrementAndGet() == 0) onFinished.run();
+                });
+            }
+        }).addOnFailureListener(e -> onFinished.run());
     }
+
     private void drawPosts() {
         LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
-        // TO_DO add proper filters so the if else is removed
-        if (announcementsSwitch.isChecked()) {
-            for (Post post : announcements)
-                linearLayout.addView(post.getPostContainer());
+        // TO_DO add proper filters
+
+            for (Post post : postMap.values())
+                if (announcementsSwitch.isChecked()) {
+                    if (post.isAnnouncement())
+                        linearLayout.addView(post.getPostContainer());
+                }
+                else
+                    linearLayout.addView(post.getPostContainer());
             linearLayout.addView(createEndView());
-        } else {
-            for (Post post : posts)
-                linearLayout.addView(post.getPostContainer());
-            linearLayout.addView(createEndView());
-        }
     }
 
+    // TO_DO Known bug, refresh w/o internet, activate internet, refresh again -> crash
     private void refreshFeed() {
-        // Disable buttons during refresh
-        binding.buttonLogOut.setEnabled(false);
-        announcementsSwitch.setEnabled(false);
-        activity.getFloatingButton().setEnabled(false);
+        disableUI();
 
         LinearLayout postLayout = binding.getRoot().findViewById(R.id.info);
         SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
 
-        // Remove everything in the layout and start refresh animation
         postLayout.removeAllViews();
         swipeRefreshLayout.setRefreshing(true);
 
-        //TO_DO Reload posts here
+        // Cancel any previous timeout
+        if (timeoutRunnable != null) {
+            binding.getRoot().removeCallbacks(timeoutRunnable);
+        }
 
-        // Let the refresh for at least 0.5s
-        // TO_DO only wait the difference until 0.5s so far, after reloading posts
-        new android.os.Handler().postDelayed(() -> {
-            drawPosts();
-            swipeRefreshLayout.setRefreshing(false);
+        // Define and schedule new timeout
+        timeoutRunnable = () -> {
+            if (swipeRefreshLayout.isRefreshing()) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), "Timeout: Some images failed to load.", Toast.LENGTH_SHORT).show();
+                    finishRefresh();
+                });
+            }
+        };
+        binding.getRoot().postDelayed(timeoutRunnable, 10_000);
 
-            // Enable buttons after refresh
-            binding.buttonLogOut.setEnabled(true);
-            announcementsSwitch.setEnabled(true);
-            activity.getFloatingButton().setEnabled(true);
-        }, 500);
+        populatePosts(() -> {
+            if (postMap.isEmpty()) {
+                finishRefresh();
+                return;
+            }
+
+            AtomicInteger loadedCount = new AtomicInteger(0);
+            for (Post post : postMap.values()) {
+                post.loadImageInto(post.getImageView(), () -> {
+                    if (loadedCount.incrementAndGet() == postMap.size()) {
+                        requireActivity().runOnUiThread(() -> {
+                            binding.getRoot().removeCallbacks(timeoutRunnable);
+                            drawPosts();
+                            finishRefresh();
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    private void disableUI() {
+        binding.buttonLogOut.setEnabled(false);
+        announcementsSwitch.setEnabled(false);
+        activity.getFloatingButton().setEnabled(false);
+        binding.swipeRefresh.setRefreshing(true);
+    }
+
+    private void finishRefresh() {
+        binding.swipeRefresh.setRefreshing(false);
+        binding.buttonLogOut.setEnabled(true);
+        announcementsSwitch.setEnabled(true);
+        activity.getFloatingButton().setEnabled(true);
     }
 
     // Add empty space at the end of layout so "Add post" button is not resting on a post image, blocking it
