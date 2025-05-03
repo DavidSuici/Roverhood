@@ -30,8 +30,11 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
+import com.google.firebase.database.Transaction;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -43,7 +46,7 @@ public class Post {
     String description;
     String imageUrl;
     int likes;
-    private Set<String> likedBy = new HashSet<>();
+    private Map<String, Boolean> likedBy = new HashMap<>();
 
     int dp = 0;
     ConstraintLayout postContainer;
@@ -51,7 +54,7 @@ public class Post {
     private ImageView imageView;
     private boolean imageLoaded = false;
 
-    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Set<String> likedBy) {
+    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy) {
         this.id = id;
         this.activeFragment = fragment;
         this.date = date;
@@ -173,47 +176,64 @@ public class Post {
         heartButton.setId(View.generateViewId());
 
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
-        heartButton.setChecked(likedBy.contains(currentUserId)); // Initially check if liked
+        heartButton.setChecked(likedBy.containsKey(currentUserId));
 
         heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            DatabaseReference likedByRef = FirebaseDatabase
+            DatabaseReference postRef = FirebaseDatabase
                     .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                     .getReference("posts")
-                    .child(id)
-                    .child("likedBy")
-                    .child(currentUserId);
+                    .child(id);
 
-            DatabaseReference likesRef = FirebaseDatabase
-                    .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                    .getReference("posts")
-                    .child(id)
-                    .child("likes");
-
-            likesRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
+            postRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
                 @NonNull
                 @Override
                 public com.google.firebase.database.Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                    Integer currentLikes = currentData.getValue(Integer.class);
+                    Integer currentLikes = currentData.child("likes").getValue(Integer.class);
                     if (currentLikes == null) currentLikes = 0;
 
+                    Map<String, Boolean> currentLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
+                    if (currentLikedBy == null) currentLikedBy = new HashMap<>();
+
+                    Boolean isLiked = currentLikedBy.get(currentUserId);
+
                     if (isChecked) {
-                        likedByRef.setValue(true);
-                        currentData.setValue(currentLikes + 1);
+                        if (isLiked == null || !isLiked) {
+                            currentLikes++;
+                            currentLikedBy.put(currentUserId, true);
+                        }
                     } else {
-                        currentData.setValue(Math.max(currentLikes - 1, 0));
-                        likedByRef.removeValue();
+                        if (isLiked != null && isLiked) {
+                            currentLikes--;
+                            currentLikedBy.remove(currentUserId);
+                        }
                     }
 
+                    currentData.child("likes").setValue(currentLikes);  // Update likes count
+                    currentData.child("likedBy").setValue(currentLikedBy);  // Update likedBy map
+
+                    // Return success after completing the transaction
                     return com.google.firebase.database.Transaction.success(currentData);
                 }
 
                 @Override
                 public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                    // This is called after the transaction completes
                     if (committed && currentData != null) {
-                        Integer newLikes = currentData.getValue(Integer.class);
+                        Integer newLikes = currentData.child("likes").getValue(Integer.class);
                         if (newLikes != null) {
                             likes = newLikes;
-                            heartNrView.setText(String.valueOf(newLikes));
+                            heartNrView.setText(String.valueOf(newLikes));  // Update the view with the new like count
+                        }
+
+                        Map<String, Boolean> newLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
+                        if (newLikedBy != null) {
+                            likedBy = newLikedBy;
+                        }
+                    } else {
+                        if (error != null) {
+                            Log.e("TransactionError", "Transaction failed: " + error.getMessage());
+                        } else {
+                            Log.e("TransactionError", "Transaction not committed (possible conflict or error)");
                         }
                     }
                 }
