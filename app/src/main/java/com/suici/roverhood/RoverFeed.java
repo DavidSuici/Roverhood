@@ -1,6 +1,7 @@
 package com.suici.roverhood;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -41,6 +42,7 @@ public class RoverFeed extends Fragment {
     SwitchCompat announcementsSwitch;
     private OnBackPressedCallback backCallback;
     private Runnable timeoutRunnable;
+    private boolean isLoading = false;
 
     @Override
     public View onCreateView(
@@ -141,7 +143,30 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
-    private void populatePosts(Runnable onFinished) {
+
+
+    private void drawPosts() {
+        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
+        // TO_DO add proper filters
+
+            for (Post post : postMap.values())
+                if (announcementsSwitch.isChecked()) {
+                    if (post.isAnnouncement())
+                        linearLayout.addView(post.getPostContainer());
+                }
+                else
+                    linearLayout.addView(post.getPostContainer());
+            linearLayout.addView(createEndView());
+    }
+
+    private void populatePosts() {
+
+        // Should only have one ongoing Firebase request at a time
+        if(isLoading)
+            return;
+        else
+            isLoading = true;
+
         DatabaseReference postsRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                 .getReference("posts");
@@ -152,13 +177,27 @@ public class RoverFeed extends Fragment {
 
         postMap.clear();
 
+        // Timeout flag
+        final Handler timeoutHandler = new Handler();
+        boolean[] isTimeoutReached = {false} ;
+
+        // Set a timeout (e.g., 10 seconds)
+        timeoutHandler.postDelayed(() -> {
+            if (isLoading) {
+                isTimeoutReached[0] = true;
+                isLoading = false;
+            }
+        }, 10000);
+
         postsRef.get().addOnSuccessListener(snapshot -> {
+            // Cancel timeout if the request is successful
+            if (isTimeoutReached[0]) return;  // Ignore result if timeout occurred
+            timeoutHandler.removeCallbacksAndMessages(null);  // Cancel timeout if the request completes in time
+
             if (!snapshot.hasChildren()) {
-                onFinished.run(); // No posts
+                isLoading = false;
                 return;
             }
-
-            AtomicInteger pending = new AtomicInteger((int) snapshot.getChildrenCount());
 
             for (DataSnapshot postSnap : snapshot.getChildren()) {
                 Long date = postSnap.child("date").getValue(Long.class);
@@ -175,7 +214,6 @@ public class RoverFeed extends Fragment {
                 }
 
                 if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
-                    if (pending.decrementAndGet() == 0) onFinished.run();
                     continue;
                 }
 
@@ -187,76 +225,57 @@ public class RoverFeed extends Fragment {
 
                         postMap.put(post.id, post);
                     }
-
-                    if (pending.decrementAndGet() == 0) {
-                        onFinished.run();
-                    }
                 }).addOnFailureListener(e -> {
-                    if (pending.decrementAndGet() == 0) onFinished.run();
+                    isLoading = false;
                 });
             }
-        }).addOnFailureListener(e -> onFinished.run());
+
+            //Toast.makeText(requireContext(), "Done Loading", Toast.LENGTH_SHORT).show();
+            isLoading = false;
+        }).addOnFailureListener(e -> {
+            isLoading = false;
+        });
     }
 
-    private void drawPosts() {
-        LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
-        // TO_DO add proper filters
-
-            for (Post post : postMap.values())
-                if (announcementsSwitch.isChecked()) {
-                    if (post.isAnnouncement())
-                        linearLayout.addView(post.getPostContainer());
-                }
-                else
-                    linearLayout.addView(post.getPostContainer());
-            linearLayout.addView(createEndView());
-    }
-
-    // TO_DO Known bug, refresh w/o internet, activate internet, refresh again -> crash
     private void refreshFeed() {
         disableUI();
 
         LinearLayout postLayout = binding.getRoot().findViewById(R.id.info);
-        SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
-
         postLayout.removeAllViews();
-        swipeRefreshLayout.setRefreshing(true);
 
-        // Cancel any previous timeout
-        if (timeoutRunnable != null) {
-            binding.getRoot().removeCallbacks(timeoutRunnable);
-        }
+        populatePosts();
 
-        // Define and schedule new timeout
-        timeoutRunnable = () -> {
-            if (swipeRefreshLayout.isRefreshing()) {
-                requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(requireContext(), "Timeout: Some images failed to load.", Toast.LENGTH_SHORT).show();
-                    finishRefresh();
-                });
-            }
-        };
-        binding.getRoot().postDelayed(timeoutRunnable, 10_000);
+        final int[] counter = {0};  // Using an array to modify the counter inside the Runnable
 
-        populatePosts(() -> {
-            if (postMap.isEmpty()) {
-                finishRefresh();
-                return;
-            }
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // Increment counter each time the Runnable is executed
+                counter[0]++;
 
-            AtomicInteger loadedCount = new AtomicInteger(0);
-            for (Post post : postMap.values()) {
-                post.loadImageInto(post.getImageView(), () -> {
-                    if (loadedCount.incrementAndGet() == postMap.size()) {
-                        requireActivity().runOnUiThread(() -> {
-                            binding.getRoot().removeCallbacks(timeoutRunnable);
-                            drawPosts();
-                            finishRefresh();
-                        });
+                boolean arePicturesLoading = false;
+                for (Post post : postMap.values()) {
+                    if (!post.isImageLoaded()) {
+                        arePicturesLoading = true;
+                        break;
                     }
-                });
+                }
+                if (postMap.isEmpty())
+                    arePicturesLoading = true;
+
+                if ((isLoading || arePicturesLoading) && counter[0] < 20) {
+                    // Continue the recurrency, but stop after 20 iterations
+                    new android.os.Handler().postDelayed(this, 500);  // Recurse after 500ms
+                } else {
+                    if (counter[0] >= 20) {
+                        // Optional: handle the case when the maximum iterations are reached
+                        Toast.makeText(requireContext(), "Max retry limit reached.", Toast.LENGTH_SHORT).show();
+                    }
+                    drawPosts();
+                    finishRefresh();
+                }
             }
-        });
+        }, 500);  // Initial delay
     }
 
     private void disableUI() {
