@@ -8,7 +8,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
@@ -24,14 +23,8 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.ListIterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class RoverFeed extends Fragment {
 
@@ -41,8 +34,7 @@ public class RoverFeed extends Fragment {
     MenuItem announcementsFilter;
     SwitchCompat announcementsSwitch;
     private OnBackPressedCallback backCallback;
-    private Runnable timeoutRunnable;
-    private boolean isLoading = false;
+    private boolean isLoadingFirebasePosts = false;
 
     @Override
     public View onCreateView(
@@ -143,8 +135,6 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
-
-
     private void drawPosts() {
         LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
         // TO_DO add proper filters
@@ -160,12 +150,11 @@ public class RoverFeed extends Fragment {
     }
 
     private void populatePosts() {
-
         // Should only have one ongoing Firebase request at a time
-        if(isLoading)
+        if(isLoadingFirebasePosts)
             return;
         else
-            isLoading = true;
+            isLoadingFirebasePosts = true;
 
         DatabaseReference postsRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
@@ -177,58 +166,55 @@ public class RoverFeed extends Fragment {
 
         postMap.clear();
 
-        // Timeout flag
+        // Set a timeout, after which results will be dropped
         final Handler timeoutHandler = new Handler();
-        boolean[] isTimeoutReached = {false} ;
+        boolean[] isTimeoutReached = {false};
 
-        // Set a timeout (e.g., 10 seconds)
         timeoutHandler.postDelayed(() -> {
-            if (isLoading) {
+            if (isLoadingFirebasePosts) {
                 isTimeoutReached[0] = true;
-                isLoading = false;
+                isLoadingFirebasePosts = false;
             }
         }, 10000);
 
         postsRef.get().addOnSuccessListener(snapshot -> {
-            // Cancel timeout if the request is successful
-            if (isTimeoutReached[0]) return;  // Ignore result if timeout occurred
-            timeoutHandler.removeCallbacksAndMessages(null);  // Cancel timeout if the request completes in time
+            if (isTimeoutReached[0]) return;
+            // Cancel timeout if the request completes in time
+            timeoutHandler.removeCallbacksAndMessages(null);
 
             if (!snapshot.hasChildren()) {
-                isLoading = false;
+                isLoadingFirebasePosts = false;
                 return;
             }
 
+            // Fetch all posts
             for (DataSnapshot postSnap : snapshot.getChildren()) {
+                String postId = postSnap.getKey();
                 Long date = postSnap.child("date").getValue(Long.class);
                 String description = postSnap.child("description").getValue(String.class);
                 String imageUrl = postSnap.child("imageUrl").getValue(String.class);
                 Integer likes = postSnap.child("likes").getValue(Integer.class);
-                String userId = postSnap.child("userId").getValue(String.class);
-                String postId = postSnap.getKey();
                 Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
+                String userId = postSnap.child("userId").getValue(String.class);
 
                 if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
                     continue;
                 }
 
+                // If finding the User from userId, add post to map
                 usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
                     User user = userSnap.getValue(User.class);
                     if (user != null) {
                         user.setId(userId);
-                        Post post = new Post(RoverFeed.this,postId, date, user, description, imageUrl, likes, likedByMap);
+                        Post post = new Post(RoverFeed.this,postId, date, user, description, imageUrl, likes, likedByMap, false);
 
-                        postMap.put(post.id, post);
+                        postMap.put(post.getId(), post);
                     }
-                }).addOnFailureListener(e -> {
-                    isLoading = false;
                 });
             }
-
-            //Toast.makeText(requireContext(), "Done Loading", Toast.LENGTH_SHORT).show();
-            isLoading = false;
+            isLoadingFirebasePosts = false;
         }).addOnFailureListener(e -> {
-            isLoading = false;
+            isLoadingFirebasePosts = false;
         });
     }
 
@@ -240,7 +226,7 @@ public class RoverFeed extends Fragment {
 
         populatePosts();
 
-        final int[] counter = {0};  // Using an array to modify the counter inside the Runnable
+        final int[] counter = {0};
 
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
@@ -258,13 +244,18 @@ public class RoverFeed extends Fragment {
                 if (postMap.isEmpty())
                     arePicturesLoading = true;
 
-                if ((isLoading || arePicturesLoading) && counter[0] < 20) {
-                    // Continue the recurrency, but stop after 20 iterations
-                    new android.os.Handler().postDelayed(this, 500);  // Recurse after 500ms
+                if ((isLoadingFirebasePosts || arePicturesLoading) && counter[0] < 20) {
+                    // Continue the recurrency, but stop after 20 iterations = 10s
+                    new android.os.Handler().postDelayed(this, 500);
                 } else {
+                    // If timeout, go offline mode
                     if (counter[0] >= 20) {
-                        // Optional: handle the case when the maximum iterations are reached
-                        Toast.makeText(requireContext(), "Max retry limit reached.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Displaying offline", Toast.LENGTH_LONG).show();
+                        populateOfflinePosts();
+                    }
+                    // If posts are ready, sync them to offline
+                    else {
+                        syncPostsToLocalDB();
                     }
                     drawPosts();
                     finishRefresh();
@@ -285,6 +276,25 @@ public class RoverFeed extends Fragment {
         binding.buttonLogOut.setEnabled(true);
         announcementsSwitch.setEnabled(true);
         activity.getFloatingButton().setEnabled(true);
+    }
+
+    private void syncPostsToLocalDB() {
+        LocalDatabase localDB = new LocalDatabase(requireContext());
+
+        for (Post post : postMap.values()) {
+            // Save the image to internal storage
+            String imagePath = ImageUtils.saveImageToInternalStorage(requireContext(), post.getImageUrl(), post.getId());
+            Log.d("ImageUtils", "Image saved at: " + imagePath);
+
+            // Save the post with imagePath to local DB
+            String userId = post.getUser().getId();
+            localDB.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
+        }
+    }
+
+    private void populateOfflinePosts () {
+        LocalDatabase localDB = new LocalDatabase(requireContext());
+        postMap = localDB.getAllOfflinePosts(RoverFeed.this, localDB.getAllUsers());
     }
 
     // Add empty space at the end of layout so "Add post" button is not resting on a post image, blocking it

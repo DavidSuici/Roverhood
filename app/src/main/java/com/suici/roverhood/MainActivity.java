@@ -1,5 +1,7 @@
 package com.suici.roverhood;
 
+import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -7,8 +9,10 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Log;
 import android.view.View;
 
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -32,10 +36,13 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton floatingButton;
     private Menu optionsMenu;
     public User currentUser = null;
+    private int lastNightMode = Configuration.UI_MODE_NIGHT_NO;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        lastNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
 
         AndroidThreeTen.init(this);
 
@@ -74,6 +81,27 @@ public class MainActivity extends AppCompatActivity {
         checkable.setActionView(R.layout.use_switch);
         optionsMenu = menu;
         return true;
+    }
+
+    // Restart app if theme is changed - used to crash, or enter e state with noninitialised variables
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        int newNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+
+        if (newNightMode != lastNightMode) {
+            Log.d("MainActivity", "Theme changed, restarting app...");
+            restartApp();
+        }
+        lastNightMode = newNightMode;
+    }
+
+    private void restartApp() {
+        Intent intent = new Intent(MainActivity.this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+        startActivity(intent);
+        finish();
     }
 
     public Menu getOptionsMenu() {

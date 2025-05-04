@@ -32,6 +32,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Transaction;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -39,14 +40,15 @@ import java.util.Objects;
 import java.util.Set;
 
 public class Post {
-    Fragment activeFragment;
-    Long date;
-    User user;
-    String id;
-    String description;
-    String imageUrl;
-    int likes;
+    private final Fragment activeFragment;
+    private Long date;
+    private User user;
+    private String id;
+    private String description;
+    private String imageUrl;
+    private int likes;
     private Map<String, Boolean> likedBy = new HashMap<>();
+    private boolean offlinePost;
 
     int dp = 0;
     ConstraintLayout postContainer;
@@ -54,7 +56,8 @@ public class Post {
     private ImageView imageView;
     private boolean imageLoaded = false;
 
-    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy) {
+
+    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean offlinePost) {
         this.id = id;
         this.activeFragment = fragment;
         this.date = date;
@@ -63,6 +66,7 @@ public class Post {
         this.imageUrl = imageUrl;
         this.likes = likes;
         this.likedBy = likedBy;
+        this.offlinePost = offlinePost;
 
         createPostContainer();
     }
@@ -134,21 +138,30 @@ public class Post {
         imageView.setAdjustViewBounds(true);
         imageView.setId(View.generateViewId());
 
-        Glide.with(activeFragment.requireContext())
-                .load(imageUrl)
-                .placeholder(R.drawable.title)
-                .override(Target.SIZE_ORIGINAL)
-                .into(new CustomTarget<Drawable>() {
-                    @Override
-                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
-                        imageView.setImageDrawable(resource);
-                        imageLoaded = true;
-                    }
+        if(offlinePost) {
+            Glide.with(activeFragment.requireContext())
+                    .load(new File(imageUrl))
+                    .placeholder(R.drawable.img_not_loaded)
+                    .override(Target.SIZE_ORIGINAL)
+                    .into(imageView);
+        }
+        else {
+            Glide.with(activeFragment.requireContext())
+                    .load(imageUrl)
+                    .placeholder(R.drawable.img_not_loaded)
+                    .override(Target.SIZE_ORIGINAL)
+                    .into(new CustomTarget<Drawable>() {
+                        @Override
+                        public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                            imageView.setImageDrawable(resource);
+                            imageLoaded = true;
+                        }
 
-                    @Override
-                    public void onLoadCleared(@Nullable Drawable placeholder) {
-                    }
-                });
+                        @Override
+                        public void onLoadCleared(@Nullable Drawable placeholder) {
+                        }
+                    });
+        }
 
         return imageView;
     }
@@ -178,67 +191,70 @@ public class Post {
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
         heartButton.setChecked(likedBy.containsKey(currentUserId));
 
-        heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            DatabaseReference postRef = FirebaseDatabase
-                    .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                    .getReference("posts")
-                    .child(id);
+        if(offlinePost) {
+            heartButton.setEnabled(false);
+        }
+        else {
+            heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                DatabaseReference postRef = FirebaseDatabase
+                        .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                        .getReference("posts")
+                        .child(id);
 
-            postRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
-                @NonNull
-                @Override
-                public com.google.firebase.database.Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                    Integer currentLikes = currentData.child("likes").getValue(Integer.class);
-                    if (currentLikes == null) currentLikes = 0;
+                postRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
+                    @NonNull
+                    @Override
+                    public com.google.firebase.database.Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                        Integer currentLikes = currentData.child("likes").getValue(Integer.class);
+                        if (currentLikes == null) currentLikes = 0;
 
-                    Map<String, Boolean> currentLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
-                    if (currentLikedBy == null) currentLikedBy = new HashMap<>();
+                        Map<String, Boolean> currentLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
+                        if (currentLikedBy == null) currentLikedBy = new HashMap<>();
 
-                    Boolean isLiked = currentLikedBy.get(currentUserId);
+                        Boolean isLiked = currentLikedBy.get(currentUserId);
 
-                    if (isChecked) {
-                        if (isLiked == null || !isLiked) {
-                            currentLikes++;
-                            currentLikedBy.put(currentUserId, true);
-                        }
-                    } else {
-                        if (isLiked != null && isLiked) {
-                            currentLikes--;
-                            currentLikedBy.remove(currentUserId);
-                        }
-                    }
-
-                    currentData.child("likes").setValue(currentLikes);  // Update likes count
-                    currentData.child("likedBy").setValue(currentLikedBy);  // Update likedBy map
-
-                    // Return success after completing the transaction
-                    return com.google.firebase.database.Transaction.success(currentData);
-                }
-
-                @Override
-                public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-                    // This is called after the transaction completes
-                    if (committed && currentData != null) {
-                        Integer newLikes = currentData.child("likes").getValue(Integer.class);
-                        if (newLikes != null) {
-                            likes = newLikes;
-                            heartNrView.setText(String.valueOf(newLikes));  // Update the view with the new like count
-                        }
-
-                        Map<String, Boolean> newLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
-                        if (newLikedBy != null) {
-                            likedBy = newLikedBy;
-                        }
-                    } else {
-                        if (error != null) {
-                            Log.e("TransactionError", "Transaction failed: " + error.getMessage());
+                        if (isChecked) {
+                            if (isLiked == null || !isLiked) {
+                                currentLikes++;
+                                currentLikedBy.put(currentUserId, true);
+                            }
                         } else {
-                            Log.e("TransactionError", "Transaction not committed (possible conflict or error)");
+                            if (isLiked != null && isLiked) {
+                                currentLikes--;
+                                currentLikedBy.remove(currentUserId);
+                            }
+                        }
+
+                        currentData.child("likes").setValue(currentLikes);
+                        currentData.child("likedBy").setValue(currentLikedBy);
+
+                        return com.google.firebase.database.Transaction.success(currentData);
+                    }
+
+                    @Override
+                    public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                        if (committed && currentData != null) {
+                            Integer newLikes = currentData.child("likes").getValue(Integer.class);
+                            if (newLikes != null) {
+                                likes = newLikes;
+                                heartNrView.setText(String.valueOf(newLikes));
+                            }
+
+                            Map<String, Boolean> newLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
+                            if (newLikedBy != null) {
+                                likedBy = newLikedBy;
+                            }
+                        } else {
+                            if (error != null) {
+                                Log.e("TransactionError", "Transaction failed: " + error.getMessage());
+                            } else {
+                                Log.e("TransactionError", "Transaction not committed (possible conflict or error)");
+                            }
                         }
                     }
-                }
+                });
             });
-        });
+        }
 
         return heartButton;
     }
@@ -321,14 +337,28 @@ public class Post {
         set.applyTo(postContainer);
     }
 
-    public ConstraintLayout getPostContainer() {
-        return postContainer;
-    }
-
     // TO_DO Change when proper filters are implemented
     public boolean isAnnouncement() {
         return Objects.equals(user.username, "admin");
     }
 
     public boolean isImageLoaded() { return imageLoaded; }
+    public void setOfflinePost(boolean offlinePost) { this.offlinePost = offlinePost; }
+    public boolean isOfflinePost() { return offlinePost; }
+    public ConstraintLayout getPostContainer() { return postContainer; }
+
+    public Long getDate() { return date; }
+    public void setDate(Long date) { this.date = date; }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public int getLikes() { return likes; }
+    public void setLikes(int likes) { this.likes = likes; }
+    public Map<String, Boolean> getLikedBy() { return likedBy; }
+    public void setLikedBy(Map<String, Boolean> likedBy) { this.likedBy = likedBy; }
 }

@@ -135,7 +135,5 @@ public class LogIn extends Fragment {
                 .addOnFailureListener(e -> {
                     Toast.makeText(requireContext(), "Failed to connect to online Database.", Toast.LENGTH_LONG).show();
                 });
-
-        localDB.logAllUsers();
     }
 }
