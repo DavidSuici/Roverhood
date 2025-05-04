@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -12,17 +13,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 
-import androidx.appcompat.app.AppCompatDelegate;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
+import android.widget.ProgressBar;
 
 import com.jakewharton.threetenabp.AndroidThreeTen;
 
@@ -37,10 +39,14 @@ public class MainActivity extends AppCompatActivity {
     private Menu optionsMenu;
     public User currentUser = null;
     private int lastNightMode = Configuration.UI_MODE_NIGHT_NO;
+    private ProgressBar progressBar;
+
+    public static MainActivity instance;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        instance = this;
 
         lastNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
 
@@ -71,6 +77,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        // Initialize ProgressBar
+        progressBar = binding.progressBar;  // Reference the ProgressBar here
+        progressBar.setVisibility(View.GONE);  // Initially set it to GONE, show when needed
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        instance = null;
     }
 
     @Override
@@ -83,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    // Restart app if theme is changed - used to crash, or enter e state with noninitialised variables
+    // Restart app if theme is changed - used to crash, or enter e state with uninitialised variables
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -118,6 +134,49 @@ public class MainActivity extends AppCompatActivity {
 
     public User getCurrentUser() {
         return this.currentUser;
+    }
+
+    public void updateProgressBar(int currentProgress, int totalProgress) {
+        if (progressBar != null && progressBar instanceof LinearProgressIndicator) {
+            LinearProgressIndicator linearProgressBar = (LinearProgressIndicator) progressBar;
+
+            linearProgressBar.setMax(totalProgress - 1);
+
+            ValueAnimator progressAnimator = ValueAnimator.ofInt(linearProgressBar.getProgress(), currentProgress);
+            progressAnimator.setDuration(500);
+            progressAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    linearProgressBar.setProgressCompat((Integer) animation.getAnimatedValue(), true);
+                }
+            });
+
+            progressAnimator.addListener(new android.animation.Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(android.animation.Animator animation) {
+                    if (linearProgressBar.getVisibility() == View.GONE && currentProgress < totalProgress) {
+                        linearProgressBar.setVisibility(View.VISIBLE);
+                    }
+                }
+
+                @Override
+                public void onAnimationEnd(android.animation.Animator animation) {
+                    if (currentProgress >= totalProgress) {
+                        linearProgressBar.setVisibility(View.GONE);
+                    }
+                }
+
+                @Override
+                public void onAnimationCancel(android.animation.Animator animation) {
+                }
+
+                @Override
+                public void onAnimationRepeat(android.animation.Animator animation) {
+                }
+            });
+
+            progressAnimator.start();
+        }
     }
 }
 

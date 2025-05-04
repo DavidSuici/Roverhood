@@ -15,11 +15,32 @@ import java.net.URL;
 
 public class ImageUtils {
 
+    static int loadedImageCount = 0;
+    static int totalImageCount = 0;
+
     public static String saveImageToInternalStorage(Context context, String imageUrl, String fileName) {
         // Start the download and save process asynchronously
         DownloadImageTask task = new DownloadImageTask(context, fileName);
         task.execute(imageUrl);
         return context.getFilesDir().getAbsolutePath() + File.separator + fileName;
+    }
+
+    public static void setLoadedImageCount(int nr) {
+        loadedImageCount = nr;
+    }
+
+    public static void setTotalImageCount(int nr) {
+        totalImageCount = nr;
+    }
+
+    public static void incrementProgressBar() {
+        loadedImageCount++;
+        if (MainActivity.instance != null) {
+            MainActivity activity = MainActivity.instance;
+            activity.updateProgressBar(loadedImageCount, totalImageCount);
+        } else {
+            Log.e("ImageUtils", "Context is not an instance of MainActivity");
+        }
     }
 
     private static class DownloadImageTask extends AsyncTask<String, Void, Boolean> {
@@ -39,6 +60,8 @@ public class ImageUtils {
 
         @Override
         protected void onPostExecute(Boolean result) {
+            incrementProgressBar();
+
             if (result) {
                 Log.d("ImageUtils", "Image downloaded and saved successfully.");
                 // After saving, check for corruption

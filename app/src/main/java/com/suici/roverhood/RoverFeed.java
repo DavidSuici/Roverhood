@@ -281,6 +281,10 @@ public class RoverFeed extends Fragment {
     private void syncPostsToLocalDB() {
         LocalDatabase localDB = new LocalDatabase(requireContext());
 
+        activity.updateProgressBar(0,postMap.size());
+        ImageUtils.setLoadedImageCount(0);
+        ImageUtils.setTotalImageCount(postMap.size());
+
         for (Post post : postMap.values()) {
             // Save the image to internal storage
             String imagePath = ImageUtils.saveImageToInternalStorage(requireContext(), post.getImageUrl(), post.getId());
