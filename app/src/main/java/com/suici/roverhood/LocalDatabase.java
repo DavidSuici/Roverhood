@@ -14,6 +14,15 @@ import java.util.Map;
 
 public class LocalDatabase extends SQLiteOpenHelper {
 
+    private static LocalDatabase instance;
+
+    public static synchronized LocalDatabase getInstance(Context context) {
+        if (instance == null) {
+            instance = new LocalDatabase(context.getApplicationContext());
+        }
+        return instance;
+    }
+
     public static final String DATABASE_NAME = "roverhood.db";
     public static final int DATABASE_VERSION = 16;
 
@@ -100,7 +109,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_TEAM, user.team);
 
         db.insertWithOnConflict(TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
-        db.close();
     }
 
     public User getUserByUsernameAndAccessCode(String username, String accessCode) {
@@ -127,7 +135,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
             cursor.close();
         }
 
-        db.close();
         return user;
     }
 
@@ -153,7 +160,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
             cursor.close();
         }
 
-        db.close();
         return user;
     }
 
@@ -192,7 +198,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         }
 
         if (cursor != null) cursor.close();
-        db.close();
 
         return usersMap;
     }
@@ -222,7 +227,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put("idLoggedIn", userid);
         values.put("idPrevLoggedIn", prevId);
         db.update("session", values, "id = 1", null);
-        db.close();
     }
 
     public void markLoggedOut() {
@@ -248,8 +252,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
             values.put("idLoggedIn", "");
             db.update("session", values, "id = 1", null);
         }
-
-        db.close();
     }
 
     public User getLoggedInUser() {
@@ -270,8 +272,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
             userId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
             cursor.close();
         }
-
-        db.close();
 
         if (userId != null) {
             return getUserById(userId);
@@ -299,8 +299,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
             cursor.close();
         }
 
-        db.close();
-
         if (userId != null) {
             return getUserById(userId);
         } else {
@@ -325,7 +323,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_USERID, userId);
 
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
-        db.close();
     }
 
     public static String serializeLikedBy(Map<String, Boolean> likedBy) {
@@ -400,7 +397,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         }
 
         if (cursor != null) cursor.close();
-        db.close();
 
         return postsMap;
     }
@@ -428,7 +424,5 @@ public class LocalDatabase extends SQLiteOpenHelper {
         } else {
             Log.e("LocalDatabase", "Failed to update likes and likedBy for postId: " + postId);
         }
-
-        db.close();
     }
 }

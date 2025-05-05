@@ -79,9 +79,9 @@ public class RoverFeed extends Fragment {
         }
 
         // Log-out - button logic
-        LocalDatabase dbHelper = new LocalDatabase(requireContext());
+        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         binding.buttonLogOut.setOnClickListener(v -> {
-            dbHelper.markLoggedOut();
+            localDB.markLoggedOut();
             activity.setCurrentUser(null);
             NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn);
         });
@@ -271,7 +271,7 @@ public class RoverFeed extends Fragment {
                     // If posts are ready, sync them to offline in another thread
                     // TO_DO Maybe wait in refresh until this is done as well?
                     else {
-                        LocalDatabase localDB = new LocalDatabase(requireContext());
+                        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
                         new Thread(() -> {
                             syncPostsToLocalDB(requireContext(), postMap, localDB);
                         }).start();
@@ -336,7 +336,7 @@ public class RoverFeed extends Fragment {
     }
 
     private void populateOfflinePosts () {
-        LocalDatabase localDB = new LocalDatabase(requireContext());
+        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         postMap = localDB.getAllOfflinePosts(RoverFeed.this, localDB.getAllUsers());
     }
 
