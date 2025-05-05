@@ -40,7 +40,7 @@ public class LogIn extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        LocalDatabase localDB = new LocalDatabase(requireContext());
+        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
 
         // If any user is logged in, set current user information in textboxes
         if (localDB.getLoggedInUser() != null) {
@@ -120,7 +120,7 @@ public class LogIn extends Fragment {
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                 .getReference("users");
 
-        LocalDatabase localDB = new LocalDatabase(requireContext());
+        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
 
         usersRef.get()
                 .addOnSuccessListener(snapshot -> {

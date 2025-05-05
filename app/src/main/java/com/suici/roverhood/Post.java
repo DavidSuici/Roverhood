@@ -79,12 +79,8 @@ public class Post {
 
         // Add color to the Username
         TypedValue typedValue = new TypedValue();
-        Context context = activeFragment.requireContext();
-        context.getTheme().resolveAttribute(android.R.attr.textColorPrimary, typedValue, true);
-        int[] textColorAttr = new int[]{android.R.attr.textColorPrimary};
-        TypedArray a = context.obtainStyledAttributes(typedValue.data, textColorAttr);
-        int color = a.getColor(0, -1);
-        a.recycle();
+        activeFragment.requireContext().getTheme().resolveAttribute(android.R.attr.textColorPrimary, typedValue, true);
+        int color = typedValue.data;
 
         userView.setTextColor(color);
         userView.setId(View.generateViewId());
@@ -249,7 +245,7 @@ public class Post {
                                 likedBy = newLikedBy;
                             }
 
-                            LocalDatabase localDB = new LocalDatabase(activeFragment.requireContext());
+                            LocalDatabase localDB = LocalDatabase.getInstance(activeFragment.requireContext());
                             localDB.updatePostLikes(id, likes, likedBy);
                         } else {
                             if (error != null) {
