@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
@@ -57,6 +58,7 @@ public class AddPost extends DialogFragment {
 
             String description = editTextDescription.getText().toString().trim();
             User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+            Context safeContext = getContext();
 
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
@@ -76,10 +78,20 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
+            int width = selectedImage.getWidth();
+            int height = selectedImage.getHeight();
+            float ratio = (float) width / height;
+
+            if (ratio < 0.473f || ratio > 6.0f) {
+                Toast.makeText(getContext(), "Image too tall or too wide", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
             ImageUtils.uploadImageToFirebase(selectedImage, "postImage", new ImageUtils.UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
-                    savePost(description, currentUser.getId(), downloadUrl);
+                    savePost(description, currentUser.getId(), downloadUrl, safeContext);
                 }
                 @Override
                 public void onFailure(Exception e) {
@@ -113,7 +125,7 @@ public class AddPost extends DialogFragment {
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
-    private void savePost(String description, String userId, String imageUrl) {
+    private void savePost(String description, String userId, String imageUrl, Context context) {
         DatabaseReference postsRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                 .getReference("posts");
@@ -121,7 +133,8 @@ public class AddPost extends DialogFragment {
         String postId = postsRef.push().getKey();
         if (postId == null) {
             Log.e("AddPost", "Failed to generate post ID");
-            Toast.makeText(getContext(), "Post creation failed", Toast.LENGTH_SHORT).show();
+            if (context != null)
+                Toast.makeText(context, "Post creation failed", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -148,11 +161,13 @@ public class AddPost extends DialogFragment {
             @Override
             public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
                 if (committed) {
-                    Toast.makeText(getContext(), "Posted successfully", Toast.LENGTH_SHORT).show();
                     Log.d("SendPost", "Post successfully saved with ID: " + postId);
+                    if (context != null)
+                        Toast.makeText(context, "Posted successfully", Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(getContext(), "Post creation failed", Toast.LENGTH_SHORT).show();
                     Log.e("SendPost", "Post transaction failed", error != null ? error.toException() : null);
+                    if (context != null)
+                        Toast.makeText(context, "Post creation failed", Toast.LENGTH_SHORT).show();
                 }
             }
         });

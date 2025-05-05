@@ -361,7 +361,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null,
-                null
+                COLUMN_DATE + " ASC"
         );
 
         if (cursor != null && cursor.moveToFirst()) {
@@ -401,28 +401,18 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return postsMap;
     }
 
-    // Method to update likes and likedBy for a specific post
     public void updatePostLikes(String postId, int newLikes, Map<String, Boolean> newLikedBy) {
         SQLiteDatabase db = this.getWritableDatabase();
 
-        // Serialize the likedBy map to a string
         String likedByString = serializeLikedBy(newLikedBy);
 
-        // ContentValues to hold the new values for likes and likedBy
         ContentValues values = new ContentValues();
-        values.put(COLUMN_LIKES, newLikes);  // Update the likes
-        values.put(COLUMN_LIKED_BY, likedByString);  // Update the likedBy (serialized)
+        values.put(COLUMN_LIKES, newLikes);
+        values.put(COLUMN_LIKED_BY, likedByString);
 
-        // Update the record where the postId matches
         String selection = COLUMN_POST_ID + " = ?";
         String[] selectionArgs = { postId };
 
-        int rowsUpdated = db.update(TABLE_POSTS, values, selection, selectionArgs);
-
-        if (rowsUpdated > 0) {
-            Log.d("LocalDatabase", "Post likes and likedBy updated for postId: " + postId);
-        } else {
-            Log.e("LocalDatabase", "Failed to update likes and likedBy for postId: " + postId);
-        }
+        db.update(TABLE_POSTS, values, selection, selectionArgs);
     }
 }
