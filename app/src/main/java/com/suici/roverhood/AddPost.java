@@ -1,0 +1,160 @@
+package com.suici.roverhood;
+
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import androidx.fragment.app.DialogFragment;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
+import com.google.firebase.database.Transaction;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class AddPost extends DialogFragment {
+
+    private EditText editTextDescription;
+    private ImageView imagePreview;
+    private Button submitPostButton;
+    private Bitmap selectedImage;
+
+    private final int PICK_IMAGE_REQUEST = 1;
+
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.add_post, container, false);
+
+        getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        editTextDescription = view.findViewById(R.id.editTextDescription);
+        imagePreview = view.findViewById(R.id.imagePreview);
+        submitPostButton = view.findViewById(R.id.submitPostButton);
+
+        imagePreview.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(intent, PICK_IMAGE_REQUEST);
+        });
+
+        submitPostButton.setOnClickListener(v -> {
+            submitPostButton.setEnabled(false);
+
+            String description = editTextDescription.getText().toString().trim();
+            User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+
+            if (description.isEmpty()) {
+                editTextDescription.setError("Description required");
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            if (selectedImage == null) {
+                Toast.makeText(getContext(), "Select an image first", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            if (currentUser == null) {
+                Toast.makeText(getContext(), "You're logged out, log in again", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            ImageUtils.uploadImageToFirebase(selectedImage, "postImage", new ImageUtils.UploadCallback() {
+                @Override
+                public void onSuccess(String downloadUrl) {
+                    savePost(description, currentUser.getId(), downloadUrl);
+                }
+                @Override
+                public void onFailure(Exception e) {
+                    Toast.makeText(getContext(), "Image upload failed", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+            dismiss();
+        });
+
+        return view;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK && data != null) {
+            try {
+                selectedImage = MediaStore.Images.Media.getBitmap(getActivity().getContentResolver(), data.getData());
+                imagePreview.setImageBitmap(selectedImage);
+            } catch (Exception e) {
+                Log.e("AddPost", "Failed to load image from gallery", e);
+            }
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Need this or the fragment wont load
+        getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private void savePost(String description, String userId, String imageUrl) {
+        DatabaseReference postsRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("posts");
+
+        String postId = postsRef.push().getKey();
+        if (postId == null) {
+            Log.e("AddPost", "Failed to generate post ID");
+            Toast.makeText(getContext(), "Post creation failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long timestamp = System.currentTimeMillis() / 1000L;
+        Map<String, Boolean> likedByMap = new HashMap<>();
+        likedByMap.put(userId, true);
+
+        Map<String, Object> postMap = new HashMap<>();
+        postMap.put("date", timestamp);
+        postMap.put("description", description);
+        postMap.put("imageUrl", imageUrl);
+        postMap.put("likedBy", likedByMap);
+        postMap.put("likes", 1);
+        postMap.put("userId", userId);
+
+        postsRef.child(postId).runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                currentData.setValue(postMap);
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                if (committed) {
+                    Toast.makeText(getContext(), "Posted successfully", Toast.LENGTH_SHORT).show();
+                    Log.d("SendPost", "Post successfully saved with ID: " + postId);
+                } else {
+                    Toast.makeText(getContext(), "Post creation failed", Toast.LENGTH_SHORT).show();
+                    Log.e("SendPost", "Post transaction failed", error != null ? error.toException() : null);
+                }
+            }
+        });
+    }
+}

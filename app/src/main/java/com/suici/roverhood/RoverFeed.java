@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -23,7 +24,10 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RoverFeed extends Fragment {
@@ -68,9 +72,10 @@ public class RoverFeed extends Fragment {
         // Add post - button logic
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setVisibility(View.VISIBLE);
-            activity.getFloatingButton().setOnClickListener(v ->
-                    NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn)
-            );
+            activity.getFloatingButton().setOnClickListener(v -> {
+                    AddPost addPostFragment = new AddPost();
+                    addPostFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
+            });
         }
 
         // Log-out - button logic
@@ -139,7 +144,10 @@ public class RoverFeed extends Fragment {
         LinearLayout linearLayout = binding.getRoot().findViewById(R.id.info);
         // TO_DO add proper filters
 
-            for (Post post : postMap.values())
+        List<Post> postList = new ArrayList<>(postMap.values());
+        Collections.reverse(postList);
+
+            for (Post post : postList)
                 if (announcementsSwitch.isChecked()) {
                     if (post.isAnnouncement())
                         linearLayout.addView(post.getPostContainer());
@@ -177,7 +185,8 @@ public class RoverFeed extends Fragment {
             }
         }, 10000);
 
-        postsRef.get().addOnSuccessListener(snapshot -> {
+        postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
+            Log.d("FirebaseDebug", "Success! Post count: " + snapshot.getChildrenCount());
             if (isTimeoutReached[0]) return;
             // Cancel timeout if the request completes in time
             timeoutHandler.removeCallbacksAndMessages(null);
@@ -214,6 +223,7 @@ public class RoverFeed extends Fragment {
             }
             isLoadingFirebasePosts = false;
         }).addOnFailureListener(e -> {
+            Log.e("FirebaseDebug", "Failed to get posts", e);
             isLoadingFirebasePosts = false;
         });
     }
@@ -224,6 +234,11 @@ public class RoverFeed extends Fragment {
         LinearLayout postLayout = binding.getRoot().findViewById(R.id.info);
         postLayout.removeAllViews();
 
+        //TO_DO still show post if URL is empty from DB
+        //TO_DO only load 10 at a time
+        //TO_DO use RecyclerView instead of LinearLayout to save performance
+        //TO_DO test what happens if Internet is stopped during upload
+        //TO_DO disable add posts when not online
         populatePosts();
 
         final int[] counter = {0};
@@ -253,15 +268,19 @@ public class RoverFeed extends Fragment {
                         Toast.makeText(requireContext(), "Displaying offline", Toast.LENGTH_LONG).show();
                         populateOfflinePosts();
                     }
-                    // If posts are ready, sync them to offline
+                    // If posts are ready, sync them to offline in another thread
+                    // TO_DO Maybe wait in refresh until this is done as well?
                     else {
-                        syncPostsToLocalDB();
+                        LocalDatabase localDB = new LocalDatabase(requireContext());
+                        new Thread(() -> {
+                            syncPostsToLocalDB(requireContext(), postMap, localDB);
+                        }).start();
                     }
                     drawPosts();
                     finishRefresh();
                 }
             }
-        }, 500);  // Initial delay
+        }, 500);
     }
 
     private void disableUI() {
@@ -278,21 +297,41 @@ public class RoverFeed extends Fragment {
         activity.getFloatingButton().setEnabled(true);
     }
 
-    private void syncPostsToLocalDB() {
-        LocalDatabase localDB = new LocalDatabase(requireContext());
-
-        activity.updateProgressBar(0,postMap.size());
-        ImageUtils.setLoadedImageCount(0);
-        ImageUtils.setTotalImageCount(postMap.size());
+    private void syncPostsToLocalDB(Context context, Map<String, Post> postMap, LocalDatabase localDB) {
+        activity.runOnUiThread(() -> {
+            if (ImageUtils.getLoadedImageCount() >= ImageUtils.getTotalImageCount()) {
+                ImageUtils.setLoadedImageCount(0);
+                ImageUtils.setTotalImageCount(0);
+            }
+        });
 
         for (Post post : postMap.values()) {
-            // Save the image to internal storage
-            String imagePath = ImageUtils.saveImageToInternalStorage(requireContext(), post.getImageUrl(), post.getId());
-            Log.d("ImageUtils", "Image saved at: " + imagePath);
-
-            // Save the post with imagePath to local DB
             String userId = post.getUser().getId();
-            localDB.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
+            String fileName = post.getId();
+            String imageUrl = post.getImageUrl();
+
+            activity.runOnUiThread(() -> {
+                ImageUtils.incrementProgressBarMax();
+            });
+
+            ImageUtils.saveImageToInternalStorage(context, imageUrl, fileName, new ImageUtils.ImageSaveCallback() {
+                @Override
+                public void onSuccess(String imagePath) {
+                    Log.d("LocalSync", "Image saved at: " + imagePath);
+                    activity.runOnUiThread(() -> {
+                        ImageUtils.incrementProgressBar();
+                    });
+                    localDB.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    activity.runOnUiThread(() -> {
+                        ImageUtils.incrementProgressBar();
+                    });
+                    Log.e("LocalSync", "Failed to save image for post " + post.getId(), e);
+                }
+            });
         }
     }
 
