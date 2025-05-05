@@ -47,7 +47,7 @@ public class Post {
     private String description;
     private String imageUrl;
     private int likes;
-    private Map<String, Boolean> likedBy = new HashMap<>();
+    private Map<String, Boolean> likedBy;
     private boolean offlinePost;
 
     int dp = 0;
@@ -65,7 +65,7 @@ public class Post {
         this.description = description;
         this.imageUrl = imageUrl;
         this.likes = likes;
-        this.likedBy = likedBy;
+        this.likedBy = likedBy != null ? likedBy : new HashMap<>();
         this.offlinePost = offlinePost;
 
         createPostContainer();
@@ -189,7 +189,10 @@ public class Post {
         heartButton.setId(View.generateViewId());
 
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
-        heartButton.setChecked(likedBy.containsKey(currentUserId));
+        if(likedBy != null)
+            heartButton.setChecked(likedBy.containsKey(currentUserId));
+        else
+            heartButton.setChecked(false);
 
         if(offlinePost) {
             heartButton.setAlpha(0.5f); // Make the heart button semi-transparent (greyed out)
