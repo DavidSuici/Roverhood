@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="Roverhood ">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-05-04T23:58:37.325591900Z">
+        <DropdownSelection timestamp="2025-05-05T10:20:57.448094900Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\david\.android\avd\Pixel_4_API_35.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CW22MXKNW" />
             </handle>
           </Target>
         </DropdownSelection>

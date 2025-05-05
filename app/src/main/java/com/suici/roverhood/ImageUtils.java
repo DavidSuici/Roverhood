@@ -56,9 +56,21 @@ public class ImageUtils {
         void onFailure(Exception e);
     }
 
-    public static void uploadImageToFirebase(Bitmap bitmap, String fileNameHint, UploadCallback callback) {
+    public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, UploadCallback callback) {
+        // Resize if needed
+        Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+        int quality = 100;
+
+        // Compress to JPEG (PNG ignores quality)
+        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+
+        while (baos.toByteArray().length > 1024 * 1024 && quality > 10) {
+            baos.reset(); // clear previous data
+            quality -= 5;
+            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+        }
         byte[] data = baos.toByteArray();
 
         String uniqueFileName = (fileNameHint != null && !fileNameHint.isEmpty() ? fileNameHint : "image")
@@ -78,6 +90,28 @@ public class ImageUtils {
                             .addOnFailureListener(callback::onFailure);
                 })
                 .addOnFailureListener(callback::onFailure);
+    }
+
+    private static Bitmap resizeIfTooLarge(Bitmap bitmap, int maxSize) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        if (width <= maxSize && height <= maxSize) {
+            return bitmap; // no need to resize
+        }
+
+        float ratio = (float) width / height;
+        int newWidth, newHeight;
+
+        if (ratio > 1) {
+            newWidth = maxSize;
+            newHeight = (int) (maxSize / ratio);
+        } else {
+            newHeight = maxSize;
+            newWidth = (int) (maxSize * ratio);
+        }
+
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
     }
 
     public interface ImageSaveCallback {
