@@ -192,6 +192,7 @@ public class Post {
         heartButton.setChecked(likedBy.containsKey(currentUserId));
 
         if(offlinePost) {
+            heartButton.setAlpha(0.5f); // Make the heart button semi-transparent (greyed out)
             heartButton.setEnabled(false);
         }
         else {
@@ -244,6 +245,9 @@ public class Post {
                             if (newLikedBy != null) {
                                 likedBy = newLikedBy;
                             }
+
+                            LocalDatabase localDB = new LocalDatabase(activeFragment.requireContext());
+                            localDB.updatePostLikes(id, likes, likedBy);
                         } else {
                             if (error != null) {
                                 Log.e("TransactionError", "Transaction failed: " + error.getMessage());

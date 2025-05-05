@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-storage:20.3.0")
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.4")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")

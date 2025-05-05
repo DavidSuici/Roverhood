@@ -10,6 +10,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 
@@ -140,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
         if (progressBar != null && progressBar instanceof LinearProgressIndicator) {
             LinearProgressIndicator linearProgressBar = (LinearProgressIndicator) progressBar;
 
-            linearProgressBar.setMax(totalProgress - 1);
+            linearProgressBar.setMax(totalProgress);
 
             ValueAnimator progressAnimator = ValueAnimator.ofInt(linearProgressBar.getProgress(), currentProgress);
             progressAnimator.setDuration(500);
@@ -162,19 +163,54 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onAnimationEnd(android.animation.Animator animation) {
                     if (currentProgress >= totalProgress) {
-                        linearProgressBar.setVisibility(View.GONE);
+                        new Handler().postDelayed(() -> {
+                            ValueAnimator fadeOutAnimator = ValueAnimator.ofFloat(1f, 0f);
+                            fadeOutAnimator.setDuration(500);
+                            fadeOutAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                                @Override
+                                public void onAnimationUpdate(ValueAnimator animation) {
+                                    float alpha = (Float) animation.getAnimatedValue();
+                                    linearProgressBar.setAlpha(alpha);
+                                }
+                            });
+
+                            fadeOutAnimator.addListener(new android.animation.Animator.AnimatorListener() {
+                                @Override
+                                public void onAnimationStart(android.animation.Animator animation) {
+                                }
+
+                                @Override
+                                public void onAnimationEnd(android.animation.Animator animation) {
+                                    linearProgressBar.setVisibility(View.GONE);
+                                }
+
+                                @Override
+                                public void onAnimationCancel(android.animation.Animator animation) {
+                                }
+
+                                @Override
+                                public void onAnimationRepeat(android.animation.Animator animation) {
+                                }
+                            });
+
+                            fadeOutAnimator.start();
+
+                        }, 500);
                     }
                 }
 
                 @Override
                 public void onAnimationCancel(android.animation.Animator animation) {
+                    // Handle animation cancellation if needed
                 }
 
                 @Override
                 public void onAnimationRepeat(android.animation.Animator animation) {
+                    // Handle animation repeat if needed
                 }
             });
 
+            // Start the progress animation
             progressAnimator.start();
         }
     }
