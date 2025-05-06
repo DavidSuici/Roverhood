@@ -67,8 +67,6 @@ public class Post {
         this.likes = likes;
         this.likedBy = likedBy != null ? likedBy : new HashMap<>();
         this.offlinePost = offlinePost;
-
-        createPostContainer();
     }
 
     public View createUserView() {
@@ -134,30 +132,42 @@ public class Post {
         imageView.setAdjustViewBounds(true);
         imageView.setId(View.generateViewId());
 
-        if(offlinePost) {
-            Glide.with(activeFragment.requireContext())
-                    .load(new File(imageUrl))
-                    .placeholder(R.drawable.img_not_loaded)
-                    .override(Target.SIZE_ORIGINAL)
-                    .into(imageView);
-        }
-        else {
-            Glide.with(activeFragment.requireContext())
-                    .load(imageUrl)
-                    .placeholder(R.drawable.img_not_loaded)
-                    .override(Target.SIZE_ORIGINAL)
-                    .into(new CustomTarget<Drawable>() {
-                        @Override
-                        public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
-                            imageView.setImageDrawable(resource);
-                            imageLoaded = true;
-                        }
+        Object imageSource = offlinePost ? new File(imageUrl) : imageUrl;
 
-                        @Override
-                        public void onLoadCleared(@Nullable Drawable placeholder) {
-                        }
-                    });
-        }
+        Glide.with(activeFragment.requireContext())
+                .load(imageUrl)
+                .placeholder(R.drawable.img_not_loaded)
+                .override(Target.SIZE_ORIGINAL)
+                .into(new CustomTarget<Drawable>() {
+                    @Override
+                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                        imageView.setImageDrawable(resource);
+                        imageLoaded = true;
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                    }
+                });
+
+        Glide.with(activeFragment.requireContext())
+                .load(imageSource)
+                .placeholder(R.drawable.img_not_loaded)
+                .override(Target.SIZE_ORIGINAL)
+                .listener(new RequestListener<Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                        imageLoaded = true;
+                        return false; // Let Glide handle the placeholder
+                    }
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                        imageLoaded = true;
+                        return false; // Let Glide set the drawable
+                    }
+                })
+                .into(imageView);
 
         return imageView;
     }
