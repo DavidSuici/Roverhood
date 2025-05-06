@@ -18,6 +18,7 @@ import com.google.firebase.storage.UploadTask;
 
 import java.io.ByteArrayOutputStream;
 import java.util.UUID;
+import java.util.function.IntPredicate;
 
 public class ImageUtils {
 
@@ -74,7 +75,7 @@ public class ImageUtils {
         byte[] data = baos.toByteArray();
 
         String uniqueFileName = (fileNameHint != null && !fileNameHint.isEmpty() ? fileNameHint : "image")
-                + "_" + UUID.randomUUID().toString() + ".png";
+                + "_" + UUID.randomUUID().toString() + ".jpg";
 
         StorageReference storageRef = FirebaseStorage.getInstance()
                 .getReference()
@@ -122,9 +123,11 @@ public class ImageUtils {
     public static void saveImageToInternalStorage(Context context, String imageUrl, String fileName, ImageSaveCallback callback) {
         new Thread(() -> {
             try {
-                File file = new File(context.getFilesDir(), fileName);
+                String resolvedFileName = fileName.toLowerCase().endsWith(".jpg") ? fileName : fileName + ".jpg";
+
+                File file = new File(context.getFilesDir(), resolvedFileName);
                 if (file.exists()) {
-                    Log.d("ImageUtils", "File already exists, skipping download: " + fileName);
+                    Log.d("ImageUtils", "File already exists, skipping download: " + resolvedFileName);
                     callback.onSuccess(file.getAbsolutePath());
                     return;
                 }
@@ -142,11 +145,11 @@ public class ImageUtils {
                     return;
                 }
 
-                FileOutputStream fos = context.openFileOutput(fileName, Context.MODE_PRIVATE);
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                FileOutputStream fos = context.openFileOutput(resolvedFileName, Context.MODE_PRIVATE);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
                 fos.close();
 
-                checkAndHandleCorruptedImage(context, fileName);
+                checkAndHandleCorruptedImage(context, resolvedFileName);
 
                 callback.onSuccess(file.getAbsolutePath());
             } catch (Exception e) {
@@ -169,8 +172,9 @@ public class ImageUtils {
                 Log.e("ImageUtils", "Failed to delete the corrupted file: " + fileName);
             }
         } else {
-            // Optionally, run additional checks like checking for black pixels
-            if (isImageCorrupted(bitmap)) {
+            // Optionally, run additional checks like checking for white pixels
+            if (isImageCorrupted(bitmap, ImageUtils::isWhitePixel)
+                    || isImageCorrupted(bitmap, ImageUtils::isBlackPixel)) {
                 Log.e("ImageUtils", "Corrupted image detected, deleting file: " + fileName);
                 boolean deleted = file.delete();
                 if (deleted) {
@@ -182,48 +186,41 @@ public class ImageUtils {
         }
     }
 
-    private static boolean isImageCorrupted(Bitmap bitmap) {
+    private static boolean isImageCorrupted(Bitmap bitmap, IntPredicate pixelCheck) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-        int blackPixelCount = 0;
+        int matchPixelCount = 0;
 
-        // Calculate the threshold for 10% of the total pixels (based on height)
-        // Arbitrary number, I chose 10% because if its less, the image can stay
-        int threshold = (int) (height * 0.1);
+        int threshold = (int) (height * 0.15);  // 15% of height
 
-        boolean foundBlackPixel = false;
-
-        // Iterate over the pixels from the bottom row upwards (first 10% of the image)
         for (int y = height - 1; y >= height - threshold; y--) {
             for (int x = 0; x < width; x++) {
                 int pixel = bitmap.getPixel(x, y);
 
-                if (isBlackPixel(pixel)) {
-                    blackPixelCount++;
-                    foundBlackPixel = true;
-                } else if (foundBlackPixel) {
-                    // Stop counting if black pixels are no longer continuous
-                    break;
+                if (pixelCheck.test(pixel)) {
+                    matchPixelCount++;
+                } else {
+                    return false;
                 }
-            }
-
-            // If black pixels are counted for the first 10% of the image, and the count exceeds threshold, it's corrupted
-            if (blackPixelCount >= threshold) {
-                Log.d("ImageUtils", "Image is corrupted: 10% or more pixels are black and continuous.");
-                return true;
             }
         }
 
-        return false;  // Image is not corrupted
+        return matchPixelCount >= threshold;
     }
 
     private static boolean isBlackPixel(int pixel) {
-        int alpha = (pixel >> 24) & 0xff;
         int red = (pixel >> 16) & 0xff;
         int green = (pixel >> 8) & 0xff;
-        int blue = (pixel) & 0xff;
+        int blue = pixel & 0xff;
+        int threshold = 10;
+        return red < threshold && green < threshold && blue < threshold;
+    }
 
-        // Check for fully transparent pixel (Alpha = 0) or pure black pixel (RGB: 0, 0, 0)
-        return (alpha != 0) && (red == 0 && green == 0 && blue == 0);
+    private static boolean isWhitePixel(int pixel) {
+        int red = (pixel >> 16) & 0xff;
+        int green = (pixel >> 8) & 0xff;
+        int blue = pixel & 0xff;
+        int threshold = 245;
+        return red > threshold && green > threshold && blue > threshold;
     }
 }

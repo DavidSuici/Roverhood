@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -42,7 +43,7 @@ public class RoverFeed extends Fragment {
 
     // partial load
     private int postsLoadedCount = 0;
-    private final int POSTS_PER_PAGE = 3;
+    private final int POSTS_PER_PAGE = 5;
     private boolean isLoading = false;
 
     @Override
@@ -65,8 +66,6 @@ public class RoverFeed extends Fragment {
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
-
-
 
         return binding.getRoot();
     }
@@ -94,13 +93,17 @@ public class RoverFeed extends Fragment {
         });
 
         // Refresh on bottom
-        binding.scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> {
-            View scrollView = binding.scrollView.getChildAt(binding.scrollView.getChildCount() - 1);
-            int diff = scrollView.getBottom() - (binding.scrollView.getHeight() + binding.scrollView.getScrollY());
+        NestedScrollView scrollView = binding.scrollView;
+        scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> {
+            if (binding == null) return;
+
+            View contentView = scrollView.getChildAt(scrollView.getChildCount() - 1);
+            int diff = contentView.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
+
             if (diff <= 100 && !isLoading) {
-                if(isLoadingFirebasePosts == false) {
+                if (!isLoadingFirebasePosts && !binding.swipeRefresh.isRefreshing()) {
                     isLoading = true;
-                    drawMorePosts();
+                    waitThenDrawPosts();
                 }
             }
         });
@@ -159,20 +162,65 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
+    private void waitThenDrawPosts() {
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                int totalPosts = postMap.size();
+                if (isLoadingFirebasePosts && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
+                    new android.os.Handler().postDelayed(this, 500);
+                } else {
+                    drawMorePosts();
+                }
+            }
+        }, 100);
+    }
+
+    private List<Post> filterPosts(List<Post> allPosts) {
+        List<Post> filtered = new ArrayList<>();
+
+        for (Post post : allPosts) {
+            if (announcementsSwitch.isChecked()) {
+                if (post.isAnnouncement()) {
+                    filtered.add(post);
+                }
+            }
+            else {
+                filtered.add(post);
+            }
+
+        }
+
+        return filtered;
+    }
+
     private void drawMorePosts() {
         announcementsSwitch.setEnabled(false);
-        binding.loadingMoreProgress.setVisibility(View.VISIBLE);
-        int totalPosts = postMap.size();
+        List<Post> postList = new ArrayList<>(postMap.values());
+
+        // Sort List - TO_DO Implement fully
+        Collections.reverse(postList);
+
+        // Filter List - TO_DO Implement fully
+        List<Post> filteredList = filterPosts(postList);
+
+        int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
             binding.loadingMoreProgress.setVisibility(View.GONE);
+            announcementsSwitch.setEnabled(true);
             return;
         }
 
         LinearLayout linearLayout = binding.info;
-        List<Post> postList = new ArrayList<>(postMap.values());
-        Collections.reverse(postList); // newest first
+
 
         int nextLimit = Math.min(postsLoadedCount + POSTS_PER_PAGE, totalPosts);
+
+        for (int i = postsLoadedCount; i < nextLimit; i++) {
+            filteredList.get(i).createPostContainer();
+        }
+
+
 
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
@@ -180,23 +228,18 @@ public class RoverFeed extends Fragment {
 
                 boolean arePicturesLoading = false;
                 for (int i = postsLoadedCount; i < nextLimit; i++) {
-                    if (!postList.get(i).isImageLoaded()) {
+                    if (!filteredList.get(i).isImageLoaded()) {
                         arePicturesLoading = true;
                         break;
                     }
                 }
 
-                if (arePicturesLoading && isLoadingFirebasePosts) {
+                if (arePicturesLoading) {
                     new android.os.Handler().postDelayed(this, 500);
                 } else {
                     for (int i = postsLoadedCount; i < nextLimit; i++) {
-                        Post post = postList.get(i);
-                        if (announcementsSwitch.isChecked()) {
-                            if (post.isAnnouncement())
-                                linearLayout.addView(post.getPostContainer());
-                        } else {
+                        Post post = filteredList.get(i);
                             linearLayout.addView(post.getPostContainer());
-                        }
                     }
 
                     postsLoadedCount = nextLimit;
@@ -205,9 +248,11 @@ public class RoverFeed extends Fragment {
                     if (postsLoadedCount >= totalPosts) {
                         binding.loadingMoreProgress.setVisibility(View.GONE);
                     }
+                    binding.buttonLogOut.setEnabled(true);
+                    announcementsSwitch.setEnabled(true);
                 }
             }
-        }, 500);
+        }, 200);
     }
 
     private void populatePosts() {
@@ -336,9 +381,11 @@ public class RoverFeed extends Fragment {
                     if(!isLoadingFirebasePosts && !postMap.isEmpty()) {
                         postsLoadedCount = 0;
                         isLoading = true;
-                        drawMorePosts();
+                        waitThenDrawPosts();
                     }
+
                     finishRefresh();
+
                 }
             }
         }, 500);
@@ -351,15 +398,15 @@ public class RoverFeed extends Fragment {
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);
         }
+        binding.loadingMoreProgress.setVisibility(View.GONE);
     }
 
     private void finishRefresh() {
         binding.swipeRefresh.setRefreshing(false);
-        binding.buttonLogOut.setEnabled(true);
-        announcementsSwitch.setEnabled(true);
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(true);
         }
+        binding.loadingMoreProgress.setVisibility(View.VISIBLE);
     }
 
     private void syncPostsToLocalDB(Context context, Map<String, Post> postMap, LocalDatabase localDB) {
@@ -388,7 +435,6 @@ public class RoverFeed extends Fragment {
                     });
                     localDB.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
                 }
-
                 @Override
                 public void onFailure(Exception e) {
                     activity.runOnUiThread(() -> {
