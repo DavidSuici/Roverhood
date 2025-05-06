@@ -135,22 +135,6 @@ public class Post {
         Object imageSource = offlinePost ? new File(imageUrl) : imageUrl;
 
         Glide.with(activeFragment.requireContext())
-                .load(imageUrl)
-                .placeholder(R.drawable.img_not_loaded)
-                .override(Target.SIZE_ORIGINAL)
-                .into(new CustomTarget<Drawable>() {
-                    @Override
-                    public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
-                        imageView.setImageDrawable(resource);
-                        imageLoaded = true;
-                    }
-
-                    @Override
-                    public void onLoadCleared(@Nullable Drawable placeholder) {
-                    }
-                });
-
-        Glide.with(activeFragment.requireContext())
                 .load(imageSource)
                 .placeholder(R.drawable.img_not_loaded)
                 .override(Target.SIZE_ORIGINAL)
