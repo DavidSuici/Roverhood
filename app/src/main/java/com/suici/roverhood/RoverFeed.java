@@ -220,8 +220,6 @@ public class RoverFeed extends Fragment {
             filteredList.get(i).createPostContainer();
         }
 
-
-
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
