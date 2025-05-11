@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class Post {
-    private final Fragment activeFragment;
+    private Fragment activeFragment;
     private Long date;
     private User user;
     private String id;
@@ -188,6 +188,9 @@ public class Post {
         return Objects.equals(user.username, "admin");
     }
     public boolean isImageLoaded() { return imageLoaded; }
+
+    public ImageView getImageView() { return imageView; }
+    public void setFragment(Fragment fragment) { this.activeFragment = fragment; }
 
     public Long getDate() { return date; }
     public void setDate(Long date) { this.date = date; }

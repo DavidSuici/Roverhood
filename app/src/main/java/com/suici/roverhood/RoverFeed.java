@@ -1,14 +1,13 @@
 package com.suici.roverhood;
 
-import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -20,9 +19,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.suici.roverhood.databinding.RoverFeedBinding;
 
 import java.util.ArrayList;
@@ -33,20 +29,22 @@ import java.util.Map;
 
 public class RoverFeed extends Fragment {
     private RoverFeedBinding binding;
-    private Map<String, Post> postMap = new LinkedHashMap<>();
     private MainActivity activity;
     private MenuItem announcementsFilter;
     private SwitchCompat announcementsSwitch;
     private OnBackPressedCallback backCallback;
-    private boolean isLoadingFirebasePosts = false;
     private boolean offlineMode = false;
 
     private int postsLoadedCount = 0;
-    private final int POSTS_PER_PAGE = 5;
+    private final int POSTS_PER_PAGE = 10;
+    private final int PREFETCH_THRESHOLD = 5;
     private boolean isLoading = true;
 
     private PostAdapter postAdapter;
-    private List<Post> postList = new ArrayList<>();
+    private List<Post> visiblePostList = new ArrayList<>();
+    private List<Post> allPostList = new ArrayList<>();
+
+    private PostRepository postRepository;
 
     @Override
     public View onCreateView(
@@ -64,8 +62,7 @@ public class RoverFeed extends Fragment {
                 requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 setEnabled(true);
 
-                if(!isLoading)
-                    refreshFeed();
+                refreshFeed();
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
@@ -77,11 +74,12 @@ public class RoverFeed extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         activity = (MainActivity) requireActivity();
+        postRepository = new PostRepository(requireContext());
 
         // Initialize RecyclerView
         RecyclerView recyclerView = binding.recyclerView;
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        postAdapter = new PostAdapter(getContext(), postList);
+        postAdapter = new PostAdapter(getContext(), visiblePostList);
         recyclerView.setAdapter(postAdapter);
 
         // Add post - button logic
@@ -109,8 +107,10 @@ public class RoverFeed extends Fragment {
 
                 LinearLayoutManager linearLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
 
-                if (!isLoading && linearLayoutManager != null && linearLayoutManager.findLastCompletelyVisibleItemPosition() == postList.size()) {
-                    if (!isLoadingFirebasePosts && !binding.swipeRefresh.isRefreshing()) {
+                if (!isLoading && linearLayoutManager != null
+                        && linearLayoutManager.findLastCompletelyVisibleItemPosition()
+                        >= visiblePostList.size() - PREFETCH_THRESHOLD) {
+                    if (!postRepository.isLoading() && !binding.swipeRefresh.isRefreshing()) {
                         isLoading = true;
                         waitThenDrawPosts();
                     }
@@ -172,36 +172,6 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
-    private void waitThenDrawPosts() {
-        new android.os.Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                int totalPosts = postMap.size(); // add the filter logic here
-                if (isLoadingFirebasePosts && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
-                    new android.os.Handler().postDelayed(this, 100);
-                } else {
-                    // Filter List - TO_DO Implement fully
-                    List<Post> filteredList = filterPosts(new ArrayList<>(postMap.values()));
-                    Collections.reverse(filteredList);
-
-                    //Sync current posts
-                    if (!offlineMode) {
-                        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
-
-                        int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
-                        List<Post> sublist = filteredList.subList(postsLoadedCount, endIndex);
-
-                        new Thread(() -> {
-                            syncPostsToLocalDB(requireContext(), sublist, localDB);
-                        }).start();
-                    }
-
-                    drawMorePosts(filteredList);
-                }
-            }
-        }, 100);
-    }
-
     private List<Post> filterPosts(List<Post> allPosts) {
         List<Post> filtered = new ArrayList<>();
 
@@ -214,10 +184,35 @@ public class RoverFeed extends Fragment {
             else {
                 filtered.add(post);
             }
-
         }
 
         return filtered;
+    }
+
+    private void waitThenDrawPosts() {
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                int totalPosts = allPostList.size();
+                if (postRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
+                    new android.os.Handler().postDelayed(this, 100);
+                } else {
+                    // Filter List - TO_DO Implement fully
+                    List<Post> filteredList = filterPosts(allPostList);
+                    Collections.reverse(filteredList);
+
+                    //Sync current posts
+                    if (!offlineMode) {
+                        int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
+                        List<Post> sublist = filteredList.subList(postsLoadedCount, endIndex);
+
+                        new Thread(() -> { postRepository.syncPostsToLocalDB(sublist); }).start();
+                    }
+
+                    drawMorePosts(filteredList);
+                }
+            }
+        }, 100);
     }
 
     private void drawMorePosts(List<Post> filteredList) {
@@ -226,7 +221,7 @@ public class RoverFeed extends Fragment {
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
             postAdapter.setLoading(false);
-            announcementsSwitch.setEnabled(true);
+            finishDrawUI();
             return;
         }
 
@@ -251,158 +246,96 @@ public class RoverFeed extends Fragment {
                 if (arePicturesLoading) {
                     new android.os.Handler().postDelayed(this, 400);
                 } else {
-                    Log.d("PostLoadingDebug", "Success! Toate postarile sunt loaded: " + String.valueOf(arePicturesLoading));
+                    if(binding.swipeRefresh.isRefreshing()) {
+                        finishDrawUI();
+                        return;
+                    }
+                    // First batch of posts will refresh the list
                     if (postsLoadedCount == 0 && nextLimit > 0) {
-                        postList.clear();
-                        postList.addAll(filteredList.subList(0, nextLimit));
+                        visiblePostList.clear();
+                        visiblePostList.addAll(filteredList.subList(0, nextLimit));
                         postAdapter.notifyDataSetChanged();
                     }
+                    // Next ones will just add to existing list
                     else {
                         for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
                             Post post = filteredList.get(i);
-                            postList.add(post);
-                            postAdapter.notifyItemInserted(postList.size() - 1);
+                            visiblePostList.add(post);
+                            postAdapter.notifyItemInserted(visiblePostList.size() - 1);
                         }
                     }
 
                     postsLoadedCount = nextLimit;
-                    isLoading = false;
                     if (postsLoadedCount >= totalPosts) {
                         postAdapter.setLoading(false);
                     }
-                    binding.buttonLogOut.setEnabled(true);
-                    announcementsSwitch.setEnabled(true);
+
+                    finishDrawUI();
                 }
             }
         }, 400);
     }
 
-    private void populatePosts() {
-        // Should only have one ongoing Firebase request at a time
-        if(isLoadingFirebasePosts)
-            return;
-        else
-            isLoadingFirebasePosts = true;
-
-        DatabaseReference postsRef = FirebaseDatabase
-                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                .getReference("posts");
-
-        DatabaseReference usersRef = FirebaseDatabase
-                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                .getReference("users");
-
-        postMap.clear();
-
-        // Set a timeout, after which results will be dropped
-        final Handler timeoutHandler = new Handler();
-        boolean[] isTimeoutReached = {false};
-
-        timeoutHandler.postDelayed(() -> {
-            if (isLoadingFirebasePosts) {
-                isTimeoutReached[0] = true;
-                isLoadingFirebasePosts = false;
-            }
-        }, 10000);
-
-        postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
-            Log.d("FirebaseDebug", "Success! Post count: " + snapshot.getChildrenCount());
-            if (isTimeoutReached[0]) return;
-            // Cancel timeout if the request completes in time
-            timeoutHandler.removeCallbacksAndMessages(null);
-
-            if (!snapshot.hasChildren()) {
-                isLoadingFirebasePosts = false;
-                return;
-            }
-
-            List<DataSnapshot> snapshots = new ArrayList<>();
-            for (DataSnapshot postSnap : snapshot.getChildren()) {
-                snapshots.add(postSnap);
-            }
-            final int totalPosts = snapshots.size();
-            int[] loadedCount = {0};
-
-            // Fetch all posts
-            for (DataSnapshot postSnap : snapshots) {
-                String postId = postSnap.getKey();
-                Long date = postSnap.child("date").getValue(Long.class);
-                String description = postSnap.child("description").getValue(String.class);
-                String imageUrl = postSnap.child("imageUrl").getValue(String.class);
-                Integer likes = postSnap.child("likes").getValue(Integer.class);
-                Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
-                String userId = postSnap.child("userId").getValue(String.class);
-
-                if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
-                    loadedCount[0]++;
-                    continue;
-                }
-
-                // If finding the User from userId, add post to map
-                usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
-                    User user = userSnap.getValue(User.class);
-                    if (user != null) {
-                        user.setId(userId);
-                        Post post = new Post(RoverFeed.this, postId, date, user, description, imageUrl, likes, likedByMap, false);
-                        postMap.put(post.getId(), post);
-                    }
-                    loadedCount[0]++;
-                    if (loadedCount[0] == totalPosts) {
-                        isLoadingFirebasePosts = false;
-                        offlineMode = false;
-                    }
-                }).addOnFailureListener(e -> {
-                    loadedCount[0]++;
-                    if (loadedCount[0] == totalPosts) {
-                        isLoadingFirebasePosts = false;
-                    }
-                });
-            }
-        }).addOnFailureListener(e -> {
-            Log.e("FirebaseDebug", "Failed to get posts", e);
-            isLoadingFirebasePosts = false;
-        });
+    private void finishDrawUI() {
+        isLoading = false;
+        announcementsSwitch.setEnabled(true);
+        binding.buttonLogOut.setEnabled(true);
     }
 
     private void refreshFeed() {
-        disableUI();
+        startRefreshUI();
 
-        postList.clear();
+        visiblePostList.clear();
         postAdapter.notifyDataSetChanged();
 
-        populatePosts();
+        postRepository.loadPosts(new PostRepository.PostRepositoryCallback() {
+            @Override
+            public void onPostsLoaded(List<Post> posts, boolean isOffline) {
+                if (isOffline) {
+                    Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_LONG).show();
+                    Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(posts.size()));
+                } else {
+                    Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(posts.size()));
+                }
+
+                offlineMode = isOffline;
+                allPostList.clear();
+                allPostList.addAll(posts);
+
+                for (Post post : allPostList) {
+                    post.setFragment(RoverFeed.this);
+                }
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
+            }
+        });
 
         final int[] counter = {0};
 
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                // Increment counter each time the Runnable is executed
                 counter[0]++;
-
-                if ((isLoadingFirebasePosts) && counter[0] < 20) {
-                    // Continue the recurrency, but stop after 20 iterations = 10s
+                // Continue the recurrency, but stop after 20 iterations = 10s
+                if (postRepository.isLoading() && counter[0] < 20) {
                     new android.os.Handler().postDelayed(this, 500);
                 } else {
-                    // If timeout, go offline mode
-                    if (counter[0] >= 20) {
-                        Toast.makeText(requireContext(), "Displaying offline", Toast.LENGTH_LONG).show();
-                        populateOfflinePosts();
-                        offlineMode = true;
-                    }
-                    if(!isLoadingFirebasePosts && !postMap.isEmpty()) {
+                    if(!postRepository.isLoading() && !allPostList.isEmpty()) {
                         postsLoadedCount = 0;
                         isLoading = true;
                         waitThenDrawPosts();
                     }
 
-                    finishRefresh();
+                    finishRefreshUI();
                 }
             }
         }, 500);
     }
 
-    private void disableUI() {
+    private void startRefreshUI() {
         binding.buttonLogOut.setEnabled(false);
         announcementsSwitch.setEnabled(false);
         binding.swipeRefresh.setRefreshing(true);
@@ -412,53 +345,11 @@ public class RoverFeed extends Fragment {
         postAdapter.setLoading(false);
     }
 
-    private void finishRefresh() {
+    private void finishRefreshUI() {
         binding.swipeRefresh.setRefreshing(false);
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(true);
         }
         postAdapter.setLoading(true);
-    }
-
-    private void syncPostsToLocalDB(Context context, List<Post> postsToSync, LocalDatabase localDB) {
-        activity.runOnUiThread(() -> {
-            if (ImageUtils.getLoadedImageCount() >= ImageUtils.getTotalImageCount()) {
-                ImageUtils.setLoadedImageCount(0);
-                ImageUtils.setTotalImageCount(0);
-            }
-        });
-
-        for (Post post : postsToSync) {
-            String userId = post.getUser().getId();
-            String fileName = post.getId();
-            String imageUrl = post.getImageUrl();
-
-            activity.runOnUiThread(() -> {
-                ImageUtils.incrementProgressBarMax();
-            });
-
-            ImageUtils.saveImageToInternalStorage(context, imageUrl, fileName, new ImageUtils.ImageSaveCallback() {
-                @Override
-                public void onSuccess(String imagePath) {
-                    Log.d("LocalSync", "Image saved at: " + imagePath);
-                    activity.runOnUiThread(() -> {
-                        ImageUtils.incrementProgressBar();
-                    });
-                    localDB.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
-                }
-                @Override
-                public void onFailure(Exception e) {
-                    activity.runOnUiThread(() -> {
-                        ImageUtils.incrementProgressBar();
-                    });
-                    Log.e("LocalSync", "Failed to save image for post " + post.getId(), e);
-                }
-            });
-        }
-    }
-
-    private void populateOfflinePosts () {
-        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
-        postMap = localDB.getAllOfflinePosts(RoverFeed.this, localDB.getAllUsers());
     }
 }
