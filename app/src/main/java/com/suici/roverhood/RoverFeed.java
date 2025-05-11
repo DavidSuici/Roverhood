@@ -9,15 +9,15 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
-import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.firebase.database.DataSnapshot;
@@ -32,19 +32,21 @@ import java.util.List;
 import java.util.Map;
 
 public class RoverFeed extends Fragment {
-
     private RoverFeedBinding binding;
-    Map<String, Post> postMap = new LinkedHashMap<>();
-    MainActivity activity;
-    MenuItem announcementsFilter;
-    SwitchCompat announcementsSwitch;
+    private Map<String, Post> postMap = new LinkedHashMap<>();
+    private MainActivity activity;
+    private MenuItem announcementsFilter;
+    private SwitchCompat announcementsSwitch;
     private OnBackPressedCallback backCallback;
     private boolean isLoadingFirebasePosts = false;
+    private boolean offlineMode = false;
 
-    // partial load
     private int postsLoadedCount = 0;
     private final int POSTS_PER_PAGE = 5;
-    private boolean isLoading = false;
+    private boolean isLoading = true;
+
+    private PostAdapter postAdapter;
+    private List<Post> postList = new ArrayList<>();
 
     @Override
     public View onCreateView(
@@ -62,7 +64,8 @@ public class RoverFeed extends Fragment {
                 requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 setEnabled(true);
 
-                refreshFeed();
+                if(!isLoading)
+                    refreshFeed();
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
@@ -74,6 +77,12 @@ public class RoverFeed extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         activity = (MainActivity) requireActivity();
+
+        // Initialize RecyclerView
+        RecyclerView recyclerView = binding.recyclerView;
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        postAdapter = new PostAdapter(getContext(), postList);
+        recyclerView.setAdapter(postAdapter);
 
         // Add post - button logic
         if (activity.getFloatingButton() != null) {
@@ -93,17 +102,18 @@ public class RoverFeed extends Fragment {
         });
 
         // Refresh on bottom
-        NestedScrollView scrollView = binding.scrollView;
-        scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> {
-            if (binding == null) return;
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
 
-            View contentView = scrollView.getChildAt(scrollView.getChildCount() - 1);
-            int diff = contentView.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
+                LinearLayoutManager linearLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
 
-            if (diff <= 100 && !isLoading) {
-                if (!isLoadingFirebasePosts && !binding.swipeRefresh.isRefreshing()) {
-                    isLoading = true;
-                    waitThenDrawPosts();
+                if (!isLoading && linearLayoutManager != null && linearLayoutManager.findLastCompletelyVisibleItemPosition() == postList.size()) {
+                    if (!isLoadingFirebasePosts && !binding.swipeRefresh.isRefreshing()) {
+                        isLoading = true;
+                        waitThenDrawPosts();
+                    }
                 }
             }
         });
@@ -166,11 +176,27 @@ public class RoverFeed extends Fragment {
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                int totalPosts = postMap.size();
+                int totalPosts = postMap.size(); // add the filter logic here
                 if (isLoadingFirebasePosts && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
-                    new android.os.Handler().postDelayed(this, 500);
+                    new android.os.Handler().postDelayed(this, 100);
                 } else {
-                    drawMorePosts();
+                    // Filter List - TO_DO Implement fully
+                    List<Post> filteredList = filterPosts(new ArrayList<>(postMap.values()));
+                    Collections.reverse(filteredList);
+
+                    //Sync current posts
+                    if (!offlineMode) {
+                        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
+
+                        int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
+                        List<Post> sublist = filteredList.subList(postsLoadedCount, endIndex);
+
+                        new Thread(() -> {
+                            syncPostsToLocalDB(requireContext(), sublist, localDB);
+                        }).start();
+                    }
+
+                    drawMorePosts(filteredList);
                 }
             }
         }, 100);
@@ -194,30 +220,20 @@ public class RoverFeed extends Fragment {
         return filtered;
     }
 
-    private void drawMorePosts() {
+    private void drawMorePosts(List<Post> filteredList) {
         announcementsSwitch.setEnabled(false);
-        List<Post> postList = new ArrayList<>(postMap.values());
-
-        // Sort List - TO_DO Implement fully
-        Collections.reverse(postList);
-
-        // Filter List - TO_DO Implement fully
-        List<Post> filteredList = filterPosts(postList);
 
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
-            binding.loadingMoreProgress.setVisibility(View.GONE);
+            postAdapter.setLoading(false);
             announcementsSwitch.setEnabled(true);
             return;
         }
 
-        LinearLayout linearLayout = binding.info;
-
-
         int nextLimit = Math.min(postsLoadedCount + POSTS_PER_PAGE, totalPosts);
 
         for (int i = postsLoadedCount; i < nextLimit; i++) {
-            filteredList.get(i).createPostContainer();
+            filteredList.get(i).createImage();
         }
 
         new android.os.Handler().postDelayed(new Runnable() {
@@ -225,7 +241,7 @@ public class RoverFeed extends Fragment {
             public void run() {
 
                 boolean arePicturesLoading = false;
-                for (int i = postsLoadedCount; i < nextLimit; i++) {
+                for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
                     if (!filteredList.get(i).isImageLoaded()) {
                         arePicturesLoading = true;
                         break;
@@ -233,24 +249,32 @@ public class RoverFeed extends Fragment {
                 }
 
                 if (arePicturesLoading) {
-                    new android.os.Handler().postDelayed(this, 500);
+                    new android.os.Handler().postDelayed(this, 400);
                 } else {
-                    for (int i = postsLoadedCount; i < nextLimit; i++) {
-                        Post post = filteredList.get(i);
-                            linearLayout.addView(post.getPostContainer());
+                    Log.d("PostLoadingDebug", "Success! Toate postarile sunt loaded: " + String.valueOf(arePicturesLoading));
+                    if (postsLoadedCount == 0 && nextLimit > 0) {
+                        postList.clear();
+                        postList.addAll(filteredList.subList(0, nextLimit));
+                        postAdapter.notifyDataSetChanged();
+                    }
+                    else {
+                        for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
+                            Post post = filteredList.get(i);
+                            postList.add(post);
+                            postAdapter.notifyItemInserted(postList.size() - 1);
+                        }
                     }
 
                     postsLoadedCount = nextLimit;
                     isLoading = false;
-                    announcementsSwitch.setEnabled(true);
                     if (postsLoadedCount >= totalPosts) {
-                        binding.loadingMoreProgress.setVisibility(View.GONE);
+                        postAdapter.setLoading(false);
                     }
                     binding.buttonLogOut.setEnabled(true);
                     announcementsSwitch.setEnabled(true);
                 }
             }
-        }, 200);
+        }, 400);
     }
 
     private void populatePosts() {
@@ -325,6 +349,7 @@ public class RoverFeed extends Fragment {
                     loadedCount[0]++;
                     if (loadedCount[0] == totalPosts) {
                         isLoadingFirebasePosts = false;
+                        offlineMode = false;
                     }
                 }).addOnFailureListener(e -> {
                     loadedCount[0]++;
@@ -342,13 +367,9 @@ public class RoverFeed extends Fragment {
     private void refreshFeed() {
         disableUI();
 
-        LinearLayout postLayout = binding.info;
-        postLayout.removeAllViews();
+        postList.clear();
+        postAdapter.notifyDataSetChanged();
 
-        //TO_DO still show post if URL is empty from DB
-        //TO_DO only load 10 at a time
-        //TO_DO use RecyclerView instead of LinearLayout to save performance
-        //TO_DO disable add posts when not online
         populatePosts();
 
         final int[] counter = {0};
@@ -367,14 +388,7 @@ public class RoverFeed extends Fragment {
                     if (counter[0] >= 20) {
                         Toast.makeText(requireContext(), "Displaying offline", Toast.LENGTH_LONG).show();
                         populateOfflinePosts();
-                    }
-                    // If posts are ready, sync them to offline in another thread
-                    // TO_DO Maybe wait in refresh until this is done as well?
-                    else {
-                        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
-                        new Thread(() -> {
-                            syncPostsToLocalDB(requireContext(), postMap, localDB);
-                        }).start();
+                        offlineMode = true;
                     }
                     if(!isLoadingFirebasePosts && !postMap.isEmpty()) {
                         postsLoadedCount = 0;
@@ -383,7 +397,6 @@ public class RoverFeed extends Fragment {
                     }
 
                     finishRefresh();
-
                 }
             }
         }, 500);
@@ -396,7 +409,7 @@ public class RoverFeed extends Fragment {
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);
         }
-        binding.loadingMoreProgress.setVisibility(View.GONE);
+        postAdapter.setLoading(false);
     }
 
     private void finishRefresh() {
@@ -404,10 +417,10 @@ public class RoverFeed extends Fragment {
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(true);
         }
-        binding.loadingMoreProgress.setVisibility(View.VISIBLE);
+        postAdapter.setLoading(true);
     }
 
-    private void syncPostsToLocalDB(Context context, Map<String, Post> postMap, LocalDatabase localDB) {
+    private void syncPostsToLocalDB(Context context, List<Post> postsToSync, LocalDatabase localDB) {
         activity.runOnUiThread(() -> {
             if (ImageUtils.getLoadedImageCount() >= ImageUtils.getTotalImageCount()) {
                 ImageUtils.setLoadedImageCount(0);
@@ -415,7 +428,7 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        for (Post post : postMap.values()) {
+        for (Post post : postsToSync) {
             String userId = post.getUser().getId();
             String fileName = post.getId();
             String imageUrl = post.getImageUrl();
@@ -447,19 +460,5 @@ public class RoverFeed extends Fragment {
     private void populateOfflinePosts () {
         LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         postMap = localDB.getAllOfflinePosts(RoverFeed.this, localDB.getAllUsers());
-    }
-
-    // Add empty space at the end of layout so "Add post" button is not resting on a post image, blocking it
-    private View createEndView() {
-        float density = requireContext().getResources().getDisplayMetrics().density;
-        int dp = (int) (density);
-
-        View endView = new View(requireContext());
-        endView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                100*dp)
-        );
-
-        return endView;
     }
 }
