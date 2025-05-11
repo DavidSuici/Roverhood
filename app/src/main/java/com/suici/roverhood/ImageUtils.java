@@ -22,15 +22,11 @@ import java.util.function.IntPredicate;
 
 public class ImageUtils {
 
-    //imparte in download upload si loadingBar
-
     static int loadedImageCount = 0;
     static int totalImageCount = 0;
 
     public static int getLoadedImageCount() { return loadedImageCount; }
-    public static void setLoadedImageCount(int nr) {
-        loadedImageCount = nr;
-    }
+    public static void setLoadedImageCount(int nr) { loadedImageCount = nr; }
     public static int getTotalImageCount() { return totalImageCount; }
     public static void setTotalImageCount(int nr) { totalImageCount = nr; }
 
@@ -38,6 +34,7 @@ public class ImageUtils {
         loadedImageCount++;
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
+            Log.d("PostDebug", "incrementProgressBar Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
                 activity.updateProgressBar(loadedImageCount, totalImageCount);
             });
@@ -48,6 +45,7 @@ public class ImageUtils {
         totalImageCount++;
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
+            Log.d("PostDebug", "incrementProgressBarMax Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
                 activity.updateProgressBar(loadedImageCount, totalImageCount);
             });
