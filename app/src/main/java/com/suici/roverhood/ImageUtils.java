@@ -22,6 +22,8 @@ import java.util.function.IntPredicate;
 
 public class ImageUtils {
 
+    //imparte in download upload si loadingBar
+
     static int loadedImageCount = 0;
     static int totalImageCount = 0;
 

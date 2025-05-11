@@ -53,7 +53,6 @@ dependencies {
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.4")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
-//    implementation(libs.play.services.auth)
-//    implementation(libs.google.api.client.android)
-//    implementation(libs.google.api.services.photoslibrary)
+    implementation ("androidx.recyclerview:recyclerview:1.2.1")
+    implementation ("androidx.cardview:cardview:1.0.0")
 }

@@ -20,6 +20,13 @@ public class User {
     public void setId(String id) {
         this.id = id;
     }
-
     public String getId() { return id; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
+    public String getUsername() { return username; }
+    public void setTeam(String team) { this.team = team; }
+    public String getTeam() { return team; }
+    public void setUserType(String userType) { this.userType = userType; }
+    public String getUserType() { return userType; }
 }
