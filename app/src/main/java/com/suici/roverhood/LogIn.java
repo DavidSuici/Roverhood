@@ -96,19 +96,6 @@ public class LogIn extends Fragment {
 
     @Override
     public void onDestroyView() {
-        // Set announcement filter to false
-        MainActivity activity = (MainActivity) requireActivity();
-        Menu menu = activity.getOptionsMenu();
-        if (menu != null) {
-            MenuItem item = menu.findItem(R.id.checkable_menu);
-            if (item != null && item.getActionView() != null) {
-                SwitchCompat announcementsFilter = item.getActionView().findViewById(R.id.switch2);
-                if (announcementsFilter != null) {
-                    announcementsFilter.setChecked(false);
-                }
-            }
-        }
-
         super.onDestroyView();
         binding = null;
     }

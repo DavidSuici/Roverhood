@@ -4,9 +4,9 @@
     tools:context="com.suici.roverhood.MainActivity">
 
     <item
-        android:id="@+id/checkable_menu"
-        android:title="Switch"
-        app:actionLayout="@layout/use_switch"
-        app:showAsAction="always"
-        android:visible="false"/>
+        android:id="@+id/filters"
+        android:title="Filters"
+        android:icon="@drawable/filter_list"
+        android:visible="false"
+        app:showAsAction="always" />
 </menu>

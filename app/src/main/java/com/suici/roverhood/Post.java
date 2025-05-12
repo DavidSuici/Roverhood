@@ -2,7 +2,9 @@ package com.suici.roverhood;
 
 import android.graphics.drawable.Drawable;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -16,6 +18,7 @@ import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
+import com.google.android.material.color.MaterialColors;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -36,13 +39,14 @@ public class Post {
     private String imageUrl;
     private int likes;
     private Map<String, Boolean> likedBy;
+    private boolean announcement;
     private boolean offlinePost;
 
     private ImageView imageView;
     private boolean imageLoaded = false;
 
 
-    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean offlinePost) {
+    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, Boolean offlinePost) {
         this.id = id;
         this.activeFragment = fragment;
         this.date = date;
@@ -51,10 +55,41 @@ public class Post {
         this.imageUrl = imageUrl;
         this.likes = likes;
         this.likedBy = likedBy != null ? likedBy : new HashMap<>();
+        this.announcement = announcement;
         this.offlinePost = offlinePost;
     }
 
-    // will have to move the logic
+    public void setFlair(View flair) {
+        User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
+
+        if (Objects.equals(currentUser.getId(), user.getId())) {
+            int primaryColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorPrimary);
+            flair.setBackgroundColor(primaryColor);
+        } else if (Objects.equals(currentUser.getTeam(), user.getTeam())) {
+            int accentColor = activeFragment.requireContext().getResources().getColor(R.color.blue_accent, null);
+            flair.setBackgroundColor(accentColor);
+        } else {
+            int secondaryColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorSecondary);
+            flair.setBackgroundColor(secondaryColor);
+        }
+    }
+
+    public void setAnnouncementFlair(View announcementFlair, View flair, TextView userType) {
+        if(isAnnouncement()) {
+            announcementFlair.setVisibility(View.VISIBLE);
+            flair.setVisibility(View.GONE);
+            int amberColor = userType.getContext().getResources().getColor(R.color.announcements_amber, userType.getContext().getTheme());
+            userType.setTextColor(amberColor);
+            userType.setText("ANNOUNCEMENT");
+        }
+        else {
+            announcementFlair.setVisibility(View.GONE);
+            flair.setVisibility(View.VISIBLE);
+            int defaultColor = MaterialColors.getColor(userType, com.google.android.material.R.attr.colorOnSurface);
+            userType.setTextColor(defaultColor);
+        }
+    }
+
     public void createImage() {
         imageView = new ImageView(activeFragment.requireContext());
         imageView.setAdjustViewBounds(true);
@@ -83,6 +118,8 @@ public class Post {
 
     public void loadLikeButton(CheckBox heartButton, TextView heartNrView) {
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
+        heartButton.setOnCheckedChangeListener(null);
+
         if (likedBy != null)
             heartButton.setChecked(likedBy.containsKey(currentUserId));
         else
@@ -171,6 +208,8 @@ public class Post {
         TextView itemHeartNr = itemView.findViewById(R.id.heartNr);
         ImageView itemImage = itemView.findViewById(R.id.image);
         CheckBox itemHeart = itemView.findViewById(R.id.heart);
+        View flair = itemView.findViewById(R.id.flair);
+        View announcementFlair = itemView.findViewById(R.id.announcementFlair);
 
         // Populate the views
         itemUser.setText(this.getUser().getUsername());
@@ -180,13 +219,14 @@ public class Post {
         itemDescription.setText(this.getDescription());
         itemHeartNr.setText(String.valueOf(this.getLikes()));
         itemImage.setImageDrawable(imageView.getDrawable());
+        itemHeart.setChecked(likedBy.containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
         loadLikeButton(itemHeart, itemHeartNr);
+        setFlair(flair);
+        setAnnouncementFlair(announcementFlair, flair, itemUserType);
     }
 
     // TO_DO Change when proper filters are implemented
-    public boolean isAnnouncement() {
-        return Objects.equals(user.username, "admin");
-    }
+    public boolean isAnnouncement() { return announcement; }
     public boolean isImageLoaded() { return imageLoaded; }
 
     public ImageView getImageView() { return imageView; }

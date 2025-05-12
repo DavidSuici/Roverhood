@@ -1,6 +1,5 @@
 package com.suici.roverhood;
 
-import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -10,12 +9,12 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
@@ -25,7 +24,6 @@ import com.suici.roverhood.databinding.ActivityMainBinding;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
-import android.widget.ProgressBar;
 
 import com.jakewharton.threetenabp.AndroidThreeTen;
 
@@ -96,15 +94,27 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
-        MenuItem checkable = menu.findItem(R.id.checkable_menu);
-        checkable.setActionView(R.layout.use_switch);
         optionsMenu = menu;
         return true;
     }
 
-    // Restart app if theme is changed - used to crash, or enter e state with uninitialised variables
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.filters) {
+            NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+            if (navHostFragment != null) {
+                RoverFeed fragment = (RoverFeed) navHostFragment.getChildFragmentManager().getFragments().get(0);
+                if (fragment != null) {
+                    fragment.openFiltersDialog();
+                }
+            }
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    // Restart app if theme is changed - used to crash, or enter a state with uninitialised variables
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        tools:context=".AddPost">
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Filters"
+            android:textColor="?attr/colorPrimary"
+            android:textStyle="bold"
+            android:textSize="24sp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintWidth_percent="0.9" />
+
+        <!-- User ID Label -->
+        <TextView
+            android:id="@+id/labelUserId"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="User ID:"
+            android:textSize="16sp"
+            android:layout_marginTop="30dp"
+            android:layout_marginStart="16dp"
+            android:gravity="end"
+            app:layout_constraintTop_toBottomOf="@id/titleText"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintWidth_percent="0.4" />
+
+        <!-- User ID Searchable Spinner -->
+        <AutoCompleteTextView
+            android:id="@+id/userIdSearch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Search User ID"
+            app:layout_constraintTop_toTopOf="@id/labelUserId"
+            app:layout_constraintBottom_toBottomOf="@id/labelUserId"
+            app:layout_constraintLeft_toRightOf="@id/labelUserId"
+            app:layout_constraintWidth_percent="0.5"
+            android:inputType="text" />
+
+        <!-- Team ID Label -->
+        <TextView
+            android:id="@+id/labelTeamId"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Team ID:"
+            android:textSize="16sp"
+            android:layout_marginTop="30dp"
+            android:layout_marginStart="16dp"
+            android:gravity="end"
+            app:layout_constraintTop_toBottomOf="@id/labelUserId"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintWidth_percent="0.4" />
+
+        <!-- Team ID Searchable Spinner -->
+        <AutoCompleteTextView
+            android:id="@+id/teamIdSearch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Search Team ID"
+            app:layout_constraintTop_toTopOf="@id/labelTeamId"
+            app:layout_constraintBottom_toBottomOf="@id/labelTeamId"
+            app:layout_constraintLeft_toRightOf="@id/labelTeamId"
+            app:layout_constraintWidth_percent="0.5"
+            android:inputType="text" />
+
+        <!-- Minimum Likes Label -->
+        <TextView
+            android:id="@+id/labelMinLikes"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Minimum Likes:"
+            android:textSize="16sp"
+            android:layout_marginTop="30dp"
+            android:layout_marginStart="16dp"
+            android:gravity="end"
+            app:layout_constraintTop_toBottomOf="@id/labelTeamId"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintWidth_percent="0.4" />
+
+        <!-- Minimum Likes Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            app:layout_constraintTop_toTopOf="@id/labelMinLikes"
+            app:layout_constraintBottom_toBottomOf="@id/labelMinLikes"
+            app:layout_constraintLeft_toRightOf="@id/labelMinLikes"
+            app:layout_constraintWidth_percent="0.4"
+            android:hint="Minimum Likes">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/minLikesInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="6" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Only Liked Posts Label -->
+        <TextView
+            android:id="@+id/labelOnlyLiked"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Only Liked Posts:"
+            android:textSize="16sp"
+            android:layout_marginTop="30dp"
+            android:layout_marginStart="16dp"
+            android:gravity="end"
+            app:layout_constraintTop_toBottomOf="@id/labelMinLikes"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintWidth_percent="0.55" />
+
+        <!-- OnlyLiked Toggle -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchOnlyLiked"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="@id/labelOnlyLiked"
+            app:layout_constraintBottom_toBottomOf="@id/labelOnlyLiked"
+            app:layout_constraintLeft_toRightOf="@id/labelOnlyLiked" />
+
+        <!-- Announcements Label -->
+        <TextView
+            android:id="@+id/labelAnnouncements"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Announcements Only:"
+            android:textSize="16sp"
+            android:layout_marginTop="30dp"
+            android:layout_marginStart="16dp"
+            android:gravity="end"
+            app:layout_constraintTop_toBottomOf="@id/labelOnlyLiked"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintWidth_percent="0.55"/>
+
+        <!-- Announcements Toggle -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchAnnouncements"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="@id/labelAnnouncements"
+            app:layout_constraintBottom_toBottomOf="@id/labelAnnouncements"
+            app:layout_constraintLeft_toRightOf="@id/labelAnnouncements" />
+
+        <Button
+            android:id="@+id/saveFiltersButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Save Filter Settings"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/labelAnnouncements"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintWidth_percent="0.9" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            app:layout_constraintTop_toBottomOf="@id/saveFiltersButton"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

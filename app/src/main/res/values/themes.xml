@@ -4,6 +4,11 @@
         <!-- Customize your light theme here. -->
         <item name="android:textColorPrimary">@color/purple</item>
         <item name="android:colorPrimary">@color/light_purple</item>
+        <item name="android:colorAccent">@color/purple</item>
+
+        <item name="colorPrimary">@color/purple</item>
+        <item name="colorSecondary">@color/light_purple</item>
+
     </style>
 
     <style name="Theme.Roverhood" parent="Base.Theme.Roverhood" />
