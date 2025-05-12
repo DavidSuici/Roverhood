@@ -7,12 +7,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -23,15 +21,12 @@ import com.suici.roverhood.databinding.RoverFeedBinding;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class RoverFeed extends Fragment {
     private RoverFeedBinding binding;
     private MainActivity activity;
-    private MenuItem announcementsFilter;
-    private SwitchCompat announcementsSwitch;
+    private MenuItem filterButton;
     private OnBackPressedCallback backCallback;
     private boolean offlineMode = false;
 
@@ -118,20 +113,13 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        // Announcements - check button logic
+        // Filters - button logic
         view.post(() -> {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
-                announcementsFilter = optionsMenu.findItem(R.id.checkable_menu);
-                if (announcementsFilter != null && announcementsFilter.getActionView() != null) {
-                    announcementsFilter.setVisible(true);
-                    announcementsSwitch = (SwitchCompat) announcementsFilter.getActionView().findViewById(R.id.switch2);
-                    if (announcementsSwitch != null) {
-                        // Refresh feed when checked
-                        announcementsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> refreshFeed());
-                        // Refresh feed for the first load
-                        refreshFeed();
-                    }
+                filterButton = optionsMenu.findItem(R.id.filters);
+                if (filterButton != null) {
+                    filterButton.setVisible(true);
                 }
             }
         });
@@ -147,18 +135,17 @@ public class RoverFeed extends Fragment {
         SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
         swipeRefreshLayout.setProgressViewOffset(true, 100, 250);
         swipeRefreshLayout.setOnRefreshListener(this::refreshFeed);
+
+        // Refresh feed for the first load
+        FilterOptions.resetFilters();
+        refreshFeed();
     }
 
     @Override
     public void onDestroyView() {
-        if (announcementsSwitch != null) {
-            announcementsSwitch.setOnCheckedChangeListener(null);
-            announcementsSwitch = null;
-        }
-
-        if (announcementsFilter != null) {
-            announcementsFilter.setVisible(false);
-            announcementsFilter = null;
+        if (filterButton != null) {
+            filterButton.setVisible(false);
+            filterButton = null;
         }
 
         if (activity.getFloatingButton() != null) {
@@ -172,18 +159,23 @@ public class RoverFeed extends Fragment {
         binding = null;
     }
 
+    public void openFiltersDialog() {
+        FilterSelector filterSelectorFragment = new FilterSelector();
+        filterSelectorFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
+    }
+
     private List<Post> filterPosts(List<Post> allPosts) {
         List<Post> filtered = new ArrayList<>();
 
         for (Post post : allPosts) {
-            if (announcementsSwitch.isChecked()) {
-                if (post.isAnnouncement()) {
-                    filtered.add(post);
-                }
-            }
-            else {
+//            if (announcementsSwitch.isChecked()) {
+//                if (post.isAnnouncement()) {
+//                    filtered.add(post);
+//                }
+//            }
+//            else {
                 filtered.add(post);
-            }
+//            }
         }
 
         return filtered;
@@ -216,7 +208,7 @@ public class RoverFeed extends Fragment {
     }
 
     private void drawMorePosts(List<Post> filteredList) {
-        announcementsSwitch.setEnabled(false);
+        //announcementsSwitch.setEnabled(false);
 
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
@@ -278,7 +270,7 @@ public class RoverFeed extends Fragment {
 
     private void finishDrawUI() {
         isLoading = false;
-        announcementsSwitch.setEnabled(true);
+        //announcementsSwitch.setEnabled(true);
         binding.buttonLogOut.setEnabled(true);
     }
 
@@ -323,7 +315,7 @@ public class RoverFeed extends Fragment {
                 if (postRepository.isLoading() && counter[0] < 20) {
                     new android.os.Handler().postDelayed(this, 500);
                 } else {
-                    if(!postRepository.isLoading() && !allPostList.isEmpty()) {
+                    if(!postRepository.isLoading()) {
                         postsLoadedCount = 0;
                         isLoading = true;
                         waitThenDrawPosts();
@@ -337,7 +329,7 @@ public class RoverFeed extends Fragment {
 
     private void startRefreshUI() {
         binding.buttonLogOut.setEnabled(false);
-        announcementsSwitch.setEnabled(false);
+        //announcementsSwitch.setEnabled(false);
         binding.swipeRefresh.setRefreshing(true);
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);

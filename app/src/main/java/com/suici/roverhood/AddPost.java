@@ -165,6 +165,7 @@ public class AddPost extends DialogFragment {
         postMap.put("imageUrl", imageUrl);
         postMap.put("likedBy", likedByMap);
         postMap.put("likes", 1);
+        postMap.put("announcement", false); //edit later
         postMap.put("userId", userId);
 
         postsRef.child(postId).runTransaction(new Transaction.Handler() {

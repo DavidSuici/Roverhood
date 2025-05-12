@@ -75,6 +75,7 @@ public class PostRepository {
                 String imageUrl = postSnap.child("imageUrl").getValue(String.class);
                 Integer likes = postSnap.child("likes").getValue(Integer.class);
                 Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
+                Boolean announcement = postSnap.child("announcement").getValue(Boolean.class);
                 String userId = postSnap.child("userId").getValue(String.class);
 
                 if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
@@ -86,7 +87,7 @@ public class PostRepository {
                     User user = userSnap.getValue(User.class);
                     if (user != null) {
                         user.setId(userId);
-                        Post post = new Post(null, postId, date, user, description, imageUrl, likes, likedByMap, false);
+                        Post post = new Post(null, postId, date, user, description, imageUrl, likes, likedByMap, announcement, false);
                         posts.add(post);
                     }
                     loadedCount[0]++;
@@ -103,7 +104,6 @@ public class PostRepository {
                 });
             }
         }).addOnFailureListener(e -> {
-            Log.e("FirebaseDebug", "Failed to get posts", e);
             callback.onPostsLoaded(loadOfflinePosts(), true);
         });
     }
@@ -140,7 +140,7 @@ public class PostRepository {
                     ((MainActivity) context).runOnUiThread(() -> {
                         DownloadImageUtils.incrementProgressBar();
                     });
-                    localDatabase.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
+                    localDatabase.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), post.isAnnouncement(), userId);
                 }
 
                 @Override

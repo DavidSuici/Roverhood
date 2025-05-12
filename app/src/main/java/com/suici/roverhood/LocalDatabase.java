@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+
 import androidx.fragment.app.Fragment;
 
 import java.util.HashMap;
@@ -24,7 +25,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 16;
+    public static final int DATABASE_VERSION = 18;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -59,6 +60,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_IMAGE_PATH = "imagePath";
     public static final String COLUMN_LIKES = "likes";
     public static final String COLUMN_LIKED_BY = "likedBy";
+    public static final String COLUMN_ANNOUNCEMENT = "announcement";
     public static final String COLUMN_USERID = "userId";
 
     private static final String CREATE_TABLE_POSTS =
@@ -69,6 +71,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     COLUMN_IMAGE_PATH + " TEXT, " +
                     COLUMN_LIKES + " INTEGER, " +
                     COLUMN_LIKED_BY + " TEXT, " +
+                    COLUMN_ANNOUNCEMENT + " INTEGER DEFAULT 0, " +
                     COLUMN_USERID + " TEXT);";
 
     public LocalDatabase(Context context) {
@@ -308,7 +311,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     // POSTS TABLE ACTIONS
 
-    public void insertPost(String postId, Long date, String description, String imagePath, int likes, Map<String, Boolean> likedBy, String userId) {
+    public void insertPost(String postId, Long date, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         String likedByString = serializeLikedBy(likedBy);
@@ -317,9 +320,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_POST_ID, postId);
         values.put(COLUMN_DATE, date);
         values.put(COLUMN_DESCRIPTION, description);
-        values.put(COLUMN_IMAGE_PATH, imagePath);  // Store the local image path
+        values.put(COLUMN_IMAGE_PATH, imagePath);
         values.put(COLUMN_LIKES, likes);
         values.put(COLUMN_LIKED_BY, likedByString);
+        values.put(COLUMN_ANNOUNCEMENT, announcement ? 1 : 0);
         values.put(COLUMN_USERID, userId);
 
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
@@ -372,6 +376,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 String imagePath = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_IMAGE_PATH));
                 int likes = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_LIKES));
                 String likedByString = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LIKED_BY));
+                int announcement = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ANNOUNCEMENT));
                 String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERID));
 
                 Map<String, Boolean> likedBy = deserializeLikedBy(likedByString);
@@ -387,9 +392,9 @@ public class LocalDatabase extends SQLiteOpenHelper {
                             imagePath,
                             likes,
                             likedBy,
+                            announcement == 1,
                             true // Create offline post
                     );
-
                     postsMap.put(postId, post);
                 }
 
@@ -397,7 +402,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         }
 
         if (cursor != null) cursor.close();
-
         return postsMap;
     }
 
