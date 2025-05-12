@@ -25,14 +25,25 @@
                 app:layout_constraintEnd_toEndOf="parent"/>
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
-                android:id="@+id/progress_bar"
+                android:id="@+id/download_progress_bar"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
                 android:indeterminate="false"
                 android:max="100"
                 android:progress="0"
                 app:layout_constraintBottom_toBottomOf="@id/toolbar"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/upload_progress_bar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                app:indicatorColor="@color/blue_accent"
+                app:layout_constraintBottom_toTopOf="@id/download_progress_bar"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"/>
 

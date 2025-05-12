@@ -12,16 +12,11 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
-
-import java.io.ByteArrayOutputStream;
-import java.util.UUID;
 import java.util.function.IntPredicate;
 
-public class ImageUtils {
+public class DownloadImageUtils {
 
+    // Logic for Download LoadingBar
     static int loadedImageCount = 0;
     static int totalImageCount = 0;
 
@@ -36,7 +31,7 @@ public class ImageUtils {
             MainActivity activity = MainActivity.instance;
             Log.d("PostDebug", "incrementProgressBar Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
-                activity.updateProgressBar(loadedImageCount, totalImageCount);
+                ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
         }
     }
@@ -47,72 +42,9 @@ public class ImageUtils {
             MainActivity activity = MainActivity.instance;
             Log.d("PostDebug", "incrementProgressBarMax Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
-                activity.updateProgressBar(loadedImageCount, totalImageCount);
+                ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
         }
-    }
-
-    public interface UploadCallback {
-        void onSuccess(String downloadUrl);
-        void onFailure(Exception e);
-    }
-
-    public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, UploadCallback callback) {
-        // Resize if needed
-        Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        int quality = 100;
-
-        // Compress to JPEG (PNG ignores quality)
-        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
-
-        while (baos.toByteArray().length > 1024 * 1024 && quality > 10) {
-            baos.reset(); // clear previous data
-            quality -= 5;
-            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
-        }
-        byte[] data = baos.toByteArray();
-
-        String uniqueFileName = (fileNameHint != null && !fileNameHint.isEmpty() ? fileNameHint : "image")
-                + "_" + UUID.randomUUID().toString() + ".jpg";
-
-        StorageReference storageRef = FirebaseStorage.getInstance()
-                .getReference()
-                .child("images/" + uniqueFileName);
-
-        UploadTask uploadTask = storageRef.putBytes(data);
-
-        uploadTask
-                .addOnSuccessListener(taskSnapshot -> {
-                    // Get download URL with token
-                    storageRef.getDownloadUrl()
-                            .addOnSuccessListener(uri -> callback.onSuccess(uri.toString()))
-                            .addOnFailureListener(callback::onFailure);
-                })
-                .addOnFailureListener(callback::onFailure);
-    }
-
-    private static Bitmap resizeIfTooLarge(Bitmap bitmap, int maxSize) {
-        int width = bitmap.getWidth();
-        int height = bitmap.getHeight();
-
-        if (width <= maxSize && height <= maxSize) {
-            return bitmap; // no need to resize
-        }
-
-        float ratio = (float) width / height;
-        int newWidth, newHeight;
-
-        if (ratio > 1) {
-            newWidth = maxSize;
-            newHeight = (int) (maxSize / ratio);
-        } else {
-            newHeight = maxSize;
-            newWidth = (int) (maxSize * ratio);
-        }
-
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
     }
 
     public interface ImageSaveCallback {
@@ -173,8 +105,8 @@ public class ImageUtils {
             }
         } else {
             // Optionally, run additional checks like checking for white pixels
-            if (isImageCorrupted(bitmap, ImageUtils::isWhitePixel)
-                    || isImageCorrupted(bitmap, ImageUtils::isBlackPixel)) {
+            if (isImageCorrupted(bitmap, DownloadImageUtils::isWhitePixel)
+                    || isImageCorrupted(bitmap, DownloadImageUtils::isBlackPixel)) {
                 Log.e("ImageUtils", "Corrupted image detected, deleting file: " + fileName);
                 boolean deleted = file.delete();
                 if (deleted) {

@@ -40,7 +40,8 @@ public class MainActivity extends AppCompatActivity {
     private Menu optionsMenu;
     public User currentUser = null;
     private int lastNightMode = Configuration.UI_MODE_NIGHT_NO;
-    private ProgressBar progressBar;
+    private LinearProgressIndicator downloadProgressBar;
+    private LinearProgressIndicator uploadProgressBar;
 
     public static MainActivity instance;
 
@@ -79,9 +80,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Initialize ProgressBar
-        progressBar = binding.progressBar;  // Reference the ProgressBar here
-        progressBar.setVisibility(View.GONE);  // Initially set it to GONE, show when needed
+        // Initialize ProgressBars
+        downloadProgressBar = binding.downloadProgressBar;
+        downloadProgressBar.setVisibility(View.GONE);
+
+        uploadProgressBar = binding.uploadProgressBar;
+        uploadProgressBar.setVisibility(View.GONE);
     }
 
     @Override
@@ -121,98 +125,23 @@ public class MainActivity extends AppCompatActivity {
         finish();
     }
 
+    public LinearProgressIndicator getDownloadProgressBar() {
+        return downloadProgressBar;
+    }
+    public LinearProgressIndicator getUploadProgressBar() {
+        return uploadProgressBar;
+    }
     public Menu getOptionsMenu() {
         return optionsMenu;
     }
-
     public FloatingActionButton getFloatingButton() {
         return floatingButton;
     }
-
     public void setCurrentUser(User user) {
         this.currentUser = user;
     }
-
     public User getCurrentUser() {
         return this.currentUser;
-    }
-
-    public void updateProgressBar(int currentProgress, int totalProgress) {
-        if (progressBar != null && progressBar instanceof LinearProgressIndicator) {
-            LinearProgressIndicator linearProgressBar = (LinearProgressIndicator) progressBar;
-
-            linearProgressBar.setMax(totalProgress);
-
-            ValueAnimator progressAnimator = ValueAnimator.ofInt(linearProgressBar.getProgress(), currentProgress);
-            progressAnimator.setDuration(500);
-            progressAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    linearProgressBar.setProgressCompat((Integer) animation.getAnimatedValue(), true);
-                }
-            });
-
-            progressAnimator.addListener(new android.animation.Animator.AnimatorListener() {
-                @Override
-                public void onAnimationStart(android.animation.Animator animation) {
-                    if (linearProgressBar.getVisibility() == View.GONE && currentProgress < totalProgress) {
-                        linearProgressBar.setVisibility(View.VISIBLE);
-                    }
-                }
-
-                @Override
-                public void onAnimationEnd(android.animation.Animator animation) {
-                    if (currentProgress >= totalProgress) {
-                        new Handler().postDelayed(() -> {
-                            ValueAnimator fadeOutAnimator = ValueAnimator.ofFloat(1f, 0f);
-                            fadeOutAnimator.setDuration(500);
-                            fadeOutAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                                @Override
-                                public void onAnimationUpdate(ValueAnimator animation) {
-                                    float alpha = (Float) animation.getAnimatedValue();
-                                    linearProgressBar.setAlpha(alpha);
-                                }
-                            });
-
-                            fadeOutAnimator.addListener(new android.animation.Animator.AnimatorListener() {
-                                @Override
-                                public void onAnimationStart(android.animation.Animator animation) {
-                                }
-
-                                @Override
-                                public void onAnimationEnd(android.animation.Animator animation) {
-                                    linearProgressBar.setVisibility(View.GONE);
-                                }
-
-                                @Override
-                                public void onAnimationCancel(android.animation.Animator animation) {
-                                }
-
-                                @Override
-                                public void onAnimationRepeat(android.animation.Animator animation) {
-                                }
-                            });
-
-                            fadeOutAnimator.start();
-
-                        }, 500);
-                    }
-                }
-
-                @Override
-                public void onAnimationCancel(android.animation.Animator animation) {
-                    // Handle animation cancellation if needed
-                }
-
-                @Override
-                public void onAnimationRepeat(android.animation.Animator animation) {
-                    // Handle animation repeat if needed
-                }
-            });
-
-            // Start the progress animation
-            progressAnimator.start();
-        }
     }
 }
 
