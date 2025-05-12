@@ -48,15 +48,26 @@
         <ImageView
             android:id="@+id/imagePreview"
             android:layout_width="0dp"
-            android:layout_height="200dp"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
             android:layout_marginTop="16dp"
-            android:contentDescription="Selected image preview"
-            android:scaleType="centerCrop"
             android:src="@drawable/choose_image"
             app:layout_constraintTop_toBottomOf="@id/inputLayoutDescription"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintWidth_percent="0.9" />
+
+        <ImageButton
+            android:id="@+id/buttonRotateRight"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/button_background"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/rotate_image"
+            app:layout_constraintTop_toTopOf="@id/imagePreview"
+            app:layout_constraintRight_toRightOf="@id/imagePreview"
+            app:tint="#C3C3C3"/>
 
         <Button
             android:id="@+id/submitPostButton"

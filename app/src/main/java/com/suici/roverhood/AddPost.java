@@ -3,6 +3,7 @@ package com.suici.roverhood;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -11,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -34,6 +36,7 @@ public class AddPost extends DialogFragment {
     private ImageView imagePreview;
     private Button submitPostButton;
     private Bitmap selectedImage;
+    private ImageButton rotateRightButton;
 
     private final int PICK_IMAGE_REQUEST = 1;
 
@@ -47,10 +50,18 @@ public class AddPost extends DialogFragment {
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
         submitPostButton = view.findViewById(R.id.submitPostButton);
+        rotateRightButton = view.findViewById(R.id.buttonRotateRight);
 
         imagePreview.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(intent, PICK_IMAGE_REQUEST);
+        });
+
+        rotateRightButton.setOnClickListener(v -> {
+            if (selectedImage != null) {
+                selectedImage = rotateBitmap(selectedImage, 90); // Rotate 90 degrees
+                imagePreview.setImageBitmap(selectedImage);
+            }
         });
 
         submitPostButton.setOnClickListener(v -> {
@@ -123,6 +134,12 @@ public class AddPost extends DialogFragment {
         super.onStart();
         // Need this or the fragment wont load
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private Bitmap rotateBitmap(Bitmap bitmap, int degree) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
     private void savePost(String description, String userId, String imageUrl, Context context) {
