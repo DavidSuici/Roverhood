@@ -117,9 +117,10 @@ public class PostRepository {
     public void syncPostsToLocalDB(List<Post> postsToSync) {
 
         ((MainActivity) context).runOnUiThread(() -> {
-            if (ImageUtils.getLoadedImageCount() >= ImageUtils.getTotalImageCount()) {
-                ImageUtils.setLoadedImageCount(0);
-                ImageUtils.setTotalImageCount(0);
+            if (DownloadImageUtils.getLoadedImageCount() >= DownloadImageUtils.getTotalImageCount()) {
+                DownloadImageUtils.setLoadedImageCount(0);
+                DownloadImageUtils.setTotalImageCount(0);
+                ProgressBarUtils.resetProgressBar(((MainActivity) context).getDownloadProgressBar());
             }
         });
 
@@ -129,15 +130,15 @@ public class PostRepository {
             String imageUrl = post.getImageUrl();
 
             ((MainActivity) context).runOnUiThread(() -> {
-                ImageUtils.incrementProgressBarMax();
+                DownloadImageUtils.incrementProgressBarMax();
             });
 
-            ImageUtils.saveImageToInternalStorage(context, imageUrl, fileName, new ImageUtils.ImageSaveCallback() {
+            DownloadImageUtils.saveImageToInternalStorage(context, imageUrl, fileName, new DownloadImageUtils.ImageSaveCallback() {
                 @Override
                 public void onSuccess(String imagePath) {
                     Log.d("LocalSync", "Image saved at: " + imagePath);
                     ((MainActivity) context).runOnUiThread(() -> {
-                        ImageUtils.incrementProgressBar();
+                        DownloadImageUtils.incrementProgressBar();
                     });
                     localDatabase.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), userId);
                 }
@@ -146,7 +147,7 @@ public class PostRepository {
                 public void onFailure(Exception e) {
                     Log.e("LocalSync", "Failed to save image for post " + post.getId(), e);
                     ((MainActivity) context).runOnUiThread(() -> {
-                        ImageUtils.incrementProgressBar();
+                        DownloadImageUtils.incrementProgressBar();
                     });
                 }
             });

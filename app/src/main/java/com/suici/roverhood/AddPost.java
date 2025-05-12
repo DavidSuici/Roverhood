@@ -88,7 +88,7 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            ImageUtils.uploadImageToFirebase(selectedImage, "postImage", new ImageUtils.UploadCallback() {
+            UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
                     savePost(description, currentUser.getId(), downloadUrl, safeContext);
