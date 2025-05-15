@@ -44,6 +44,7 @@ public class Post {
 
     private ImageView imageView;
     private boolean imageLoaded = false;
+    private boolean isPostVisible = false;
 
 
     public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, Boolean offlinePost) {
@@ -74,9 +75,10 @@ public class Post {
         }
     }
 
-    public void setAnnouncementFlair(View announcementFlair, View flair, TextView userType) {
+    public void setAnnouncementFlair(View announcementFlair, View announcementBG, View flair, TextView userType) {
         if(isAnnouncement()) {
             announcementFlair.setVisibility(View.VISIBLE);
+            announcementBG.setVisibility(View.VISIBLE);
             flair.setVisibility(View.GONE);
             int amberColor = userType.getContext().getResources().getColor(R.color.announcements_amber, userType.getContext().getTheme());
             userType.setTextColor(amberColor);
@@ -84,6 +86,7 @@ public class Post {
         }
         else {
             announcementFlair.setVisibility(View.GONE);
+            announcementBG.setVisibility(View.GONE);
             flair.setVisibility(View.VISIBLE);
             int defaultColor = MaterialColors.getColor(userType, com.google.android.material.R.attr.colorOnSurface);
             userType.setTextColor(defaultColor);
@@ -134,6 +137,10 @@ public class Post {
             heartButton.setEnabled(true);
 
             heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (!isPostVisible) {
+                    return;
+                }
+
                 DatabaseReference postRef = FirebaseDatabase
                         .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                         .getReference("posts")
@@ -210,6 +217,7 @@ public class Post {
         CheckBox itemHeart = itemView.findViewById(R.id.heart);
         View flair = itemView.findViewById(R.id.flair);
         View announcementFlair = itemView.findViewById(R.id.announcementFlair);
+        View announcementBG = itemView.findViewById(R.id.announcementBG);
 
         // Populate the views
         itemUser.setText(this.getUser().getUsername());
@@ -222,15 +230,16 @@ public class Post {
         itemHeart.setChecked(likedBy.containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
         loadLikeButton(itemHeart, itemHeartNr);
         setFlair(flair);
-        setAnnouncementFlair(announcementFlair, flair, itemUserType);
+        setAnnouncementFlair(announcementFlair, announcementBG, flair, itemUserType);
     }
 
-    // TO_DO Change when proper filters are implemented
     public boolean isAnnouncement() { return announcement; }
     public boolean isImageLoaded() { return imageLoaded; }
 
     public ImageView getImageView() { return imageView; }
     public void setFragment(Fragment fragment) { this.activeFragment = fragment; }
+    public boolean isPostVisible() { return isPostVisible; }
+    public void setPostVisible(boolean postVisible) { this.isPostVisible = postVisible; }
 
     public Long getDate() { return date; }
     public void setDate(Long date) { this.date = date; }

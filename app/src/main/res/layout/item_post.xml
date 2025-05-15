@@ -6,6 +6,18 @@
     android:layout_height="wrap_content"
     android:padding="0dp">
 
+    <View
+        android:id="@+id/announcementBG"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="4dp"
+        android:background="#07FFC107"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/image"
+        app:layout_constraintTop_toTopOf="@id/userType"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.8" />
+
     <TextView
         android:id="@+id/user"
         android:layout_width="wrap_content"
@@ -42,7 +54,7 @@
 
     <View
         android:id="@+id/flair"
-        android:layout_width="3dp"
+        android:layout_width="4dp"
         android:layout_height="0dp"
         android:background="?attr/colorPrimary"
         app:layout_constraintStart_toStartOf="parent"
@@ -52,7 +64,7 @@
 
     <View
         android:id="@+id/announcementFlair"
-        android:layout_width="3dp"
+        android:layout_width="4dp"
         android:layout_height="0dp"
         android:layout_marginTop="4dp"
         android:background="@color/announcements_amber"
