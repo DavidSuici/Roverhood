@@ -1,8 +1,10 @@
 package com.suici.roverhood;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
@@ -85,6 +87,42 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         public SpaceViewHolder(@NonNull View itemView) {
             super(itemView);
             loadingMoreProgress = itemView.findViewById(R.id.loadingMoreProgress);
+        }
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+
+        int position = holder.getBindingAdapterPosition();
+        if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
+            Post post = postList.get(position);
+            post.setPostVisible(true);
+        }
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewDetachedFromWindow(holder);
+
+        int position = holder.getBindingAdapterPosition();
+        if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
+            Post post = postList.get(position);
+            post.setPostVisible(false);
+        }
+    }
+
+    public void detachAllViews(RecyclerView recyclerView) {
+        int childCount = recyclerView.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View child = recyclerView.getChildAt(i);
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(child);
+
+            int position = holder.getBindingAdapterPosition();
+            if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
+                Post post = postList.get(position);
+                post.setPostVisible(false);
+            }
         }
     }
 }

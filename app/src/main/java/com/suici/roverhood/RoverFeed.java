@@ -36,6 +36,7 @@ public class RoverFeed extends Fragment {
     private boolean isLoading = true;
 
     private PostAdapter postAdapter;
+    RecyclerView recyclerView;
     private List<Post> visiblePostList = new ArrayList<>();
     private List<Post> allPostList = new ArrayList<>();
 
@@ -57,7 +58,8 @@ public class RoverFeed extends Fragment {
                 requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 setEnabled(true);
 
-                refreshFeed();
+                if(!binding.swipeRefresh.isRefreshing() && !isLoading)
+                    refreshFeed();
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
@@ -72,7 +74,7 @@ public class RoverFeed extends Fragment {
         postRepository = new PostRepository(requireContext());
 
         // Initialize RecyclerView
-        RecyclerView recyclerView = binding.recyclerView;
+        recyclerView = binding.recyclerView;
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         postAdapter = new PostAdapter(getContext(), visiblePostList);
         recyclerView.setAdapter(postAdapter);
@@ -89,9 +91,11 @@ public class RoverFeed extends Fragment {
         // Log-out - button logic
         LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         binding.buttonLogOut.setOnClickListener(v -> {
-            localDB.markLoggedOut();
-            activity.setCurrentUser(null);
-            NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn);
+            if(!binding.swipeRefresh.isRefreshing() && !isLoading){
+                localDB.markLoggedOut();
+                activity.setCurrentUser(null);
+                NavHostFragment.findNavController(this).navigate(R.id.action_RoverFeed_to_LogIn);
+            }
         });
 
         // Refresh on bottom
@@ -113,7 +117,7 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        // Filters - button logic
+        // Filters - all buttons logic
         view.post(() -> {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
@@ -122,6 +126,27 @@ public class RoverFeed extends Fragment {
                     filterButton.setVisible(true);
                 }
             }
+        });
+
+        binding.clearFiltersButton.setOnClickListener(v -> {
+            FilterOptions.resetFilters();
+            Toast.makeText(requireContext(), "Filters cleared", Toast.LENGTH_SHORT).show();
+            if(!binding.swipeRefresh.isRefreshing() && !isLoading)
+                refreshFeed();
+        });
+
+        binding.username.setOnClickListener(v -> {
+            FilterOptions.resetFilters();
+            FilterOptions.setUsername(activity.getCurrentUser().getUsername());
+            if(!binding.swipeRefresh.isRefreshing() && !isLoading)
+                refreshFeed();
+        });
+
+        binding.team.setOnClickListener(v -> {
+            FilterOptions.resetFilters();
+            FilterOptions.setTeam(activity.getCurrentUser().getTeam());
+            if(!binding.swipeRefresh.isRefreshing() && !isLoading)
+                refreshFeed();
         });
 
         // User information - cosmetic logic
@@ -161,24 +186,8 @@ public class RoverFeed extends Fragment {
 
     public void openFiltersDialog() {
         FilterSelector filterSelectorFragment = new FilterSelector();
+        filterSelectorFragment.setOriginalFeed(this);
         filterSelectorFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
-    }
-
-    private List<Post> filterPosts(List<Post> allPosts) {
-        List<Post> filtered = new ArrayList<>();
-
-        for (Post post : allPosts) {
-//            if (announcementsSwitch.isChecked()) {
-//                if (post.isAnnouncement()) {
-//                    filtered.add(post);
-//                }
-//            }
-//            else {
-                filtered.add(post);
-//            }
-        }
-
-        return filtered;
     }
 
     private void waitThenDrawPosts() {
@@ -189,14 +198,14 @@ public class RoverFeed extends Fragment {
                 if (postRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
-                    // Filter List - TO_DO Implement fully
-                    List<Post> filteredList = filterPosts(allPostList);
+                    List<Post> filteredList = FilterOptions.filterPosts(allPostList, activity);
                     Collections.reverse(filteredList);
 
                     //Sync current posts
                     if (!offlineMode) {
+                        int startIndex = Math.min(postsLoadedCount, filteredList.size());
                         int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
-                        List<Post> sublist = filteredList.subList(postsLoadedCount, endIndex);
+                        List<Post> sublist = filteredList.subList(startIndex, endIndex);
 
                         new Thread(() -> { postRepository.syncPostsToLocalDB(sublist); }).start();
                     }
@@ -208,8 +217,8 @@ public class RoverFeed extends Fragment {
     }
 
     private void drawMorePosts(List<Post> filteredList) {
-        //announcementsSwitch.setEnabled(false);
-
+        if(filterButton != null)
+            filterButton.setEnabled(false);
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
             postAdapter.setLoading(false);
@@ -270,13 +279,15 @@ public class RoverFeed extends Fragment {
 
     private void finishDrawUI() {
         isLoading = false;
-        //announcementsSwitch.setEnabled(true);
+        if(filterButton != null)
+            filterButton.setEnabled(true);
         binding.buttonLogOut.setEnabled(true);
     }
 
-    private void refreshFeed() {
+    public void refreshFeed() {
         startRefreshUI();
 
+        postAdapter.detachAllViews(recyclerView);
         visiblePostList.clear();
         postAdapter.notifyDataSetChanged();
 
@@ -298,7 +309,6 @@ public class RoverFeed extends Fragment {
                     post.setFragment(RoverFeed.this);
                 }
             }
-
             @Override
             public void onError(String errorMessage) {
                 Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
@@ -329,17 +339,25 @@ public class RoverFeed extends Fragment {
 
     private void startRefreshUI() {
         binding.buttonLogOut.setEnabled(false);
-        //announcementsSwitch.setEnabled(false);
+        if(filterButton != null)
+            filterButton.setEnabled(false);
         binding.swipeRefresh.setRefreshing(true);
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);
         }
         postAdapter.setLoading(false);
+
+        if (FilterOptions.areFiltersEnabled()) {
+            binding.filters.setVisibility(View.VISIBLE);
+            binding.filterList.setText(FilterOptions.getFiltersText());
+        }
+        else
+            binding.filters.setVisibility(View.GONE);
     }
 
     private void finishRefreshUI() {
         binding.swipeRefresh.setRefreshing(false);
-        if (activity.getFloatingButton() != null) {
+        if (activity.getFloatingButton() != null && !offlineMode) {
             activity.getFloatingButton().setEnabled(true);
         }
         postAdapter.setLoading(true);
