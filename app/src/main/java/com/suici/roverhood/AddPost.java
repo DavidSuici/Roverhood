@@ -14,12 +14,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.android.material.color.MaterialColors;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -38,6 +41,9 @@ public class AddPost extends DialogFragment {
     private Bitmap selectedImage;
     private ImageButton rotateRightButton;
 
+    private SwitchCompat switchAnnouncement;
+    private TextView labelAnnouncement;
+
     private final int PICK_IMAGE_REQUEST = 1;
 
     @Override
@@ -52,6 +58,32 @@ public class AddPost extends DialogFragment {
         submitPostButton = view.findViewById(R.id.submitPostButton);
         rotateRightButton = view.findViewById(R.id.buttonRotateRight);
 
+        switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
+        labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
+
+        User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+
+        switchAnnouncement.setChecked(false);
+        if ("ORGANIZER".equals(currentUser.getUserType())
+                || "ADMIN".equals(currentUser.getUserType())) {
+            switchAnnouncement.setVisibility(View.VISIBLE);
+            labelAnnouncement.setVisibility(View.VISIBLE);
+        }
+        else {
+            switchAnnouncement.setVisibility(View.GONE);
+            labelAnnouncement.setVisibility(View.GONE);
+        }
+
+        switchAnnouncement.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                int secondaryColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorSecondary);
+                labelAnnouncement.setTextColor(secondaryColor);
+            } else {
+                int defaultColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorOnSurface);
+                labelAnnouncement.setTextColor(defaultColor);
+            }
+        });
+
         imagePreview.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(intent, PICK_IMAGE_REQUEST);
@@ -59,7 +91,7 @@ public class AddPost extends DialogFragment {
 
         rotateRightButton.setOnClickListener(v -> {
             if (selectedImage != null) {
-                selectedImage = rotateBitmap(selectedImage, 90); // Rotate 90 degrees
+                selectedImage = rotateBitmap(selectedImage);
                 imagePreview.setImageBitmap(selectedImage);
             }
         });
@@ -68,7 +100,6 @@ public class AddPost extends DialogFragment {
             submitPostButton.setEnabled(false);
 
             String description = editTextDescription.getText().toString().trim();
-            User currentUser = ((MainActivity) getActivity()).getCurrentUser();
             Context safeContext = getContext();
 
             if (description.isEmpty()) {
@@ -92,8 +123,7 @@ public class AddPost extends DialogFragment {
             int width = selectedImage.getWidth();
             int height = selectedImage.getHeight();
             float ratio = (float) width / height;
-
-            if (ratio < 0.473f || ratio > 6.0f) {
+            if (ratio < 0.45f || ratio > 6.0f) {
                 Toast.makeText(getContext(), "Image too tall or too wide", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
@@ -136,9 +166,9 @@ public class AddPost extends DialogFragment {
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
-    private Bitmap rotateBitmap(Bitmap bitmap, int degree) {
+    private Bitmap rotateBitmap(Bitmap bitmap) {
         Matrix matrix = new Matrix();
-        matrix.postRotate(degree);
+        matrix.postRotate(90);
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
@@ -158,6 +188,7 @@ public class AddPost extends DialogFragment {
         long timestamp = System.currentTimeMillis() / 1000L;
         Map<String, Boolean> likedByMap = new HashMap<>();
         likedByMap.put(userId, true);
+        boolean isAnnouncement = switchAnnouncement.isChecked();
 
         Map<String, Object> postMap = new HashMap<>();
         postMap.put("date", timestamp);
@@ -165,7 +196,7 @@ public class AddPost extends DialogFragment {
         postMap.put("imageUrl", imageUrl);
         postMap.put("likedBy", likedByMap);
         postMap.put("likes", 1);
-        postMap.put("announcement", false); //edit later
+        postMap.put("announcement", isAnnouncement); //edit later
         postMap.put("userId", userId);
 
         postsRef.child(postId).runTransaction(new Transaction.Handler() {
