@@ -18,7 +18,6 @@ public class UploadImageUtils {
     }
 
     public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, UploadCallback callback) {
-
         Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -27,7 +26,7 @@ public class UploadImageUtils {
         resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
 
         while (baos.toByteArray().length > 1024 * 1024 && quality > 10) {
-            baos.reset(); // clear previous data
+            baos.reset();
             quality -= 5;
             resizedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
         }

@@ -362,4 +362,20 @@ public class RoverFeed extends Fragment {
         }
         postAdapter.setLoading(true);
     }
+
+    public void removePostFromUI(Post post) {
+        int index = visiblePostList.indexOf(post);
+        if (index != -1) {
+            visiblePostList.remove(index);
+            postAdapter.notifyItemRemoved(index);
+        }
+    }
+
+    public void updatePostInUI(Post post) {
+        int index = visiblePostList.indexOf(post);
+        if (index != -1) {
+            visiblePostList.set(index, post);
+            postAdapter.notifyItemChanged(index);
+        }
+    }
 }

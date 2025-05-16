@@ -6,6 +6,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -33,6 +34,9 @@ public class LogIn extends Fragment {
 
         // Perform sync with Firebase
         syncUserDB();
+
+        setSelectAllOnFocus(binding.usernameText);
+        setSelectAllOnFocus(binding.accessCodeText);
 
         return binding.getRoot();
     }
@@ -122,5 +126,13 @@ public class LogIn extends Fragment {
                 .addOnFailureListener(e -> {
                     Toast.makeText(requireContext(), "Failed to connect to online Database.", Toast.LENGTH_LONG).show();
                 });
+    }
+
+    private void setSelectAllOnFocus(EditText editText) {
+        editText.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                editText.post(editText::selectAll);
+            }
+        });
     }
 }

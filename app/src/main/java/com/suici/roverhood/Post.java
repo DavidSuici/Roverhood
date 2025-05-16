@@ -6,11 +6,14 @@ import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
@@ -24,6 +27,8 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import java.io.File;
 import java.util.HashMap;
@@ -205,6 +210,84 @@ public class Post {
         }
     }
 
+    public void loadMenuButton(ImageButton menuButton) {
+        User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
+        boolean isOwner = Objects.equals(user.getId(), currentUser.getId());
+        boolean isOrganizer = "ORGANIZER".equals(currentUser.getUserType());
+        boolean isAdmin = "ADMIN".equals(currentUser.getUserType());
+
+        if ((!isOwner && !isOrganizer && !isAdmin) || offlinePost) {
+            menuButton.setVisibility(View.GONE);
+            return;
+        } else {
+            menuButton.setVisibility(View.VISIBLE);
+        }
+
+        menuButton.setOnClickListener(view -> {
+            androidx.appcompat.widget.PopupMenu popup = new androidx.appcompat.widget.PopupMenu(activeFragment.requireContext(), menuButton);
+            popup.getMenuInflater().inflate(R.menu.post_menu, popup.getMenu());
+
+            popup.getMenu().findItem(R.id.action_edit).setVisible(isOwner);
+            popup.getMenu().findItem(R.id.action_delete).setVisible(isOwner || isAdmin || isOrganizer);
+
+            popup.setOnMenuItemClickListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.action_edit) {
+                    editPost();
+                    return true;
+                } else if (id == R.id.action_delete) {
+                    deletePost();
+                    return true;
+                }
+                return false;
+            });
+
+            popup.show();
+        });
+    }
+
+    private void editPost() {
+        EditPost editPostFragment = new EditPost(this, activeFragment);
+        editPostFragment.show(activeFragment.getParentFragmentManager(), "editPostFragment");
+    }
+
+    private void deletePost() {
+        new AlertDialog.Builder(activeFragment.requireContext())
+                .setTitle("Delete Post")
+                .setMessage("Are you sure you want to delete this post?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    DatabaseReference postRef = FirebaseDatabase
+                            .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                            .getReference("posts")
+                            .child(id);
+                    StorageReference imageRef = FirebaseStorage.getInstance()
+                            .getReferenceFromUrl(imageUrl);
+
+                    imageRef.delete().addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d("PostDelete", "Image successfully deleted from Firebase Storage.");
+                        } else {
+                            Log.e("PostDelete", "Failed to delete image from Firebase Storage.", task.getException());
+                        }
+                    });
+
+                    postRef.removeValue().addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(activeFragment.requireContext(), "Post deleted", Toast.LENGTH_SHORT).show();
+                            if (activeFragment instanceof RoverFeed) {
+                                ((RoverFeed) activeFragment).removePostFromUI(this);
+                            }
+                        } else {
+                            Toast.makeText(activeFragment.requireContext(), "Failed to delete post", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("No", (dialog, which) -> {
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
     public void loadIntoView(View itemView) {
         // Find views
         TextView itemUser = itemView.findViewById(R.id.user);
@@ -218,6 +301,7 @@ public class Post {
         View flair = itemView.findViewById(R.id.flair);
         View announcementFlair = itemView.findViewById(R.id.announcementFlair);
         View announcementBG = itemView.findViewById(R.id.announcementBG);
+        ImageButton menuButton = itemView.findViewById(R.id.postMenuButton);
 
         // Populate the views
         itemUser.setText(this.getUser().getUsername());
@@ -229,6 +313,7 @@ public class Post {
         itemImage.setImageDrawable(imageView.getDrawable());
         itemHeart.setChecked(likedBy.containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
         loadLikeButton(itemHeart, itemHeartNr);
+        loadMenuButton(menuButton);
         setFlair(flair);
         setAnnouncementFlair(announcementFlair, announcementBG, flair, itemUserType);
     }
@@ -237,9 +322,11 @@ public class Post {
     public boolean isImageLoaded() { return imageLoaded; }
 
     public ImageView getImageView() { return imageView; }
+    public void setImageView(ImageView imageView) { this.imageView = imageView; }
     public void setFragment(Fragment fragment) { this.activeFragment = fragment; }
     public boolean isPostVisible() { return isPostVisible; }
     public void setPostVisible(boolean postVisible) { this.isPostVisible = postVisible; }
+    public void setAnnouncement(boolean announcement) {this.announcement = announcement; }
 
     public Long getDate() { return date; }
     public void setDate(Long date) { this.date = date; }
