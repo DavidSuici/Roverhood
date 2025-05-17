@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -24,12 +25,10 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.color.MaterialColors;
 
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-
 public class EditPost extends DialogFragment {
+
+    private PostRepository postRepository;
+    private Context context;
 
     private EditText editTextDescription;
     private ImageView imagePreview;
@@ -56,6 +55,8 @@ public class EditPost extends DialogFragment {
         View view = inflater.inflate(R.layout.add_post, container, false);
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        context = requireContext();
+        postRepository = PostRepository.getInstance(context);
 
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
@@ -128,7 +129,7 @@ public class EditPost extends DialogFragment {
             int height = selectedImage.getHeight();
             float ratio = (float) width / height;
             if (ratio < 0.45f || ratio > 6.0f) {
-                Toast.makeText(getContext(), "Image too tall or too wide", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Image too tall or too wide", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -137,31 +138,23 @@ public class EditPost extends DialogFragment {
             boolean announcementChanged = switchAnnouncement.isChecked() != post.isAnnouncement();
 
             if (imageChanged) {
-                StorageReference oldImageRef = FirebaseStorage.getInstance()
-                        .getReferenceFromUrl(post.getImageUrl());
-                oldImageRef.delete().addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d("EditPost", "Image successfully deleted from Firebase Storage.");
-                    } else {
-                        Log.e("EditPost", "Failed to delete image from Firebase Storage.", task.getException());
-                    }
-                });
-
                 UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
                     @Override
                     public void onSuccess(String downloadUrl) {
+                        deleteOldImage(post.getImageUrl());
                         updatePost(description, downloadUrl);
                     }
                     @Override
                     public void onFailure(Exception e) {
                         Log.e("EditPost", "Failed to upload image: " + e.getMessage());
+                        Toast.makeText(context, "Failed to update post.", Toast.LENGTH_SHORT).show();
                     }
                 });
             } else {
                 if(descriptionChanged || announcementChanged)
                     updatePost(description, post.getImageUrl());
                 else  {
-                    Toast.makeText(getContext(), "Nothing was changed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "Nothing was changed", Toast.LENGTH_SHORT).show();
                     submitPostButton.setEnabled(true);
                     return;
                 }
@@ -197,27 +190,41 @@ public class EditPost extends DialogFragment {
     }
 
     private void updatePost(String description, String imageUrl) {
-        DatabaseReference postRef = FirebaseDatabase
-                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                .getReference("posts")
-                .child(post.getId());
-
         boolean isAnnouncement = switchAnnouncement.isChecked();
 
-        postRef.child("description").setValue(description);
-        postRef.child("imageUrl").setValue(imageUrl);
-        postRef.child("announcement").setValue(isAnnouncement);
+        postRepository.updatePost(post, description, imageUrl, isAnnouncement, new PostRepository.PostOperationCallback() {
+            @Override
+            public void onSuccess() {
 
-        post.setDescription(description);
-        post.setImageView(imagePreview);
-        post.setImageUrl(imageUrl);
-        post.setAnnouncement(isAnnouncement);
+                post.setDescription(description);
+                post.setImageUrl(imageUrl);
+                post.setAnnouncement(isAnnouncement);
+                post.setImageView(imagePreview);
 
-        RoverFeed roverFeed = (RoverFeed) activeFragment;
-        if (roverFeed != null) {
-            roverFeed.updatePostInUI(post);
-        }
-        else Log.e("EditPost", "RoverFeed null");
+                RoverFeed roverFeed = (RoverFeed) activeFragment;
+                if (roverFeed != null) {
+                    roverFeed.updatePostInUI(post);
+                }
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void deleteOldImage(String imageUrl) {
+        postRepository.deleteImageFromStorage(imageUrl, new PostRepository.PostOperationCallback() {
+            @Override
+            public void onSuccess() {
+                Log.d("EditPost", "Image deleted successfully");
+            }
+            @Override
+            public void onError(String errorMessage) {
+                Log.e("EditPost", "Error deleting image: " + errorMessage);
+            }
+        });
     }
 
     @Override

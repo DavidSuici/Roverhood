@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.fragment.app.Fragment;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -25,7 +26,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 18;
+    public static final int DATABASE_VERSION = 20;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -62,6 +63,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_LIKED_BY = "likedBy";
     public static final String COLUMN_ANNOUNCEMENT = "announcement";
     public static final String COLUMN_USERID = "userId";
+    public static final String COLUMN_VERSION = "version";
 
     private static final String CREATE_TABLE_POSTS =
             "CREATE TABLE " + TABLE_POSTS + " (" +
@@ -72,7 +74,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     COLUMN_LIKES + " INTEGER, " +
                     COLUMN_LIKED_BY + " TEXT, " +
                     COLUMN_ANNOUNCEMENT + " INTEGER DEFAULT 0, " +
-                    COLUMN_USERID + " TEXT);";
+                    COLUMN_USERID + " TEXT, " +
+                    COLUMN_VERSION + " INTEGER DEFAULT 0);";
 
     public LocalDatabase(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -117,7 +120,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public User getUserByUsernameAndAccessCode(String username, String accessCode) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 TABLE_USERS,
                 null,
                 COLUMN_USERNAME + " = ? AND " + COLUMN_ACCESSCODE + " = ?",
@@ -125,52 +128,48 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
-
-        User user = null;
-        if (cursor != null && cursor.moveToFirst()) {
-            user = new User();
-            user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-            user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-            user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-            user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-            user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
-            cursor.close();
+        )) {
+            if (cursor.moveToFirst()) {
+                User user = new User();
+                user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
+                user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
+                user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
+                user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
+                user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
+                return user;
+            }
         }
-
-        return user;
+        return null;
     }
 
     public User getUserById(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 TABLE_USERS,
                 null,
                 COLUMN_ID + " = ?",
                 new String[]{userId},
                 null, null, null
-        );
-
-        User user = null;
-        if (cursor != null && cursor.moveToFirst()) {
-            user = new User();
-            user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-            user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-            user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-            user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-            user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
-            cursor.close();
+        )) {
+            if (cursor.moveToFirst()) {
+                User user = new User();
+                user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
+                user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
+                user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
+                user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
+                user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
+                return user;
+            }
         }
-
-        return user;
+        return null;
     }
 
     public Map<String, User> getAllUsers() {
         SQLiteDatabase db = this.getReadableDatabase();
         Map<String, User> usersMap = new LinkedHashMap<>();
 
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 TABLE_USERS,
                 null,
                 null,
@@ -178,30 +177,26 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
+        )) {
+            if (cursor.moveToFirst()) {
+                do {
+                    String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
+                    String username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
+                    String accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
+                    String userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
+                    String team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
 
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-                String username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-                String accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-                String userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-                String team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
+                    User user = new User();
+                    user.id = userId;
+                    user.username = username;
+                    user.accessCode = accessCode;
+                    user.userType = userType;
+                    user.team = team;
 
-                User user = new User();
-                user.id = userId;
-                user.username = username;
-                user.accessCode = accessCode;
-                user.userType = userType;
-                user.team = team;
-
-                // Add user to map
-                usersMap.put(userId, user);
-            } while (cursor.moveToNext());
+                    usersMap.put(userId, user);
+                } while (cursor.moveToNext());
+            }
         }
-
-        if (cursor != null) cursor.close();
-
         return usersMap;
     }
 
@@ -210,7 +205,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public void markLoggedIn(String userid) {
         SQLiteDatabase db = this.getWritableDatabase();
 
-        Cursor cursor = db.query(
+        String prevId = "";
+        try (Cursor cursor = db.query(
                 "session",
                 new String[]{"idLoggedIn"},
                 "id = 1",
@@ -218,12 +214,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
-
-        String prevId = "";
-        if (cursor != null && cursor.moveToFirst()) {
-            prevId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
-            cursor.close();
+        )) {
+            if (cursor.moveToFirst()) {
+                prevId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
+            }
         }
 
         ContentValues values = new ContentValues();
@@ -235,8 +229,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public void markLoggedOut() {
         SQLiteDatabase db = this.getWritableDatabase();
 
-        // Step 1: Retrieve current logged-in user from session
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 "session",
                 new String[]{"idLoggedIn"},
                 "id = 1",
@@ -244,24 +237,21 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
+        )) {
+            if (cursor.moveToFirst()) {
+                String currentLoggedIn = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
 
-        if (cursor != null && cursor.moveToFirst()) {
-            String currentLoggedIn = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
-            cursor.close();
-
-            ContentValues values = new ContentValues();
-            values.put("idPrevLoggedIn", currentLoggedIn);
-            values.put("idLoggedIn", "");
-            db.update("session", values, "id = 1", null);
+                ContentValues values = new ContentValues();
+                values.put("idPrevLoggedIn", currentLoggedIn);
+                values.put("idLoggedIn", "");
+                db.update("session", values, "id = 1", null);
+            }
         }
     }
 
     public User getLoggedInUser() {
         SQLiteDatabase db = this.getReadableDatabase();
-        String userId = null;
-
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 "session",
                 new String[]{"idLoggedIn"},
                 "id = 1",
@@ -269,25 +259,18 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
-
-        if (cursor != null && cursor.moveToFirst()) {
-            userId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
-            cursor.close();
+        )) {
+            if (cursor.moveToFirst()) {
+                String userId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
+                return getUserById(userId);
+            }
         }
-
-        if (userId != null) {
-            return getUserById(userId);
-        } else {
-            return null;
-        }
+        return null;
     }
 
     public User getPrevLoggedInUser() {
         SQLiteDatabase db = this.getReadableDatabase();
-        String userId = null;
-
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 "session",
                 new String[]{"idPrevLoggedIn"},
                 "id = 1",
@@ -295,23 +278,18 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 null
-        );
-
-        if (cursor != null && cursor.moveToFirst()) {
-            userId = cursor.getString(cursor.getColumnIndexOrThrow("idPrevLoggedIn"));
-            cursor.close();
+        )) {
+            if (cursor.moveToFirst()) {
+                String userId = cursor.getString(cursor.getColumnIndexOrThrow("idPrevLoggedIn"));
+                return getUserById(userId);
+            }
         }
-
-        if (userId != null) {
-            return getUserById(userId);
-        } else {
-            return null;
-        }
+        return null;
     }
 
     // POSTS TABLE ACTIONS
 
-    public void insertPost(String postId, Long date, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId) {
+    public void insertPost(String postId, Long date, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId, int version) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         String likedByString = serializeLikedBy(likedBy);
@@ -325,6 +303,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_LIKED_BY, likedByString);
         values.put(COLUMN_ANNOUNCEMENT, announcement ? 1 : 0);
         values.put(COLUMN_USERID, userId);
+        values.put(COLUMN_VERSION, version);
 
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
@@ -354,11 +333,63 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return likedBy;
     }
 
+    public void deletePost(String postId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        String imagePath = null;
+        try (Cursor cursor = db.query(
+                TABLE_POSTS,
+                new String[]{COLUMN_IMAGE_PATH},
+                COLUMN_POST_ID + " = ?",
+                new String[]{postId},
+                null, null, null
+        )) {
+            if (cursor.moveToFirst()) {
+                imagePath = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_IMAGE_PATH));
+            }
+        }
+
+        db.delete(TABLE_POSTS, COLUMN_POST_ID + " = ?", new String[]{postId});
+        if (imagePath != null) {
+            boolean isDeleted = deleteFileFromPath(imagePath);
+            if (isDeleted) {
+                Log.d("LocalDelete", "Image deleted from local storage successfully.");
+            } else {
+                Log.e("LocalDelete", "Failed to delete image from local storage or it does not exist.");
+            }
+        }
+    }
+
+    public boolean deleteFileFromPath(String path) {
+        File file = new File(path);
+        if (file.exists()) {
+            return file.delete();
+        }
+        return false;
+    }
+
+    public Integer getPostVersion(String postId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        try (Cursor cursor = db.query(
+                TABLE_POSTS,
+                new String[]{COLUMN_VERSION},
+                COLUMN_POST_ID + " = ?",
+                new String[]{postId},
+                null, null, null
+        )) {
+            if (cursor.moveToFirst()) {
+                return cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_VERSION));
+            }
+        }
+        return null;
+    }
+
     public Map<String, Post> getAllOfflinePosts(Fragment fragment, Map<String, User> usersMap) {
         SQLiteDatabase db = this.getReadableDatabase();
         Map<String, Post> postsMap = new LinkedHashMap<>();
 
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 TABLE_POSTS,
                 null,
                 null,
@@ -366,42 +397,41 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null,
                 null,
                 COLUMN_DATE + " ASC"
-        );
+        )) {
+            if (cursor.moveToFirst()) {
+                do {
+                    String postId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_POST_ID));
+                    long date = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+                    String description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DESCRIPTION));
+                    String imagePath = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_IMAGE_PATH));
+                    int likes = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_LIKES));
+                    String likedByString = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LIKED_BY));
+                    int announcement = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ANNOUNCEMENT));
+                    String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERID));
+                    int version = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_VERSION));
 
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                String postId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_POST_ID));
-                long date = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DATE));
-                String description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DESCRIPTION));
-                String imagePath = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_IMAGE_PATH));
-                int likes = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_LIKES));
-                String likedByString = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LIKED_BY));
-                int announcement = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ANNOUNCEMENT));
-                String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERID));
+                    Map<String, Boolean> likedBy = deserializeLikedBy(likedByString);
+                    User user = usersMap.get(userId);
 
-                Map<String, Boolean> likedBy = deserializeLikedBy(likedByString);
-                User user = usersMap.get(userId);
-
-                if (user != null) {
-                    Post post = new Post(
-                            fragment,
-                            postId,
-                            date,
-                            user,
-                            description,
-                            imagePath,
-                            likes,
-                            likedBy,
-                            announcement == 1,
-                            true // Create offline post
-                    );
-                    postsMap.put(postId, post);
-                }
-
-            } while (cursor.moveToNext());
+                    if (user != null) {
+                        Post post = new Post(
+                                fragment,
+                                postId,
+                                date,
+                                user,
+                                description,
+                                imagePath,
+                                likes,
+                                likedBy,
+                                announcement == 1,
+                                version,
+                                true
+                        );
+                        postsMap.put(postId, post);
+                    }
+                } while (cursor.moveToNext());
+            }
         }
-
-        if (cursor != null) cursor.close();
         return postsMap;
     }
 

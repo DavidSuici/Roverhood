@@ -29,7 +29,6 @@ public class DownloadImageUtils {
         loadedImageCount++;
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
-            Log.d("PostDebug", "incrementProgressBar Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
                 ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
@@ -40,7 +39,6 @@ public class DownloadImageUtils {
         totalImageCount++;
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
-            Log.d("PostDebug", "incrementProgressBarMax Loading " + String.valueOf(loadedImageCount)+ " / "+ String.valueOf(totalImageCount));
             activity.runOnUiThread(() -> {
                 ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
@@ -59,7 +57,6 @@ public class DownloadImageUtils {
 
                 File file = new File(context.getFilesDir(), resolvedFileName);
                 if (file.exists()) {
-                    Log.d("ImageUtils", "File already exists, skipping download: " + resolvedFileName);
                     callback.onSuccess(file.getAbsolutePath());
                     return;
                 }

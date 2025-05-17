@@ -71,7 +71,7 @@ public class RoverFeed extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         activity = (MainActivity) requireActivity();
-        postRepository = new PostRepository(requireContext());
+        postRepository = PostRepository.getInstance(requireContext());
 
         // Initialize RecyclerView
         recyclerView = binding.recyclerView;
@@ -84,6 +84,7 @@ public class RoverFeed extends Fragment {
             activity.getFloatingButton().setVisibility(View.VISIBLE);
             activity.getFloatingButton().setOnClickListener(v -> {
                     AddPost addPostFragment = new AddPost();
+                    addPostFragment.setOriginalFeed(this);
                     addPostFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
             });
         }
@@ -376,6 +377,16 @@ public class RoverFeed extends Fragment {
         if (index != -1) {
             visiblePostList.set(index, post);
             postAdapter.notifyItemChanged(index);
+        }
+    }
+
+    public void addPostToUI(Post post) {
+        int index = visiblePostList.indexOf(post);
+
+        if (index == -1) {
+            visiblePostList.add(0, post);
+            postAdapter.notifyItemInserted(0);
+            recyclerView.scrollToPosition(0);
         }
     }
 }
