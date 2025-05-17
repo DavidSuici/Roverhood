@@ -21,6 +21,7 @@ import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
+import com.bumptech.glide.signature.ObjectKey;
 import com.google.android.material.color.MaterialColors;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -46,13 +47,14 @@ public class Post {
     private Map<String, Boolean> likedBy;
     private boolean announcement;
     private boolean offlinePost;
+    private int version;
 
     private ImageView imageView;
     private boolean imageLoaded = false;
     private boolean isPostVisible = false;
 
 
-    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, Boolean offlinePost) {
+    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, int version, Boolean offlinePost) {
         this.id = id;
         this.activeFragment = fragment;
         this.date = date;
@@ -62,6 +64,7 @@ public class Post {
         this.likes = likes;
         this.likedBy = likedBy != null ? likedBy : new HashMap<>();
         this.announcement = announcement;
+        this.version = version;
         this.offlinePost = offlinePost;
     }
 
@@ -106,6 +109,7 @@ public class Post {
 
         Glide.with(activeFragment.requireContext())
                 .load(imageSource)
+                .signature(offlinePost ? new ObjectKey(System.currentTimeMillis()) : new ObjectKey(imageUrl)) // Invalidates cache for offline
                 .placeholder(R.drawable.img_not_loaded)
                 .override(Target.SIZE_ORIGINAL)
                 .listener(new RequestListener<Drawable>() {
@@ -142,68 +146,29 @@ public class Post {
             heartButton.setEnabled(true);
 
             heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (!isPostVisible) {
-                    return;
-                }
+                if (!isPostVisible) return;
 
-                DatabaseReference postRef = FirebaseDatabase
-                        .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                        .getReference("posts")
-                        .child(id);
-
-                postRef.runTransaction(new com.google.firebase.database.Transaction.Handler() {
-                    @NonNull
+                PostRepository postRepository = PostRepository.getInstance(activeFragment.requireContext());
+                postRepository.toggleLike(id, currentUserId, isChecked, new PostRepository.PostOperationCallback() {
                     @Override
-                    public com.google.firebase.database.Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                        Integer currentLikes = currentData.child("likes").getValue(Integer.class);
-                        if (currentLikes == null) currentLikes = 0;
-
-                        Map<String, Boolean> currentLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
-                        if (currentLikedBy == null) currentLikedBy = new HashMap<>();
-
-                        Boolean isLiked = currentLikedBy.get(currentUserId);
-
+                    public void onSuccess() {
+                        Boolean isLiked = likedBy.get(currentUserId);
                         if (isChecked) {
                             if (isLiked == null || !isLiked) {
-                                currentLikes++;
-                                currentLikedBy.put(currentUserId, true);
+                                likes++;
+                                likedBy.put(currentUserId, true);
                             }
                         } else {
                             if (isLiked != null && isLiked) {
-                                currentLikes--;
-                                currentLikedBy.remove(currentUserId);
+                                likes--;
+                                likedBy.remove(currentUserId);
                             }
                         }
-
-                        currentData.child("likes").setValue(currentLikes);
-                        currentData.child("likedBy").setValue(currentLikedBy);
-
-                        return com.google.firebase.database.Transaction.success(currentData);
+                        heartNrView.setText(String.valueOf(likes));
                     }
-
                     @Override
-                    public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-                        if (committed && currentData != null) {
-                            Integer newLikes = currentData.child("likes").getValue(Integer.class);
-                            if (newLikes != null) {
-                                likes = newLikes;
-                                heartNrView.setText(String.valueOf(newLikes));
-                            }
-
-                            Map<String, Boolean> newLikedBy = (Map<String, Boolean>) currentData.child("likedBy").getValue();
-                            if (newLikedBy != null) {
-                                likedBy = newLikedBy;
-                            }
-
-                            LocalDatabase localDB = LocalDatabase.getInstance(activeFragment.requireContext());
-                            localDB.updatePostLikes(id, likes, likedBy);
-                        } else {
-                            if (error != null) {
-                                Log.e("TransactionError", "Transaction failed: " + error.getMessage());
-                            } else {
-                                Log.e("TransactionError", "Transaction not committed (possible conflict or error)");
-                            }
-                        }
+                    public void onError(String errorMessage) {
+                        Log.e("Post", "Failed to update like status: " + errorMessage);
                     }
                 });
             });
@@ -252,32 +217,21 @@ public class Post {
     }
 
     private void deletePost() {
+        PostRepository postRepository = PostRepository.getInstance(activeFragment.requireContext());
         new AlertDialog.Builder(activeFragment.requireContext())
                 .setTitle("Delete Post")
                 .setMessage("Are you sure you want to delete this post?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    DatabaseReference postRef = FirebaseDatabase
-                            .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                            .getReference("posts")
-                            .child(id);
-                    StorageReference imageRef = FirebaseStorage.getInstance()
-                            .getReferenceFromUrl(imageUrl);
-
-                    imageRef.delete().addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d("PostDelete", "Image successfully deleted from Firebase Storage.");
-                        } else {
-                            Log.e("PostDelete", "Failed to delete image from Firebase Storage.", task.getException());
-                        }
-                    });
-
-                    postRef.removeValue().addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
+                    postRepository.deletePost(id, imageUrl, new PostRepository.PostOperationCallback() {
+                        @Override
+                        public void onSuccess() {
                             Toast.makeText(activeFragment.requireContext(), "Post deleted", Toast.LENGTH_SHORT).show();
                             if (activeFragment instanceof RoverFeed) {
-                                ((RoverFeed) activeFragment).removePostFromUI(this);
+                                ((RoverFeed) activeFragment).removePostFromUI(Post.this);
                             }
-                        } else {
+                        }
+                        @Override
+                        public void onError(String errorMessage) {
                             Toast.makeText(activeFragment.requireContext(), "Failed to delete post", Toast.LENGTH_SHORT).show();
                         }
                     });
@@ -342,4 +296,6 @@ public class Post {
     public void setLikes(int likes) { this.likes = likes; }
     public Map<String, Boolean> getLikedBy() { return likedBy; }
     public void setLikedBy(Map<String, Boolean> likedBy) { this.likedBy = likedBy; }
+    public int getVersion() { return version; }
+    public void incrementVersion() { this.version++; }
 }

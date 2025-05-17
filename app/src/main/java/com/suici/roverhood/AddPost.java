@@ -35,6 +35,10 @@ import java.util.Map;
 
 public class AddPost extends DialogFragment {
 
+    private Context context;
+    private PostRepository postRepository;
+    private RoverFeed originalFeed;
+
     private EditText editTextDescription;
     private ImageView imagePreview;
     private Button submitPostButton;
@@ -52,6 +56,8 @@ public class AddPost extends DialogFragment {
         View view = inflater.inflate(R.layout.add_post, container, false);
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        context = getContext();
+        postRepository = PostRepository.getInstance(context);
 
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
@@ -100,7 +106,7 @@ public class AddPost extends DialogFragment {
             submitPostButton.setEnabled(false);
 
             String description = editTextDescription.getText().toString().trim();
-            Context safeContext = getContext();
+
 
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
@@ -109,13 +115,13 @@ public class AddPost extends DialogFragment {
             }
 
             if (selectedImage == null) {
-                Toast.makeText(getContext(), "Select an image first", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Select an image first", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
 
             if (currentUser == null) {
-                Toast.makeText(getContext(), "You're logged out, log in again", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "You're logged out, log in again", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -124,7 +130,7 @@ public class AddPost extends DialogFragment {
             int height = selectedImage.getHeight();
             float ratio = (float) width / height;
             if (ratio < 0.45f || ratio > 6.0f) {
-                Toast.makeText(getContext(), "Image too tall or too wide", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Image too tall or too wide", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -132,11 +138,11 @@ public class AddPost extends DialogFragment {
             UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
-                    savePost(description, currentUser.getId(), downloadUrl, safeContext);
+                    savePost(description, currentUser, downloadUrl);
                 }
                 @Override
                 public void onFailure(Exception e) {
-                    Toast.makeText(getContext(), "Image upload failed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "Image upload failed", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -166,58 +172,29 @@ public class AddPost extends DialogFragment {
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
+    public void setOriginalFeed(RoverFeed roverFeed) {
+        this.originalFeed = roverFeed;
+    }
+
     private Bitmap rotateBitmap(Bitmap bitmap) {
         Matrix matrix = new Matrix();
         matrix.postRotate(90);
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
-    private void savePost(String description, String userId, String imageUrl, Context context) {
-        DatabaseReference postsRef = FirebaseDatabase
-                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
-                .getReference("posts");
-
-        String postId = postsRef.push().getKey();
-        if (postId == null) {
-            Log.e("AddPost", "Failed to generate post ID");
-            if (context != null)
-                Toast.makeText(context, "Post creation failed", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        long timestamp = System.currentTimeMillis() / 1000L;
-        Map<String, Boolean> likedByMap = new HashMap<>();
-        likedByMap.put(userId, true);
+    private void savePost(String description, User user, String imageUrl) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
-
-        Map<String, Object> postMap = new HashMap<>();
-        postMap.put("date", timestamp);
-        postMap.put("description", description);
-        postMap.put("imageUrl", imageUrl);
-        postMap.put("likedBy", likedByMap);
-        postMap.put("likes", 1);
-        postMap.put("announcement", isAnnouncement); //edit later
-        postMap.put("userId", userId);
-
-        postsRef.child(postId).runTransaction(new Transaction.Handler() {
-            @NonNull
+        postRepository.createPost(description, user, imageUrl, isAnnouncement, originalFeed, new PostRepository.PostCreationCallback() {
             @Override
-            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                currentData.setValue(postMap);
-                return Transaction.success(currentData);
+            public void onPostCreated(Post post) {
+                post.setImageView(imagePreview);
+                originalFeed.addPostToUI(post);
+                Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
             }
 
             @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-                if (committed) {
-                    Log.d("SendPost", "Post successfully saved with ID: " + postId);
-                    if (context != null)
-                        Toast.makeText(context, "Posted successfully", Toast.LENGTH_SHORT).show();
-                } else {
-                    Log.e("SendPost", "Post transaction failed", error != null ? error.toException() : null);
-                    if (context != null)
-                        Toast.makeText(context, "Post creation failed", Toast.LENGTH_SHORT).show();
-                }
+            public void onError(String errorMessage) {
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
             }
         });
     }
