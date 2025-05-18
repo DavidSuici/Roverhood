@@ -34,7 +34,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="Clear All Filters"
-                android:textColor="?attr/colorSecondary"
+                android:textColor="@color/light_purple"
                 android:textSize="18sp"
                 android:layout_marginEnd="16dp"
                 android:clickable="true"
@@ -45,7 +45,7 @@
 
             <!-- Username -->
             <TextView
-                android:id="@+id/labelUserId"
+                android:id="@+id/labelUser"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="Username:"
@@ -66,9 +66,9 @@
                 android:hint="Type a Username"
                 android:importantForAutofill="no"
                 android:autofillHints=""
-                app:layout_constraintTop_toTopOf="@id/labelUserId"
-                app:layout_constraintBottom_toBottomOf="@id/labelUserId"
-                app:layout_constraintLeft_toRightOf="@id/labelUserId"
+                app:layout_constraintTop_toTopOf="@id/labelUser"
+                app:layout_constraintBottom_toBottomOf="@id/labelUser"
+                app:layout_constraintLeft_toRightOf="@id/labelUser"
                 app:layout_constraintRight_toLeftOf="@id/clearUsernameButton" />
 
             <TextView
@@ -76,25 +76,25 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="X"
-                android:textColor="?attr/colorSecondary"
+                android:textColor="@color/light_purple"
                 android:textSize="18sp"
                 android:layout_marginEnd="16dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:layout_constraintTop_toTopOf="@id/labelUserId"
-                app:layout_constraintBottom_toBottomOf="@id/labelUserId"
+                app:layout_constraintTop_toTopOf="@id/labelUser"
+                app:layout_constraintBottom_toBottomOf="@id/labelUser"
                 app:layout_constraintRight_toRightOf="parent" />
 
             <!-- Team -->
             <TextView
-                android:id="@+id/labelTeamId"
+                android:id="@+id/labelTeam"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="Team:"
                 android:textSize="18sp"
                 android:layout_marginTop="30dp"
                 android:layout_marginStart="16dp"
-                app:layout_constraintTop_toBottomOf="@id/labelUserId"
+                app:layout_constraintTop_toBottomOf="@id/labelUser"
                 app:layout_constraintLeft_toLeftOf="parent" />
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -105,9 +105,9 @@
                 android:layout_marginStart="8dp"
                 android:gravity="end"
                 android:drawablePadding="12dp"
-                app:layout_constraintTop_toTopOf="@id/labelTeamId"
-                app:layout_constraintBottom_toBottomOf="@id/labelTeamId"
-                app:layout_constraintLeft_toRightOf="@id/labelTeamId"
+                app:layout_constraintTop_toTopOf="@id/labelTeam"
+                app:layout_constraintBottom_toBottomOf="@id/labelTeam"
+                app:layout_constraintLeft_toRightOf="@id/labelTeam"
                 app:layout_constraintRight_toLeftOf="@id/clearTeamButton"
                 android:inputType="none"
                 android:hint="Select a Team"
@@ -119,13 +119,56 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="X"
-                android:textColor="?attr/colorSecondary"
+                android:textColor="@color/light_purple"
                 android:textSize="18sp"
                 android:layout_marginEnd="16dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:layout_constraintTop_toTopOf="@id/labelTeamId"
-                app:layout_constraintBottom_toBottomOf="@id/labelTeamId"
+                app:layout_constraintTop_toTopOf="@id/labelTeam"
+                app:layout_constraintBottom_toBottomOf="@id/labelTeam"
+                app:layout_constraintRight_toRightOf="parent" />
+
+            <!-- Topic -->
+            <TextView
+                android:id="@+id/labelTopic"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Topic:"
+                android:textSize="18sp"
+                android:layout_marginTop="30dp"
+                android:layout_marginStart="16dp"
+                app:layout_constraintTop_toBottomOf="@id/labelTeam"
+                app:layout_constraintLeft_toLeftOf="parent" />
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/topicDropdown"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:gravity="end"
+                android:drawablePadding="12dp"
+                app:layout_constraintTop_toTopOf="@id/labelTopic"
+                app:layout_constraintBottom_toBottomOf="@id/labelTopic"
+                app:layout_constraintLeft_toRightOf="@id/labelTopic"
+                app:layout_constraintRight_toLeftOf="@id/clearTopicButton"
+                android:inputType="none"
+                android:hint="Select a Topic"
+                android:drawableEnd="@android:drawable/arrow_down_float"
+                android:dropDownHeight="wrap_content" />
+
+            <TextView
+                android:id="@+id/clearTopicButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="X"
+                android:textColor="@color/light_purple"
+                android:textSize="18sp"
+                android:layout_marginEnd="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:layout_constraintTop_toTopOf="@id/labelTopic"
+                app:layout_constraintBottom_toBottomOf="@id/labelTopic"
                 app:layout_constraintRight_toRightOf="parent" />
 
             <!-- Minimum Likes -->
@@ -137,7 +180,7 @@
                 android:textSize="18sp"
                 android:layout_marginTop="35dp"
                 android:layout_marginStart="16dp"
-                app:layout_constraintTop_toBottomOf="@id/labelTeamId"
+                app:layout_constraintTop_toBottomOf="@id/labelTopic"
                 app:layout_constraintLeft_toLeftOf="parent" />
 
             <com.google.android.material.textfield.TextInputLayout
@@ -164,7 +207,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="X"
-                android:textColor="?attr/colorSecondary"
+                android:textColor="@color/light_purple"
                 android:textSize="18sp"
                 android:layout_marginEnd="16dp"
                 android:clickable="true"

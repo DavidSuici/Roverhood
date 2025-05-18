@@ -2,16 +2,13 @@ package com.suici.roverhood;
 
 import android.graphics.drawable.Drawable;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
@@ -23,13 +20,6 @@ import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.signature.ObjectKey;
 import com.google.android.material.color.MaterialColors;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.io.File;
 import java.util.HashMap;
@@ -41,6 +31,7 @@ public class Post {
     private Long date;
     private User user;
     private String id;
+    private Topic topic;
     private String description;
     private String imageUrl;
     private int likes;
@@ -54,11 +45,12 @@ public class Post {
     private boolean isPostVisible = false;
 
 
-    public Post(Fragment fragment, String id, Long date, User user, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, int version, Boolean offlinePost) {
+    public Post(Fragment fragment, String id, Long date, User user, Topic topic, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, int version, Boolean offlinePost) {
         this.id = id;
         this.activeFragment = fragment;
         this.date = date;
         this.user = user;
+        this.topic = topic;
         this.description = description;
         this.imageUrl = imageUrl;
         this.likes = likes;
@@ -66,6 +58,32 @@ public class Post {
         this.announcement = announcement;
         this.version = version;
         this.offlinePost = offlinePost;
+    }
+
+    public void setTopicLabel(TextView topicView) {
+        if (topic == null) {
+            topicView.setVisibility(View.GONE);
+        } else {
+            topicView.setVisibility(View.VISIBLE);
+            topicView.setText(topic.getTitle());
+            if(announcement) {
+                topicView.setBackgroundResource(R.drawable.topic_announcement);
+            } else {
+                topicView.setBackgroundResource(R.drawable.topic_background);
+            }
+
+            topicView.setOnClickListener(v -> {
+                FilterOptions.resetFilters();
+                FilterOptions.setTopic(topic.getTitle());
+
+                if (activeFragment instanceof RoverFeed) {
+                    RoverFeed roverFeed = (RoverFeed) activeFragment;
+                    if (!roverFeed.isLoading()) {
+                        roverFeed.refreshFeed();
+                    }
+                }
+            });
+        }
     }
 
     public void setFlair(View flair) {
@@ -248,6 +266,7 @@ public class Post {
         TextView itemTeam = itemView.findViewById(R.id.team);
         TextView itemUserType = itemView.findViewById(R.id.userType);
         TextView itemDate = itemView.findViewById(R.id.date);
+        TextView itemTopic = itemView.findViewById(R.id.topicLabel);
         TextView itemDescription = itemView.findViewById(R.id.description);
         TextView itemHeartNr = itemView.findViewById(R.id.heartNr);
         ImageView itemImage = itemView.findViewById(R.id.image);
@@ -261,11 +280,12 @@ public class Post {
         itemUser.setText(this.getUser().getUsername());
         itemTeam.setText(this.getUser().getTeam());
         itemUserType.setText(this.getUser().getUserType());
-        itemDate.setText(DateUtil.formatTimestamp(this.getDate()));
+        itemDate.setText(DateUtils.formatTimestamp(this.getDate()));
         itemDescription.setText(this.getDescription());
         itemHeartNr.setText(String.valueOf(this.getLikes()));
         itemImage.setImageDrawable(imageView.getDrawable());
         itemHeart.setChecked(likedBy.containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
+        setTopicLabel(itemTopic);
         loadLikeButton(itemHeart, itemHeartNr);
         loadMenuButton(menuButton);
         setFlair(flair);
@@ -286,6 +306,8 @@ public class Post {
     public void setDate(Long date) { this.date = date; }
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
+    public Topic getTopic() { return topic; }
+    public void setTopic(Topic topic) { this.topic = topic; }
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getDescription() { return description; }

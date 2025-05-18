@@ -19,11 +19,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.color.MaterialColors;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class EditPost extends DialogFragment {
 
@@ -72,6 +75,10 @@ public class EditPost extends DialogFragment {
 
         titleView.setText("Edit post");
         submitPostButton.setText("Submit updates");
+        TextInputLayout inputLayoutDescription = view.findViewById(R.id.inputLayoutDescription);
+        inputLayoutDescription.setHint("Edit Post Description");
+        ConstraintLayout topicSelectGroup = view.findViewById(R.id.topicSelectGroup);
+        topicSelectGroup.setVisibility(View.GONE);
 
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
 
@@ -92,7 +99,7 @@ public class EditPost extends DialogFragment {
 
         switchAnnouncement.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                int secondaryColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorSecondary);
+                int secondaryColor = ContextCompat.getColor(context, R.color.light_purple);
                 labelAnnouncement.setTextColor(secondaryColor);
             } else {
                 int defaultColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorOnSurface);

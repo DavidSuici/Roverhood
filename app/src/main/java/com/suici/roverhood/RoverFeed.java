@@ -381,12 +381,22 @@ public class RoverFeed extends Fragment {
     }
 
     public void addPostToUI(Post post) {
-        int index = visiblePostList.indexOf(post);
+        if (FilterOptions.isVisibleAfterFilter(post, activity)) {
+            int index = visiblePostList.indexOf(post);
 
-        if (index == -1) {
-            visiblePostList.add(0, post);
-            postAdapter.notifyItemInserted(0);
-            recyclerView.scrollToPosition(0);
+            if (index == -1) {
+                if (!FilterOptions.getTopic().isEmpty()) {
+                    visiblePostList.add(post);
+                    postAdapter.notifyItemInserted(visiblePostList.size() - 1);
+                    recyclerView.scrollToPosition(visiblePostList.size()-1);
+                } else {
+                    visiblePostList.add(0, post);
+                    postAdapter.notifyItemInserted(0);
+                    recyclerView.scrollToPosition(0);
+                }
+            }
         }
     }
+
+    public boolean isLoading() { return isLoading; }
 }

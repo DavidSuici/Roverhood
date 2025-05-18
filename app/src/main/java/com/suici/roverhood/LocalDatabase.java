@@ -419,6 +419,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                                 postId,
                                 date,
                                 user,
+                                null,
                                 description,
                                 imagePath,
                                 likes,

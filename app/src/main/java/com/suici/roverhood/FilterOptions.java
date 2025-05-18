@@ -1,6 +1,7 @@
 package com.suici.roverhood;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -8,6 +9,7 @@ public class FilterOptions {
     private static boolean announcementsOnly = false;
     private static String username = "";
     private static String team = "";
+    private static String topic = "";
     private static boolean onlyLiked = false;
     private static int minLikes = 0;
 
@@ -18,6 +20,7 @@ public class FilterOptions {
     public static String getTeam() {
         return team;
     }
+    public static String getTopic() { return topic; }
     public static boolean isOnlyLiked() {
         return onlyLiked;
     }
@@ -34,6 +37,7 @@ public class FilterOptions {
     public static void setTeam(String team) {
         FilterOptions.team = team;
     }
+    public static void setTopic(String topic) { FilterOptions.topic = topic; }
     public static void setOnlyLiked(boolean onlyLiked) {
         FilterOptions.onlyLiked = onlyLiked;
     }
@@ -44,6 +48,7 @@ public class FilterOptions {
         announcementsOnly = false;
         username = "";
         team = "";
+        topic = "";
         onlyLiked = false;
         minLikes = 0;
     }
@@ -51,6 +56,7 @@ public class FilterOptions {
         return announcementsOnly ||
                 !username.isEmpty() ||
                 !team.isEmpty() ||
+                !topic.isEmpty() ||
                 onlyLiked ||
                 minLikes > 0;
     }
@@ -71,6 +77,10 @@ public class FilterOptions {
                 continue;
             }
 
+            if (!topic.isEmpty() && (post.getTopic() == null || !post.getTopic().getTitle().equals(topic))) {
+                continue;
+            }
+
             Map<String, Boolean> likedBy =  post.getLikedBy();
             if (onlyLiked && !(likedBy.containsKey(activity.getCurrentUser().getId()))) {
                 continue;
@@ -81,6 +91,10 @@ public class FilterOptions {
             }
 
             filtered.add(post);
+        }
+
+        if (!topic.isEmpty()) {
+            Collections.reverse(filtered);
         }
 
         return filtered;
@@ -94,6 +108,9 @@ public class FilterOptions {
         }
         if (!team.isEmpty()) {
             filtersText.append("Team: ").append(team).append(", ");
+        }
+        if (!topic.isEmpty()) {
+            filtersText.append("Topic: ").append(topic).append(", ");
         }
         if (minLikes > 0) {
             filtersText.append("Min Likes: ").append(minLikes).append(", ");
@@ -112,5 +129,29 @@ public class FilterOptions {
         }
 
         return filtersText.toString();
+    }
+
+    public static boolean isVisibleAfterFilter(Post post, MainActivity activity) {
+        if (announcementsOnly && !post.isAnnouncement()) {
+            return false;
+        }
+        if (!username.isEmpty() && !post.getUser().getUsername().equals(username)) {
+            return false;
+        }
+        if (!team.isEmpty() && !post.getUser().getTeam().equals(team)) {
+            return false;
+        }
+        if (!topic.isEmpty() && (post.getTopic() == null || !post.getTopic().getTitle().equals(topic))) {
+            return false;
+        }
+        Map<String, Boolean> likedBy = post.getLikedBy();
+        if (onlyLiked && !(likedBy.containsKey(activity.getCurrentUser().getId()))) {
+            return false;
+        }
+        if (post.getLikes() < minLikes) {
+            return false;
+        }
+
+        return true;
     }
 }

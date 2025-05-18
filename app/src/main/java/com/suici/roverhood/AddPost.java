@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -18,11 +19,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.android.material.color.MaterialColors;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -30,8 +34,13 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Transaction;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public class AddPost extends DialogFragment {
 
@@ -44,6 +53,10 @@ public class AddPost extends DialogFragment {
     private Button submitPostButton;
     private Bitmap selectedImage;
     private ImageButton rotateRightButton;
+    private MaterialAutoCompleteTextView topicDropdown;
+    private EditText editTextTopic;
+    private TextView clearTopicButton;
+
 
     private SwitchCompat switchAnnouncement;
     private TextView labelAnnouncement;
@@ -63,11 +76,23 @@ public class AddPost extends DialogFragment {
         imagePreview = view.findViewById(R.id.imagePreview);
         submitPostButton = view.findViewById(R.id.submitPostButton);
         rotateRightButton = view.findViewById(R.id.buttonRotateRight);
+        topicDropdown = view.findViewById(R.id.topicDropdown);
+        editTextTopic = view.findViewById(R.id.editTextTopic);
+        clearTopicButton = view.findViewById(R.id.clearTopicButton);
 
         switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
+        topicDropdown.setText(FilterOptions.getTopic());
+
+
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+        populateTopicOptions();
+
+        clearTopicButton.setOnClickListener(v -> {
+            topicDropdown.setText("");
+            editTextTopic.setText("");
+        });
 
         switchAnnouncement.setChecked(false);
         if ("ORGANIZER".equals(currentUser.getUserType())
@@ -82,11 +107,19 @@ public class AddPost extends DialogFragment {
 
         switchAnnouncement.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                int secondaryColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorSecondary);
+                int secondaryColor = ContextCompat.getColor(context, R.color.light_purple);
                 labelAnnouncement.setTextColor(secondaryColor);
+                topicDropdown.setVisibility(View.GONE);
+                editTextTopic.setVisibility(View.VISIBLE);
+                topicDropdown.setText("");
+                editTextTopic.setText("");
             } else {
                 int defaultColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorOnSurface);
                 labelAnnouncement.setTextColor(defaultColor);
+                topicDropdown.setVisibility(View.VISIBLE);
+                editTextTopic.setVisibility(View.GONE);
+                topicDropdown.setText("");
+                editTextTopic.setText("");
             }
         });
 
@@ -106,7 +139,14 @@ public class AddPost extends DialogFragment {
             submitPostButton.setEnabled(false);
 
             String description = editTextDescription.getText().toString().trim();
+            Topic topic = Topic.findTopicByTitle(topicDropdown.getText().toString().trim());
+            String newTopic = editTextTopic.getText().toString().trim();
 
+            if (Topic.findTopicByTitle(newTopic) != null) {
+                Toast.makeText(context, "Topic already exists", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
 
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
@@ -138,7 +178,12 @@ public class AddPost extends DialogFragment {
             UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
-                    savePost(description, currentUser, downloadUrl);
+                    if(switchAnnouncement.isChecked() && !newTopic.isEmpty()) {
+                        savePostAndNewTopic(description, currentUser, downloadUrl, newTopic);
+                    }
+                    else {
+                        savePost(description, currentUser, downloadUrl, topic);
+                    }
                 }
                 @Override
                 public void onFailure(Exception e) {
@@ -182,9 +227,9 @@ public class AddPost extends DialogFragment {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
-    private void savePost(String description, User user, String imageUrl) {
+    private void savePost(String description, User user, String imageUrl, Topic topic) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
-        postRepository.createPost(description, user, imageUrl, isAnnouncement, originalFeed, new PostRepository.PostCreationCallback() {
+        postRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new PostRepository.PostCreationCallback() {
             @Override
             public void onPostCreated(Post post) {
                 post.setImageView(imagePreview);
@@ -195,6 +240,52 @@ public class AddPost extends DialogFragment {
             @Override
             public void onError(String errorMessage) {
                 Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void savePostAndNewTopic(String description, User user, String imageUrl, String newTopicTitle) {
+        boolean isAnnouncement = switchAnnouncement.isChecked();
+        postRepository.createTopic(newTopicTitle, new PostRepository.TopicCreationCallback() {
+            @Override
+            public void onTopicCreated(Topic topic) {
+                postRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new PostRepository.PostCreationCallback() {
+                    @Override
+                    public void onPostCreated(Post post) {
+                        post.setImageView(imagePreview);
+                        originalFeed.addPostToUI(post);
+                        Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
+                    }
+                    @Override
+                    public void onError(String errorMessage) {
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void populateTopicOptions() {
+        List<Topic> sortedTopics = Topic.getAllTopics().stream()
+                .sorted((t1, t2) -> Long.compare(t2.getCreationTime(), t1.getCreationTime()))
+                .collect(Collectors.toList());
+
+        List<String> topicTitles = sortedTopics.stream()
+                .map(Topic::getTitle)
+                .collect(Collectors.toList());
+
+        ArrayAdapter<String> topicsAdapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_dropdown_item_1line, new ArrayList<>(topicTitles));
+        topicDropdown.setAdapter(topicsAdapter);
+
+        topicDropdown.setOnClickListener(v -> topicDropdown.showDropDown());
+        topicDropdown.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                topicDropdown.showDropDown();
             }
         });
     }

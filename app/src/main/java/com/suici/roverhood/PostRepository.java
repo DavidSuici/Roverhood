@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 public class PostRepository {
 
@@ -27,12 +29,14 @@ public class PostRepository {
     private static PostRepository instance;
 
     private final DatabaseReference postsRef;
+    private final DatabaseReference topicsRef;
     private final DatabaseReference usersRef;
     private final DatabaseReference deletedPostsRef;
     private final LocalDatabase localDatabase;
     private final Context context;
 
     private boolean loading = false;
+    private boolean topicsLoaded = false;
 
     public interface PostRepositoryCallback {
         void onPostsLoaded(List<Post> posts, boolean isOffline);
@@ -49,11 +53,20 @@ public class PostRepository {
         void onError(String errorMessage);
     }
 
+    public interface TopicCreationCallback {
+        void onTopicCreated(Topic topic);
+        void onError(String errorMessage);
+    }
+
     public PostRepository(Context context) {
         this.context = context;
         this.postsRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
                 .getReference("posts");
+
+        this.topicsRef = FirebaseDatabase
+                .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("topics");
 
         this.usersRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
@@ -85,76 +98,101 @@ public class PostRepository {
             callback.onPostsLoaded(loadOfflinePosts(), true);
         }, 10000);
 
-        postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
-            if (isTimeoutReached[0]) return;
-            timeoutHandler.removeCallbacksAndMessages(null);
+        topicsLoaded = false;
+        loadAllTopics();
 
-            if (!snapshot.hasChildren()) {
+        new Thread(() -> {
+            int retryCount = 0;
+            while (!topicsLoaded && retryCount < 100) { // 10 seconds max
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Log.e("PostRepository", "Wait loop interrupted", e);
+                }
+                retryCount++;
+            }
+
+            postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
+                if (isTimeoutReached[0]) return;
+                timeoutHandler.removeCallbacksAndMessages(null);
+
+                if (!snapshot.hasChildren()) {
+                    callback.onPostsLoaded(loadOfflinePosts(), true);
+                    return;
+                }
+
+                removeDeletedPostsFromLocalDB();
+
+                List<DataSnapshot> snapshots = new ArrayList<>();
+                for (DataSnapshot postSnap : snapshot.getChildren()) {
+                    snapshots.add(postSnap);
+                }
+
+                final int totalPosts = snapshots.size();
+                int[] loadedCount = {0};
+
+                for (DataSnapshot postSnap : snapshots) {
+                    String postId = postSnap.getKey();
+                    Long date = postSnap.child("date").getValue(Long.class);
+                    String description = postSnap.child("description").getValue(String.class);
+                    String imageUrl = postSnap.child("imageUrl").getValue(String.class);
+                    Integer likes = postSnap.child("likes").getValue(Integer.class);
+                    Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
+                    Boolean announcement = postSnap.child("announcement").getValue(Boolean.class);
+                    String userId = postSnap.child("userId").getValue(String.class);
+                    String topicId = postSnap.child("topicId").getValue(String.class);
+                    Integer version = postSnap.child("version").getValue(Integer.class);
+
+                    if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
+                        loadedCount[0]++;
+                        continue;
+                    }
+                    if (version == null) {
+                        version = 0;
+                    }
+                    Integer finalVersion = version;
+
+                    Integer localVersion = localDatabase.getPostVersion(postId);
+                    if (localVersion != null) {
+                        if (!version.equals(localVersion)) {
+                            Log.d("PostSync", "Post " + postId + " is outdated. Removing from Local DB.");
+                            localDatabase.deletePost(postId);
+                        }
+                    }
+
+                    usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
+                        User user = userSnap.getValue(User.class);
+                        if (user != null) {
+                            user.setId(userId);
+                            Topic fetchedTopic = null;
+
+                            if (topicId != null) {
+                                fetchedTopic = Topic.getAllTopics().stream()
+                                        .filter(t -> topicId.equals(t.getId()))
+                                        .findFirst()
+                                        .orElse(null);
+                            }
+
+                            Post post = new Post(null, postId, date, user, fetchedTopic, description, imageUrl, likes, likedByMap, announcement, finalVersion, false);
+                            posts.add(post);
+                        }
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalPosts) {
+                            loading = false;
+                            callback.onPostsLoaded(posts, false);
+                        }
+                    }).addOnFailureListener(e -> {
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalPosts) {
+                            loading = false;
+                            callback.onPostsLoaded(posts, false);
+                        }
+                    });
+                }
+            }).addOnFailureListener(e -> {
                 callback.onPostsLoaded(loadOfflinePosts(), true);
-                return;
-            }
-
-            removeDeletedPostsFromLocalDB();
-
-            List<DataSnapshot> snapshots = new ArrayList<>();
-            for (DataSnapshot postSnap : snapshot.getChildren()) {
-                snapshots.add(postSnap);
-            }
-
-            final int totalPosts = snapshots.size();
-            int[] loadedCount = {0};
-
-            for (DataSnapshot postSnap : snapshots) {
-                String postId = postSnap.getKey();
-                Long date = postSnap.child("date").getValue(Long.class);
-                String description = postSnap.child("description").getValue(String.class);
-                String imageUrl = postSnap.child("imageUrl").getValue(String.class);
-                Integer likes = postSnap.child("likes").getValue(Integer.class);
-                Map<String, Boolean> likedByMap = (Map<String, Boolean>) postSnap.child("likedBy").getValue();
-                Boolean announcement = postSnap.child("announcement").getValue(Boolean.class);
-                String userId = postSnap.child("userId").getValue(String.class);
-                Integer version = postSnap.child("version").getValue(Integer.class);
-
-                if (date == null || description == null || imageUrl == null || likes == null || userId == null) {
-                    loadedCount[0]++;
-                    continue;
-                }
-                if(version == null) {
-                    version = 0;
-                }
-                Integer finalVersion = version;
-
-                Integer localVersion = localDatabase.getPostVersion(postId);
-                if (localVersion != null) {
-                    if (!version.equals(localVersion)) {
-                        Log.d("PostSync", "Post " + postId + " is outdated. Removing from Local DB.");
-                        localDatabase.deletePost(postId);
-                    }
-                }
-
-                usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
-                    User user = userSnap.getValue(User.class);
-                    if (user != null) {
-                        user.setId(userId);
-                        Post post = new Post(null, postId, date, user, description, imageUrl, likes, likedByMap, announcement, finalVersion,false);
-                        posts.add(post);
-                    }
-                    loadedCount[0]++;
-                    if (loadedCount[0] == totalPosts) {
-                        loading = false;
-                        callback.onPostsLoaded(posts, false);
-                    }
-                }).addOnFailureListener(e -> {
-                    loadedCount[0]++;
-                    if (loadedCount[0] == totalPosts) {
-                        loading = false;
-                        callback.onError("Failed to load user data");
-                    }
-                });
-            }
-        }).addOnFailureListener(e -> {
-            callback.onPostsLoaded(loadOfflinePosts(), true);
-        });
+            });
+        }).start();
     }
 
     private void removeDeletedPostsFromLocalDB() {
@@ -218,7 +256,7 @@ public class PostRepository {
         syncPostsToLocalDB(singlePostList);
     }
 
-    public void createPost(String description, User user, String imageUrl, boolean isAnnouncement, Fragment fragment, PostCreationCallback callback) {
+    public void createPost(String description, User user, String imageUrl, boolean isAnnouncement, Topic topic, Fragment fragment, PostCreationCallback callback) {
         String postId = postsRef.push().getKey();
         if (postId == null) {
             Log.e("PostRepository", "Failed to generate post ID");
@@ -238,12 +276,15 @@ public class PostRepository {
         postMap.put("likes", 1);
         postMap.put("announcement", isAnnouncement);
         postMap.put("userId", user.getId());
+        if (topic != null) {
+            postMap.put("topicId", topic.getId());
+        }
 
         postsRef.child(postId).setValue(postMap)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("PostRepository", "Post successfully saved with ID: " + postId);
 
-                    Post post = new Post(fragment, postId, timestamp, user, description, imageUrl, 1, likedByMap, isAnnouncement, 0, false);
+                    Post post = new Post(fragment, postId, timestamp, user, topic, description, imageUrl, 1, likedByMap, isAnnouncement, 0, false);
                     new Thread(() -> {
                         syncSinglePostToLocalDB(post);
                     }).start();
@@ -400,6 +441,54 @@ public class PostRepository {
                 callback.onError("Failed to delete image.");
             }
         });
+    }
+
+    public void loadAllTopics() {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                DataSnapshot snapshot = Tasks.await(topicsRef.get());
+
+                Topic.clearTopics();
+                for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
+                    Topic topic = dataSnapshot.getValue(Topic.class);
+                    if (topic != null) {
+                        topic.setId(dataSnapshot.getKey());
+                        Topic.addTopic(topic);
+                    }
+                }
+
+                Log.d("PostRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
+                topicsLoaded = true;
+            } catch (Exception e) {
+                Log.e("PostRepository", "Failed to fetch topics synchronously", e);
+            }
+        });
+    }
+
+    public void createTopic(String title, PostRepository.TopicCreationCallback callback) {
+        String topicId = topicsRef.push().getKey();
+        if (topicId == null) {
+            Log.e("PostRepository", "Failed to generate topic ID");
+            callback.onError("Topic creation failed.");
+            return;
+        }
+
+        long timestamp = System.currentTimeMillis() / 1000L;
+
+        Map<String, Object> topicMap = new HashMap<>();
+        topicMap.put("title", title);
+        topicMap.put("creationTime", timestamp);
+
+        topicsRef.child(topicId).setValue(topicMap)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("PostRepository", "Topic successfully created with ID: " + topicId);
+                    Topic newTopic = new Topic(topicId, title, timestamp);
+                    Topic.addTopic(newTopic);
+                    callback.onTopicCreated(newTopic);
+                })
+                .addOnFailureListener(e -> {
+                    callback.onError("Failed to create topic.");
+                });
     }
 
     public boolean isLoading() { return loading; }

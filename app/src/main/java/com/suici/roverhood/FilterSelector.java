@@ -26,21 +26,23 @@ import java.util.TreeSet;
 
 public class FilterSelector extends DialogFragment {
 
-    RoverFeed originalFeed;
+    private RoverFeed originalFeed;
     private Button saveFiltersButton;
     private boolean isChanged = false;
-    TextView teamLabel;
+    private TextView teamLabel;
 
-    TextView clearFiltersButton;
-    TextView clearUsernameButton;
-    TextView clearTeamButton;
-    TextView clearLikesButton;
+    private TextView clearFiltersButton;
+    private TextView clearUsernameButton;
+    private TextView clearTeamButton;
+    private TextView clearTopicButton;
+    private TextView clearLikesButton;
 
-    AutoCompleteTextView userFilter;
-    MaterialAutoCompleteTextView teamDropdown;
-    TextInputEditText minLikesInput;
-    SwitchCompat switchOnlyLiked;
-    SwitchCompat switchAnnouncements;
+    private AutoCompleteTextView userFilter;
+    private MaterialAutoCompleteTextView teamDropdown;
+    private MaterialAutoCompleteTextView topicDropdown;
+    private TextInputEditText minLikesInput;
+    private SwitchCompat switchOnlyLiked;
+    private SwitchCompat switchAnnouncements;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -52,6 +54,7 @@ public class FilterSelector extends DialogFragment {
 
         userFilter = view.findViewById(R.id.userFilter);
         teamDropdown = view.findViewById(R.id.teamDropdown);
+        topicDropdown = view.findViewById(R.id.topicDropdown);
         minLikesInput = view.findViewById(R.id.minLikesInput);
         switchOnlyLiked = view.findViewById(R.id.switchOnlyLiked);
         switchAnnouncements = view.findViewById(R.id.switchAnnouncements);
@@ -60,19 +63,21 @@ public class FilterSelector extends DialogFragment {
         clearFiltersButton = view.findViewById(R.id.clearFiltersButton);
         clearUsernameButton = view.findViewById(R.id.clearUsernameButton);
         clearTeamButton = view.findViewById(R.id.clearTeamButton);
+        clearTopicButton = view.findViewById(R.id.clearTopicButton);
         clearLikesButton = view.findViewById(R.id.clearLikesButton);
 
-        teamLabel = view.findViewById(R.id.labelTeamId);
+        teamLabel = view.findViewById(R.id.labelTeam);
 
         userFilter.setText(FilterOptions.getUsername());
         teamDropdown.setText(FilterOptions.getTeam());
+        topicDropdown.setText(FilterOptions.getTopic());
         minLikesInput.setText(String.valueOf(FilterOptions.getMinLikes()));
         switchOnlyLiked.setChecked(FilterOptions.isOnlyLiked());
         switchAnnouncements.setChecked(FilterOptions.isAnnouncementsOnly());
 
         setSelectAllOnFocus(userFilter);
         setSelectAllOnFocus(minLikesInput);
-        populateUserAndTeamFilterOptions();
+        populateFilterOptions();
         if (switchAnnouncements.isChecked()) {
             teamDropdown.setText("");
             teamDropdown.setEnabled(false);
@@ -84,21 +89,24 @@ public class FilterSelector extends DialogFragment {
 
         saveFiltersButton.setOnClickListener(v -> {
             String newUserFilter = userFilter.getText().toString();
-            String newTeamDropdown = teamDropdown.getText().toString();
+            String newTeamFilter = teamDropdown.getText().toString();
+            String newTopicFilter = topicDropdown.getText().toString();
             String minLikesText = minLikesInput.getText().toString();
             int newMinLikes = minLikesText.isEmpty() ? 0 : Integer.parseInt(minLikesText);
             boolean newOnlyLiked = switchOnlyLiked.isChecked();
             boolean newAnnouncementsOnly = switchAnnouncements.isChecked();
 
             isChanged = !newUserFilter.equals(FilterOptions.getUsername()) ||
-                    !newTeamDropdown.equals(FilterOptions.getTeam()) ||
+                    !newTeamFilter.equals(FilterOptions.getTeam()) ||
+                    !newTopicFilter.equals(FilterOptions.getTopic()) ||
                     newMinLikes != FilterOptions.getMinLikes() ||
                     newOnlyLiked != FilterOptions.isOnlyLiked() ||
                     newAnnouncementsOnly != FilterOptions.isAnnouncementsOnly();
 
             if (isChanged) {
                 FilterOptions.setUsername(newUserFilter);
-                FilterOptions.setTeam(newTeamDropdown);
+                FilterOptions.setTeam(newTeamFilter);
+                FilterOptions.setTopic(newTopicFilter);
                 FilterOptions.setMinLikes(newMinLikes);
                 FilterOptions.setOnlyLiked(newOnlyLiked);
                 FilterOptions.setAnnouncementsOnly(newAnnouncementsOnly);
@@ -114,6 +122,7 @@ public class FilterSelector extends DialogFragment {
         clearFiltersButton.setOnClickListener(v -> {
             userFilter.setText("");
             teamDropdown.setText("");
+            topicDropdown.setText("");
             minLikesInput.setText("0");
             switchOnlyLiked.setChecked(false);
             switchAnnouncements.setChecked(false);
@@ -125,6 +134,10 @@ public class FilterSelector extends DialogFragment {
 
         clearTeamButton.setOnClickListener(v -> {
             teamDropdown.setText("");
+        });
+
+        clearTopicButton.setOnClickListener(v -> {
+            topicDropdown.setText("");
         });
 
         clearLikesButton.setOnClickListener(v -> {
@@ -163,7 +176,7 @@ public class FilterSelector extends DialogFragment {
         });
     }
 
-    private void populateUserAndTeamFilterOptions() {
+    private void populateFilterOptions() {
         LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         Map<String, User> users = localDB.getAllUsers();
 
@@ -176,6 +189,10 @@ public class FilterSelector extends DialogFragment {
                 .filter(team -> team != null && !team.isEmpty())
                 .collect(Collectors.toCollection(TreeSet::new));
 
+        Set<String> topics = Topic.getAllTopics().stream()
+                .map(Topic::getTitle)
+                .collect(Collectors.toCollection(TreeSet::new));
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_dropdown_item_1line, usernames);
         userFilter.setAdapter(adapter);
@@ -184,10 +201,21 @@ public class FilterSelector extends DialogFragment {
                 android.R.layout.simple_dropdown_item_1line, new ArrayList<>(teams));
         teamDropdown.setAdapter(teamAdapter);
 
+        ArrayAdapter<String> topicsAdapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_dropdown_item_1line, new ArrayList<>(topics));
+        topicDropdown.setAdapter(topicsAdapter);
+
         teamDropdown.setOnClickListener(v -> teamDropdown.showDropDown());
         teamDropdown.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 teamDropdown.showDropDown();
+            }
+        });
+
+        topicDropdown.setOnClickListener(v -> topicDropdown.showDropDown());
+        topicDropdown.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                topicDropdown.showDropDown();
             }
         });
     }
