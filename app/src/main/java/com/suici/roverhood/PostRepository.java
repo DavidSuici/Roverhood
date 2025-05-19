@@ -122,6 +122,7 @@ public class PostRepository {
                 }
 
                 removeDeletedPostsFromLocalDB();
+                localDatabase.refreshTopics(Topic.getAllTopics());
 
                 List<DataSnapshot> snapshots = new ArrayList<>();
                 for (DataSnapshot postSnap : snapshot.getChildren()) {
@@ -205,8 +206,37 @@ public class PostRepository {
         });
     }
 
+    public void removeUnusedTopics(List<Post> posts) {
+        List<String> usedTopicIds = new ArrayList<>();
+        for (Post post : posts) {
+            if (post.getTopic() != null) {
+                if (!usedTopicIds.contains(post.getTopic().getId())) {
+                    usedTopicIds.add(post.getTopic().getId());
+                }
+            }
+        }
+
+        List<Topic> allTopics = Topic.getAllTopics();
+        List<Topic> unusedTopics = new ArrayList<>();
+        for (Topic topic : allTopics) {
+            if (!usedTopicIds.contains(topic.getId())) {
+                unusedTopics.add(topic);
+            }
+        }
+
+        for (Topic topic : unusedTopics) {
+            localDatabase.removeTopic(topic.getId());
+            topicsRef.child(topic.getId()).removeValue();
+        }
+
+        Log.d("removeDeletedTopics", "Finished removing unused topics. Total removed: " + unusedTopics.size());
+    }
+
     private List<Post> loadOfflinePosts() {
-        Map<String, Post> offlinePosts = localDatabase.getAllOfflinePosts(null, localDatabase.getAllUsers());
+        Topic.clearTopics();
+        Topic.getAllTopics().addAll(localDatabase.getAllTopics().values());
+
+        Map<String, Post> offlinePosts = localDatabase.getAllOfflinePosts(null, localDatabase.getAllUsers(), localDatabase.getAllTopics());
         loading = false;
         return new ArrayList<>(offlinePosts.values());
     }
@@ -225,6 +255,12 @@ public class PostRepository {
             String fileName = post.getId();
             String imageUrl = post.getImageUrl();
 
+            String topicId = null;
+            if (post.getTopic() != null) {
+                topicId = post.getTopic().getId();
+            }
+            String fetchedTopic = topicId;
+
             ((MainActivity) context).runOnUiThread(() -> {
                 DownloadImageUtils.incrementProgressBarMax();
             });
@@ -236,7 +272,7 @@ public class PostRepository {
                     ((MainActivity) context).runOnUiThread(() -> {
                         DownloadImageUtils.incrementProgressBar();
                     });
-                    localDatabase.insertPost(post.getId(), post.getDate(), post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), post.isAnnouncement(), userId, post.getVersion());
+                    localDatabase.insertPost(post.getId(), post.getDate(), fetchedTopic, post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), post.isAnnouncement(), userId, post.getVersion());
                 }
 
                 @Override

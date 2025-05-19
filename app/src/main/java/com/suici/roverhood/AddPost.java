@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -8,6 +9,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -19,27 +21,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.SwitchCompat;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class AddPost extends DialogFragment {
@@ -63,6 +53,7 @@ public class AddPost extends DialogFragment {
 
     private final int PICK_IMAGE_REQUEST = 1;
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -84,14 +75,27 @@ public class AddPost extends DialogFragment {
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
         topicDropdown.setText(FilterOptions.getTopic());
-
-
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
         populateTopicOptions();
 
         clearTopicButton.setOnClickListener(v -> {
             topicDropdown.setText("");
             editTextTopic.setText("");
+        });
+
+        editTextDescription.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (v.getId() == R.id.editTextDescription) {
+                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                    switch (event.getAction() & MotionEvent.ACTION_MASK) {
+                        case MotionEvent.ACTION_UP:
+                            v.getParent().requestDisallowInterceptTouchEvent(false);
+                            break;
+                    }
+                }
+                return false;
+            }
         });
 
         switchAnnouncement.setChecked(false);
@@ -150,6 +154,14 @@ public class AddPost extends DialogFragment {
 
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            if (editTextDescription.getLineCount() > 45) {
+                if (editTextDescription.getError() == null
+                    || "Description required".equals(editTextDescription.getError().toString()))
+                    editTextDescription.setError((editTextDescription.getLineCount() - 45) + " too many lines");
                 submitPostButton.setEnabled(true);
                 return;
             }

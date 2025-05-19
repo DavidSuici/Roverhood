@@ -58,8 +58,10 @@ public class RoverFeed extends Fragment {
                 requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 setEnabled(true);
 
-                if(!binding.swipeRefresh.isRefreshing() && !isLoading)
+                if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
+                    FilterOptions.resetFilters();
                     refreshFeed();
+                }
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(requireActivity(), backCallback);
@@ -299,6 +301,7 @@ public class RoverFeed extends Fragment {
                     Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_LONG).show();
                     Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(posts.size()));
                 } else {
+                    postRepository.removeUnusedTopics(posts);
                     Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(posts.size()));
                 }
 
@@ -348,7 +351,7 @@ public class RoverFeed extends Fragment {
         }
         postAdapter.setLoading(false);
 
-        if (FilterOptions.areFiltersEnabled()) {
+        if (FilterOptions.areFiltersOrSortEnabled()) {
             binding.filters.setVisibility(View.VISIBLE);
             binding.filterList.setText(FilterOptions.getFiltersText());
         }

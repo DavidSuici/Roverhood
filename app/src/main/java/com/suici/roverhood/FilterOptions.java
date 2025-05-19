@@ -2,6 +2,7 @@ package com.suici.roverhood;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,8 @@ public class FilterOptions {
     private static String topic = "";
     private static boolean onlyLiked = false;
     private static int minLikes = 0;
+    private static boolean sortByLikes = false;
+    private static boolean orderAscending = false;
 
     public static boolean isAnnouncementsOnly() {
         return announcementsOnly;
@@ -27,6 +30,8 @@ public class FilterOptions {
     public static int getMinLikes() {
         return minLikes;
     }
+    public static boolean isSortByLikes() { return sortByLikes; }
+    public static boolean isOrderAscending() { return orderAscending; }
 
     public static void setAnnouncementsOnly(boolean announcementsOnly) {
         FilterOptions.announcementsOnly = announcementsOnly;
@@ -44,6 +49,8 @@ public class FilterOptions {
     public static void setMinLikes(int minLikes) {
         FilterOptions.minLikes = minLikes;
     }
+    public static void setSortByLikes(boolean sortByLikes) { FilterOptions.sortByLikes = sortByLikes; }
+    public static void setOrderAscending(boolean orderAscending) { FilterOptions.orderAscending = orderAscending; }
     public static void resetFilters() {
         announcementsOnly = false;
         username = "";
@@ -51,14 +58,18 @@ public class FilterOptions {
         topic = "";
         onlyLiked = false;
         minLikes = 0;
+        sortByLikes = false;
+        orderAscending = false;
     }
-    public static boolean areFiltersEnabled() {
+    public static boolean areFiltersOrSortEnabled() {
         return announcementsOnly ||
                 !username.isEmpty() ||
                 !team.isEmpty() ||
                 !topic.isEmpty() ||
                 onlyLiked ||
-                minLikes > 0;
+                minLikes > 0 ||
+                sortByLikes ||
+                orderAscending;
     }
 
     public static List<Post> filterPosts(List<Post> allPosts, MainActivity activity) {
@@ -93,7 +104,11 @@ public class FilterOptions {
             filtered.add(post);
         }
 
-        if (!topic.isEmpty()) {
+        if (sortByLikes) {
+            filtered.sort(Comparator.comparing(Post::getLikes));
+        }
+
+        if (orderAscending) {
             Collections.reverse(filtered);
         }
 
@@ -120,6 +135,20 @@ public class FilterOptions {
         }
         if (announcementsOnly) {
             filtersText.append("Only Announcements, ");
+        }
+
+        filtersText.append("Sort by: ");
+        if (sortByLikes) {
+            filtersText.append("Likes ");
+        }
+        else {
+            filtersText.append("Date ");
+        }
+        if (orderAscending) {
+            filtersText.append("asc. ");
+        }
+        else {
+            filtersText.append("desc. ");
         }
 
         if (filtersText.length() > 0) {

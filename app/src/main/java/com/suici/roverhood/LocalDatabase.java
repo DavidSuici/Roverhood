@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment;
 import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class LocalDatabase extends SQLiteOpenHelper {
@@ -26,7 +27,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 20;
+    public static final int DATABASE_VERSION = 23;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -57,6 +58,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final String TABLE_POSTS = "posts";
     public static final String COLUMN_POST_ID = "postId";
     public static final String COLUMN_DATE = "date";
+    public static final String COLUMN_TOPIC_ID = "topicId";
     public static final String COLUMN_DESCRIPTION = "description";
     public static final String COLUMN_IMAGE_PATH = "imagePath";
     public static final String COLUMN_LIKES = "likes";
@@ -69,6 +71,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
             "CREATE TABLE " + TABLE_POSTS + " (" +
                     COLUMN_POST_ID + " TEXT PRIMARY KEY, " +
                     COLUMN_DATE + " INTEGER, " +
+                    COLUMN_TOPIC_ID + " TEXT, " +
                     COLUMN_DESCRIPTION + " TEXT, " +
                     COLUMN_IMAGE_PATH + " TEXT, " +
                     COLUMN_LIKES + " INTEGER, " +
@@ -76,6 +79,16 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     COLUMN_ANNOUNCEMENT + " INTEGER DEFAULT 0, " +
                     COLUMN_USERID + " TEXT, " +
                     COLUMN_VERSION + " INTEGER DEFAULT 0);";
+
+    public static final String TABLE_TOPICS = "topics";
+    public static final String COLUMN_TOPIC_TITLE = "title";
+    public static final String COLUMN_TOPIC_CREATION_TIME = "creationTime";
+
+    private static final String CREATE_TABLE_TOPICS =
+            "CREATE TABLE " + TABLE_TOPICS + " (" +
+                    COLUMN_TOPIC_ID + " TEXT PRIMARY KEY, " +
+                    COLUMN_TOPIC_TITLE + " TEXT, " +
+                    COLUMN_TOPIC_CREATION_TIME + " INTEGER);";
 
     public LocalDatabase(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -86,6 +99,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_USERS);
         db.execSQL(CREATE_TABLE_SESSION);
         db.execSQL(CREATE_TABLE_POSTS);
+        db.execSQL(CREATE_TABLE_TOPICS);
 
         // Initialize with empty session row
         ContentValues values = new ContentValues();
@@ -100,6 +114,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_SESSION);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_POSTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_TOPICS);
         onCreate(db);
     }
 
@@ -289,7 +304,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     // POSTS TABLE ACTIONS
 
-    public void insertPost(String postId, Long date, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId, int version) {
+    public void insertPost(String postId, Long date, String topicId, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId, int version) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         String likedByString = serializeLikedBy(likedBy);
@@ -297,6 +312,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(COLUMN_POST_ID, postId);
         values.put(COLUMN_DATE, date);
+        values.put(COLUMN_TOPIC_ID, topicId);
         values.put(COLUMN_DESCRIPTION, description);
         values.put(COLUMN_IMAGE_PATH, imagePath);
         values.put(COLUMN_LIKES, likes);
@@ -385,7 +401,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return null;
     }
 
-    public Map<String, Post> getAllOfflinePosts(Fragment fragment, Map<String, User> usersMap) {
+    public Map<String, Post> getAllOfflinePosts(Fragment fragment, Map<String, User> usersMap, Map<String, Topic> topicMap) {
         SQLiteDatabase db = this.getReadableDatabase();
         Map<String, Post> postsMap = new LinkedHashMap<>();
 
@@ -402,6 +418,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 do {
                     String postId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_POST_ID));
                     long date = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DATE));
+                    String topicId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TOPIC_ID));
                     String description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DESCRIPTION));
                     String imagePath = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_IMAGE_PATH));
                     int likes = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_LIKES));
@@ -412,6 +429,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
                     Map<String, Boolean> likedBy = deserializeLikedBy(likedByString);
                     User user = usersMap.get(userId);
+                    Topic topic = topicMap.get(topicId);
 
                     if (user != null) {
                         Post post = new Post(
@@ -419,7 +437,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                                 postId,
                                 date,
                                 user,
-                                null,
+                                topic,
                                 description,
                                 imagePath,
                                 likes,
@@ -449,5 +467,63 @@ public class LocalDatabase extends SQLiteOpenHelper {
         String[] selectionArgs = { postId };
 
         db.update(TABLE_POSTS, values, selection, selectionArgs);
+    }
+
+    // TOPICS TABLE ACTIONS
+
+    public Map<String, Topic> getAllTopics() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Map<String, Topic> topicsMap = new LinkedHashMap<>();
+
+        try (Cursor cursor = db.query(
+                TABLE_TOPICS,
+                null,
+                null,
+                null,
+                null,
+                null,
+                COLUMN_TOPIC_ID  + " ASC"
+        )) {
+            if (cursor.moveToFirst()) {
+                do {
+                    String topicId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TOPIC_ID));
+                    String title = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TOPIC_TITLE));
+                    long creationTime = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_TOPIC_CREATION_TIME));
+
+                    Topic topic = new Topic(topicId, title, creationTime);
+                    topicsMap.put(topicId, topic);
+                } while (cursor.moveToNext());
+            }
+        }
+        return topicsMap;
+    }
+
+    public void refreshTopics(List<Topic> newTopics) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_TOPICS, null, null);
+
+            ContentValues values = new ContentValues();
+            for (Topic topic : newTopics) {
+                values.put(COLUMN_TOPIC_ID, topic.getId());
+                values.put(COLUMN_TOPIC_TITLE, topic.getTitle());
+                values.put(COLUMN_TOPIC_CREATION_TIME, topic.getCreationTime());
+                db.insert(TABLE_TOPICS, null, values);
+                values.clear();
+            }
+
+            db.setTransactionSuccessful();
+        } catch (Exception e) {
+            Log.e("LocalDatabase", "Failed to refresh topics: " + e.getMessage());
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public void removeTopic(String topicId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_TOPICS, COLUMN_TOPIC_ID + " = ?", new String[]{topicId});
     }
 }

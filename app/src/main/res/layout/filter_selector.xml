@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -9,11 +10,8 @@
         android:fillViewport="true">
 
         <androidx.constraintlayout.widget.ConstraintLayout
-            xmlns:tools="http://schemas.android.com/tools"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            tools:context=".AddPost">
+            android:layout_height="wrap_content">
 
             <TextView
                 android:id="@+id/titleText"
@@ -260,18 +258,117 @@
                 app:layout_constraintBottom_toBottomOf="@id/labelAnnouncements"
                 app:layout_constraintRight_toRightOf="parent" />
 
+            <!-- Sort by -->
+            <TextView
+                android:id="@+id/labelSortBy"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Sort by:"
+                android:textSize="18sp"
+                android:layout_marginTop="35dp"
+                android:layout_marginStart="16dp"
+                android:gravity="end"
+                app:layout_constraintTop_toBottomOf="@id/labelAnnouncements"
+                app:layout_constraintLeft_toLeftOf="parent" />
+
+            <TextView
+                android:id="@+id/labelSortByDate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Date"
+                android:textSize="18sp"
+                android:layout_marginEnd="4dp"
+                android:gravity="end"
+                android:textColor="@color/light_purple"
+                app:layout_constraintTop_toTopOf="@id/labelSortBy"
+                app:layout_constraintBottom_toBottomOf="@id/labelSortBy"
+                app:layout_constraintRight_toLeftOf="@id/switchSortByLikes" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchSortByLikes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                app:trackTint="@color/purple"
+                app:thumbTint="@color/light_purple"
+                app:layout_constraintTop_toTopOf="@id/labelSortBy"
+                app:layout_constraintBottom_toBottomOf="@id/labelSortBy"
+                app:layout_constraintRight_toLeftOf="@+id/labelSortByLikes" />
+
+            <TextView
+                android:id="@+id/labelSortByLikes"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Likes"
+                android:textSize="18sp"
+                android:layout_marginEnd="16dp"
+                android:gravity="end"
+                app:layout_constraintTop_toTopOf="@id/labelSortBy"
+                app:layout_constraintBottom_toBottomOf="@id/labelSortBy"
+                app:layout_constraintRight_toRightOf="parent" />
+
+            <!-- Sort by -->
+            <TextView
+                android:id="@+id/labelOrder"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Sort Order:"
+                android:textSize="18sp"
+                android:layout_marginTop="35dp"
+                android:layout_marginStart="16dp"
+                android:gravity="end"
+                app:layout_constraintTop_toBottomOf="@id/labelSortBy"
+                app:layout_constraintLeft_toLeftOf="parent" />
+
+            <TextView
+                android:id="@+id/labelOrderDescending"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Desc."
+                android:textSize="18sp"
+                android:layout_marginEnd="4dp"
+                android:gravity="end"
+                android:textColor="@color/light_purple"
+                app:layout_constraintTop_toTopOf="@id/labelOrder"
+                app:layout_constraintBottom_toBottomOf="@id/labelOrder"
+                app:layout_constraintRight_toLeftOf="@id/switchOrderAscending" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchOrderAscending"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                app:trackTint="@color/purple"
+                app:thumbTint="@color/light_purple"
+                app:layout_constraintTop_toTopOf="@id/labelOrder"
+                app:layout_constraintBottom_toBottomOf="@id/labelOrder"
+                app:layout_constraintRight_toLeftOf="@+id/labelOrderAscending" />
+
+            <TextView
+                android:id="@+id/labelOrderAscending"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Asc."
+                android:textSize="18sp"
+                android:layout_marginEnd="16dp"
+                android:gravity="end"
+                app:layout_constraintTop_toTopOf="@id/labelOrder"
+                app:layout_constraintBottom_toBottomOf="@id/labelOrder"
+                app:layout_constraintRight_toRightOf="parent" />
+
             <Button
                 android:id="@+id/saveFiltersButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="Save Filter Settings"
-                android:layout_marginTop="30dp"
-                app:layout_constraintTop_toBottomOf="@id/labelAnnouncements"
+                android:layout_marginTop="16dp"
+                app:layout_constraintTop_toBottomOf="@id/labelOrder"
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintRight_toRightOf="parent"
                 app:layout_constraintWidth_percent="0.9" />
 
             <Space
+                android:id="@+id/endSpace"
                 android:layout_width="match_parent"
                 android:layout_height="20dp"
                 app:layout_constraintTop_toBottomOf="@id/saveFiltersButton"

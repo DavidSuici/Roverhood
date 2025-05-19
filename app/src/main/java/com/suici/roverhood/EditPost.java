@@ -1,5 +1,6 @@
 package com.suici.roverhood;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -9,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -52,6 +54,7 @@ public class EditPost extends DialogFragment {
         this.activeFragment = activeFragment;
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -81,6 +84,21 @@ public class EditPost extends DialogFragment {
         topicSelectGroup.setVisibility(View.GONE);
 
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+
+        editTextDescription.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (v.getId() == R.id.editTextDescription) {
+                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                    switch (event.getAction() & MotionEvent.ACTION_MASK) {
+                        case MotionEvent.ACTION_UP:
+                            v.getParent().requestDisallowInterceptTouchEvent(false);
+                            break;
+                    }
+                }
+                return false;
+            }
+        });
 
         switchAnnouncement.setChecked(post.isAnnouncement());
         if ("ORGANIZER".equals(currentUser.getUserType())
@@ -128,6 +146,14 @@ public class EditPost extends DialogFragment {
             String description = editTextDescription.getText().toString().trim();
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            if (editTextDescription.getLineCount() > 45) {
+                if (editTextDescription.getError() == null
+                        || "Description required".equals(editTextDescription.getError().toString()))
+                    editTextDescription.setError((editTextDescription.getLineCount() - 45) + " too many lines");
                 submitPostButton.setEnabled(true);
                 return;
             }

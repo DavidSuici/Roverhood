@@ -1,8 +1,10 @@
 package com.suici.roverhood;
 
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -11,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
@@ -43,6 +46,9 @@ public class Post {
     private ImageView imageView;
     private boolean imageLoaded = false;
     private boolean isPostVisible = false;
+    private boolean isExpanded = false;
+
+    private final int MAX_PREVIEW_ROWS = 5;
 
 
     public Post(Fragment fragment, String id, Long date, User user, Topic topic, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, int version, Boolean offlinePost) {
@@ -75,6 +81,7 @@ public class Post {
             topicView.setOnClickListener(v -> {
                 FilterOptions.resetFilters();
                 FilterOptions.setTopic(topic.getTitle());
+                FilterOptions.setOrderAscending(true);
 
                 if (activeFragment instanceof RoverFeed) {
                     RoverFeed roverFeed = (RoverFeed) activeFragment;
@@ -84,6 +91,141 @@ public class Post {
                 }
             });
         }
+    }
+
+    public void loadUserAndTeamButtons(TextView userView, TextView teamView) {
+        userView.setOnClickListener(v -> {
+            FilterOptions.resetFilters();
+            FilterOptions.setUsername(user.getUsername());
+
+            if (activeFragment instanceof RoverFeed) {
+                RoverFeed roverFeed = (RoverFeed) activeFragment;
+                if (!roverFeed.isLoading()) {
+                    roverFeed.refreshFeed();
+                }
+            }
+        });
+
+        teamView.setOnClickListener(v -> {
+            FilterOptions.resetFilters();
+            FilterOptions.setTeam(user.getTeam());
+
+            if (activeFragment instanceof RoverFeed) {
+                RoverFeed roverFeed = (RoverFeed) activeFragment;
+                if (!roverFeed.isLoading()) {
+                    roverFeed.refreshFeed();
+                }
+            }
+        });
+    }
+
+    public void loadDescriptionButton(TextView descriptionView, TextView seeMoreView) {
+        descriptionView.setMaxLines(Integer.MAX_VALUE);
+        descriptionView.setEllipsize(null);
+        seeMoreView.setVisibility(View.GONE);
+        isExpanded = true;
+
+        descriptionView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                descriptionView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                    descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
+                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
+                    seeMoreView.setVisibility(View.VISIBLE);
+                    isExpanded = false;
+                }
+            }
+        });
+
+        descriptionView.setOnClickListener(v -> {
+            if (isExpanded) {
+                if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                    descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
+                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
+                    seeMoreView.setVisibility(View.VISIBLE);
+                    isExpanded = false;
+                }
+            } else {
+                descriptionView.setMaxLines(Integer.MAX_VALUE);
+                descriptionView.setEllipsize(null);
+                seeMoreView.setVisibility(View.GONE);
+                isExpanded = true;
+            }
+        });
+
+        seeMoreView.setOnClickListener(v -> {
+            if (isExpanded) {
+                if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                    descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
+                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
+                    seeMoreView.setVisibility(View.VISIBLE);
+                    isExpanded = false;
+                }
+            } else {
+                descriptionView.setMaxLines(Integer.MAX_VALUE);
+                descriptionView.setEllipsize(null);
+                seeMoreView.setVisibility(View.GONE);
+                isExpanded = true;
+            }
+        });
+    }
+
+    public void loadImageClickEvent(ImageView imageView, ImageButton fullScreenIcon) {
+        ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
+        params.dimensionRatio = null;
+        params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
+        params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
+        imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        imageView.setLayoutParams(params);
+        imageView.requestLayout();
+        fullScreenIcon.setVisibility(View.GONE);
+
+        imageView.post(() -> {
+            if (imageView.getDrawable() != null) {
+                int width = imageView.getDrawable().getIntrinsicWidth();
+                int height = imageView.getDrawable().getIntrinsicHeight();
+
+                if (width > 0 && height > 0) {
+                    float ratio = (float) width / height;
+                    if (ratio < 1) {
+                        params.dimensionRatio = "1:1";
+                        params.width = 0;
+                        params.height = 0;
+                        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        imageView.setLayoutParams(params);
+                        imageView.requestLayout();
+                        fullScreenIcon.setVisibility(View.VISIBLE);
+                    }
+
+                }
+            }
+        });
+
+        imageView.setOnClickListener(v -> {
+            if ("1:1".equals(params.dimensionRatio)) {
+                params.dimensionRatio = null;
+                params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
+                params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
+                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                fullScreenIcon.setVisibility(View.GONE);
+            } else {
+                int width = imageView.getDrawable().getIntrinsicWidth();
+                int height = imageView.getDrawable().getIntrinsicHeight();
+                float ratio = (float) width / height;
+                if (ratio < 1) {
+                    params.dimensionRatio = "1:1";
+                    params.width = 0;
+                    params.height = 0;
+                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    fullScreenIcon.setVisibility(View.VISIBLE);
+                }
+            }
+
+            imageView.setLayoutParams(params);
+            imageView.requestLayout();
+        });
     }
 
     public void setFlair(View flair) {
@@ -268,6 +410,7 @@ public class Post {
         TextView itemDate = itemView.findViewById(R.id.date);
         TextView itemTopic = itemView.findViewById(R.id.topicLabel);
         TextView itemDescription = itemView.findViewById(R.id.description);
+        TextView itemSeeMore = itemView.findViewById(R.id.seeMoreLabel);
         TextView itemHeartNr = itemView.findViewById(R.id.heartNr);
         ImageView itemImage = itemView.findViewById(R.id.image);
         CheckBox itemHeart = itemView.findViewById(R.id.heart);
@@ -275,6 +418,7 @@ public class Post {
         View announcementFlair = itemView.findViewById(R.id.announcementFlair);
         View announcementBG = itemView.findViewById(R.id.announcementBG);
         ImageButton menuButton = itemView.findViewById(R.id.postMenuButton);
+        ImageButton fullScreenIcon = itemView.findViewById(R.id.viewFullScreenIcon);
 
         // Populate the views
         itemUser.setText(this.getUser().getUsername());
@@ -285,7 +429,11 @@ public class Post {
         itemHeartNr.setText(String.valueOf(this.getLikes()));
         itemImage.setImageDrawable(imageView.getDrawable());
         itemHeart.setChecked(likedBy.containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
+
         setTopicLabel(itemTopic);
+        loadUserAndTeamButtons(itemUser, itemTeam);
+        loadDescriptionButton(itemDescription, itemSeeMore);
+        loadImageClickEvent(itemImage, fullScreenIcon);
         loadLikeButton(itemHeart, itemHeartNr);
         loadMenuButton(menuButton);
         setFlair(flair);
