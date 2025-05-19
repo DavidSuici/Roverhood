@@ -352,11 +352,11 @@ public class RoverFeed extends Fragment {
         postAdapter.setLoading(false);
 
         if (FilterOptions.areFiltersOrSortEnabled()) {
-            binding.filters.setVisibility(View.VISIBLE);
+            binding.filtersLayout.setVisibility(View.VISIBLE);
             binding.filterList.setText(FilterOptions.getFiltersText());
         }
         else
-            binding.filters.setVisibility(View.GONE);
+            binding.filtersLayout.setVisibility(View.GONE);
     }
 
     private void finishRefreshUI() {
@@ -388,7 +388,7 @@ public class RoverFeed extends Fragment {
             int index = visiblePostList.indexOf(post);
 
             if (index == -1) {
-                if (!FilterOptions.getTopic().isEmpty()) {
+                if (FilterOptions.isOrderAscending()) {
                     visiblePostList.add(post);
                     postAdapter.notifyItemInserted(visiblePostList.size() - 1);
                     recyclerView.scrollToPosition(visiblePostList.size()-1);

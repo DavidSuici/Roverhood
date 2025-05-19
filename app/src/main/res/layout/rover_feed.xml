@@ -22,9 +22,7 @@
                 android:id="@+id/bannerBackground"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:background="@drawable/bg"
-                tools:layout_editor_absoluteX="0dp"
-                tools:layout_editor_absoluteY="0dp"
+                android:background="?attr/colorSecondary"
                 app:layout_constraintTop_toTopOf="parent"/>
 
             <ImageButton
@@ -82,29 +80,57 @@
 
             <TextView
                 android:id="@+id/username"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="UserName"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="?android:attr/textColorPrimary"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:maxLines="1"
                 android:clickable="true"
                 android:focusable="true"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/buttonLogOut"
+                app:layout_constraintStart_toEndOf="@+id/team"
                 android:layout_marginTop="8dp"
+                android:layout_marginStart="4dp"
                 android:layout_marginEnd="10dp"
                 tools:ignore="UseSwitchCompatOrMaterialXml"/>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:paddingBottom="16dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/filtersLayout"
+            app:layout_constraintVertical_bias="0.0"
+            tools:listitem="@layout/item_post" />
+
         <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/filters"
+            android:id="@+id/filtersLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/banner">
+
+            <View
+                android:id="@+id/filtersBackground"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:background="?attr/colorSecondary"
+                android:alpha="0.3"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
 
             <TextView
                 android:id="@+id/labelFilters"
@@ -154,21 +180,6 @@
                 android:layout_marginEnd="12dp" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:clipToPadding="false"
-            android:overScrollMode="never"
-            android:paddingBottom="16dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/filters"
-            app:layout_constraintVertical_bias="0.0"
-            tools:listitem="@layout/item_post" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

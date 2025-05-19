@@ -78,6 +78,13 @@ public class Post {
                 topicView.setBackgroundResource(R.drawable.topic_background);
             }
 
+            View parentView = (View) topicView.getParent();
+            parentView.post(() -> {
+                int parentWidth = parentView.getWidth();
+                int maxAllowedWidth = (int) (parentWidth * 0.9);
+                topicView.setMaxWidth(maxAllowedWidth);
+            });
+
             topicView.setOnClickListener(v -> {
                 FilterOptions.resetFilters();
                 FilterOptions.setTopic(topic.getTitle());

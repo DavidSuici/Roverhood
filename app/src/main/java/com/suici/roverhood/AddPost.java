@@ -152,6 +152,12 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
+            if (newTopic.length() > 50) {
+                Toast.makeText(context, "Topic " + (newTopic.length() - 50) + " characters too long", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
                 submitPostButton.setEnabled(true);

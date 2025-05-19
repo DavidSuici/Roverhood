@@ -118,14 +118,14 @@ public class FilterOptions {
     public static String getFiltersText() {
         StringBuilder filtersText = new StringBuilder();
 
+        if (!topic.isEmpty()) {
+            filtersText.append("Topic: ").append(topic).append(", ");
+        }
         if (!username.isEmpty()) {
             filtersText.append("User: ").append(username).append(", ");
         }
         if (!team.isEmpty()) {
             filtersText.append("Team: ").append(team).append(", ");
-        }
-        if (!topic.isEmpty()) {
-            filtersText.append("Topic: ").append(topic).append(", ");
         }
         if (minLikes > 0) {
             filtersText.append("Min Likes: ").append(minLikes).append(", ");
@@ -149,12 +149,6 @@ public class FilterOptions {
         }
         else {
             filtersText.append("desc. ");
-        }
-
-        if (filtersText.length() > 0) {
-            filtersText.setLength(filtersText.length() - 2);
-        } else {
-            filtersText.append("No Filters");
         }
 
         return filtersText.toString();

@@ -56,9 +56,11 @@ public class UploadImageUtils {
             }
         });
 
+        activity.getFloatingButton().setEnabled(false);
+
         uploadTask
                 .addOnSuccessListener(taskSnapshot -> {
-                    // Get download URL with token
+                    activity.getFloatingButton().setEnabled(true);
                     storageRef.getDownloadUrl()
                             .addOnSuccessListener(uri -> callback.onSuccess(uri.toString()))
                             .addOnFailureListener(callback::onFailure);
