@@ -250,21 +250,22 @@ public class Post {
         }
     }
 
-    public void setAnnouncementFlair(View announcementFlair, View announcementBG, View flair, TextView userType) {
+    public void setAnnouncementFlair(View announcementFlair, View postBG, View flair, TextView userType) {
         if(isAnnouncement()) {
             announcementFlair.setVisibility(View.VISIBLE);
-            announcementBG.setVisibility(View.VISIBLE);
             flair.setVisibility(View.GONE);
             int amberColor = userType.getContext().getResources().getColor(R.color.announcements_amber, userType.getContext().getTheme());
             userType.setTextColor(amberColor);
             userType.setText("ANNOUNCEMENT");
+            postBG.setBackgroundColor(amberColor);
         }
         else {
             announcementFlair.setVisibility(View.GONE);
-            announcementBG.setVisibility(View.GONE);
             flair.setVisibility(View.VISIBLE);
             int defaultColor = MaterialColors.getColor(userType, com.google.android.material.R.attr.colorOnSurface);
+            int primaryColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorPrimary);
             userType.setTextColor(defaultColor);
+            postBG.setBackgroundColor(primaryColor);
         }
     }
 
@@ -425,7 +426,7 @@ public class Post {
         CheckBox itemHeart = itemView.findViewById(R.id.heart);
         View flair = itemView.findViewById(R.id.flair);
         View announcementFlair = itemView.findViewById(R.id.announcementFlair);
-        View announcementBG = itemView.findViewById(R.id.announcementBG);
+        View postBG = itemView.findViewById(R.id.postBG);
         ImageButton menuButton = itemView.findViewById(R.id.postMenuButton);
         ImageButton fullScreenIcon = itemView.findViewById(R.id.viewFullScreenIcon);
 
@@ -446,7 +447,7 @@ public class Post {
         loadLikeButton(itemHeart, itemHeartNr);
         loadMenuButton(menuButton);
         setFlair(flair);
-        setAnnouncementFlair(announcementFlair, announcementBG, flair, itemUserType);
+        setAnnouncementFlair(announcementFlair, postBG, flair, itemUserType);
     }
 
     public boolean isAnnouncement() { return announcement; }

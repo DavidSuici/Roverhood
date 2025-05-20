@@ -8,14 +8,13 @@
     android:padding="0dp">
 
     <View
-        android:id="@+id/announcementBG"
+        android:id="@+id/postBG"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="4dp"
-        android:background="#09FFC107"
-        android:visibility="gone"
+        android:background="?attr/colorPrimary"
+        android:alpha="0.05"
         app:layout_constraintBottom_toTopOf="@id/image"
-        app:layout_constraintTop_toTopOf="@id/userType"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintVertical_bias="0.8" />
 
