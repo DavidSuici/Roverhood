@@ -31,7 +31,7 @@ public class LogIn extends Fragment {
     ) {
         binding = LogInBinding.inflate(inflater, container, false);
 
-        FirebaseAccessCodeHasher.hashAllAccessCodes();
+        //FirebaseAccessCodeHasher.hashAllAccessCodes();
 
         setSelectAllOnFocus(binding.usernameText);
         setSelectAllOnFocus(binding.accessCodeText);
