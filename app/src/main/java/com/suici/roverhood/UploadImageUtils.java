@@ -43,24 +43,25 @@ public class UploadImageUtils {
 
         // Logic for Upload LoadingBar
         MainActivity activity = MainActivity.instance;
-        ProgressBarUtils.resetProgressBar(activity.getUploadProgressBar());
+        if (activity != null)
+            ProgressBarUtils.resetProgressBar(activity.getUploadProgressBar());
         uploadTask.addOnProgressListener(taskSnapshot -> {
             long bytesTransferred = taskSnapshot.getBytesTransferred();
             long totalBytes = taskSnapshot.getTotalByteCount();
             int progress = (int) ((100.0 * bytesTransferred) / totalBytes);
 
-            if (MainActivity.instance != null) {
-                activity.runOnUiThread(() -> {
-                    ProgressBarUtils.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
-                });
-            }
+            activity.runOnUiThread(() -> {
+                ProgressBarUtils.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
+            });
         });
 
-        activity.getFloatingButton().setEnabled(false);
+        if (activity != null)
+            activity.getFloatingButton().setEnabled(false);
 
         uploadTask
                 .addOnSuccessListener(taskSnapshot -> {
-                    activity.getFloatingButton().setEnabled(true);
+                    if (activity != null)
+                        activity.getFloatingButton().setEnabled(true);
                     storageRef.getDownloadUrl()
                             .addOnSuccessListener(uri -> callback.onSuccess(uri.toString()))
                             .addOnFailureListener(callback::onFailure);

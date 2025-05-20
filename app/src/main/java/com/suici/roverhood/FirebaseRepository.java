@@ -16,6 +16,8 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -89,6 +91,21 @@ public class FirebaseRepository {
             instance = new FirebaseRepository(context);
         }
         return instance;
+    }
+
+    public void signInAnonymously() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
+            auth.signInAnonymously()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            FirebaseUser user = auth.getCurrentUser();
+                            Log.d("Auth", "Signed in as: " + user.getUid());
+                        } else {
+                            Log.e("Auth", "Anonymous sign-in failed", task.getException());
+                        }
+                    });
+        }
     }
 
     public void loadPosts( boolean isOffline, boolean isOfflineUser, PostRepositoryCallback callback) {
@@ -544,6 +561,7 @@ public class FirebaseRepository {
     }
 
     public void getAllUsers(UsersCallback callback) {
+        signInAnonymously();
         usersRef.get()
                 .addOnSuccessListener(snapshot -> {
                     Map<String, User> usersMap = new HashMap<>();
@@ -563,6 +581,7 @@ public class FirebaseRepository {
     }
 
     public void setUsernameIfEmpty(String userId, String newUsername, PostOperationCallback callback) {
+        signInAnonymously();
         DatabaseReference userRef = usersRef.child(userId);
 
         userRef.child("username").get().addOnSuccessListener(snapshot -> {

@@ -78,6 +78,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
+
         // Initialize ProgressBars
         downloadProgressBar = binding.downloadProgressBar;
         downloadProgressBar.setVisibility(View.GONE);
