@@ -17,14 +17,22 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.suici.roverhood.databinding.RoverFeedBinding;
+import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.databases.LocalDatabase;
+import com.suici.roverhood.databinding.FragmentRoverFeedBinding;
+import com.suici.roverhood.dialogs.AddPost;
+import com.suici.roverhood.dialogs.FilterSelector;
+import com.suici.roverhood.models.Filters;
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.models.PostAdapter;
+import com.suici.roverhood.models.User;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class RoverFeed extends Fragment {
-    private RoverFeedBinding binding;
+    private FragmentRoverFeedBinding binding;
     private MainActivity activity;
     private MenuItem filterButton;
     private OnBackPressedCallback backCallback;
@@ -47,7 +55,7 @@ public class RoverFeed extends Fragment {
             @NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
-        binding = RoverFeedBinding.inflate(inflater, container, false);
+        binding = FragmentRoverFeedBinding.inflate(inflater, container, false);
         activity = (MainActivity) requireActivity();
 
         // Refresh on back pressed when on feed, but keep the general back pressed logic as well
@@ -59,7 +67,7 @@ public class RoverFeed extends Fragment {
                 setEnabled(true);
 
                 if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
-                    FilterOptions.resetFilters();
+                    Filters.resetFilters();
                     refreshFeed();
                 }
             }
@@ -132,22 +140,22 @@ public class RoverFeed extends Fragment {
         });
 
         binding.clearFiltersButton.setOnClickListener(v -> {
-            FilterOptions.resetFilters();
+            Filters.resetFilters();
             Toast.makeText(requireContext(), "Filters cleared", Toast.LENGTH_SHORT).show();
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
 
         binding.username.setOnClickListener(v -> {
-            FilterOptions.resetFilters();
-            FilterOptions.setUsername(activity.getCurrentUser().getUsername());
+            Filters.resetFilters();
+            Filters.setUsername(activity.getCurrentUser().getUsername());
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
 
         binding.team.setOnClickListener(v -> {
-            FilterOptions.resetFilters();
-            FilterOptions.setTeam(activity.getCurrentUser().getTeam());
+            Filters.resetFilters();
+            Filters.setTeam(activity.getCurrentUser().getTeam());
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
@@ -165,7 +173,7 @@ public class RoverFeed extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(this::refreshFeed);
 
         // Refresh feed for the first load
-        FilterOptions.resetFilters();
+        Filters.resetFilters();
         refreshFeed();
     }
 
@@ -201,7 +209,7 @@ public class RoverFeed extends Fragment {
                 if (firebaseRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
-                    List<Post> filteredList = FilterOptions.filterPosts(allPostList, activity);
+                    List<Post> filteredList = Filters.filterPosts(allPostList, activity);
                     Collections.reverse(filteredList);
 
                     //Sync current posts
@@ -361,9 +369,9 @@ public class RoverFeed extends Fragment {
         }
         postAdapter.setLoading(false);
 
-        if (FilterOptions.areFiltersOrSortEnabled()) {
+        if (Filters.areFiltersOrSortEnabled()) {
             binding.filtersLayout.setVisibility(View.VISIBLE);
-            binding.filterList.setText(FilterOptions.getFiltersText());
+            binding.filterList.setText(Filters.getFiltersText());
         }
         else
             binding.filtersLayout.setVisibility(View.GONE);
@@ -394,11 +402,11 @@ public class RoverFeed extends Fragment {
     }
 
     public void addPostToUI(Post post) {
-        if (FilterOptions.isVisibleAfterFilter(post, activity)) {
+        if (Filters.isVisibleAfterFilter(post, activity)) {
             int index = visiblePostList.indexOf(post);
 
-            if (index == -1) {
-                if (FilterOptions.isOrderAscending()) {
+            if (index == -1 && (!binding.swipeRefresh.isRefreshing() && !isLoading)) {
+                if (Filters.isOrderAscending()) {
                     visiblePostList.add(post);
                     postAdapter.notifyItemInserted(visiblePostList.size() - 1);
                     recyclerView.scrollToPosition(visiblePostList.size()-1);

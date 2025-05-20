@@ -11,7 +11,12 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
-import com.suici.roverhood.databinding.LogInBinding;
+import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.databases.LocalDatabase;
+import com.suici.roverhood.databinding.FragmentLogInBinding;
+import com.suici.roverhood.dialogs.CreateUser;
+import com.suici.roverhood.models.User;
+
 import android.view.inputmethod.EditorInfo;
 import android.view.KeyEvent;
 
@@ -19,7 +24,7 @@ import java.util.Map;
 
 public class LogIn extends Fragment {
 
-    private LogInBinding binding;
+    private FragmentLogInBinding binding;
     private boolean isLoading = false;
     private boolean isLoggingIn = false;
     FirebaseRepository firebaseRepository;
@@ -29,7 +34,7 @@ public class LogIn extends Fragment {
             @NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
-        binding = LogInBinding.inflate(inflater, container, false);
+        binding = FragmentLogInBinding.inflate(inflater, container, false);
 
         //FirebaseAccessCodeHasher.hashAllAccessCodes();
 

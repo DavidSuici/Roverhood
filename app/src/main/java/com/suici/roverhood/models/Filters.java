@@ -1,4 +1,6 @@
-package com.suici.roverhood;
+package com.suici.roverhood.models;
+
+import com.suici.roverhood.MainActivity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -6,7 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-public class FilterOptions {
+public class Filters {
     private static boolean announcementsOnly = false;
     private static String username = "";
     private static String team = "";
@@ -34,23 +36,23 @@ public class FilterOptions {
     public static boolean isOrderAscending() { return orderAscending; }
 
     public static void setAnnouncementsOnly(boolean announcementsOnly) {
-        FilterOptions.announcementsOnly = announcementsOnly;
+        Filters.announcementsOnly = announcementsOnly;
     }
     public static void setUsername(String username) {
-        FilterOptions.username = username;
+        Filters.username = username;
     }
     public static void setTeam(String team) {
-        FilterOptions.team = team;
+        Filters.team = team;
     }
-    public static void setTopic(String topic) { FilterOptions.topic = topic; }
+    public static void setTopic(String topic) { Filters.topic = topic; }
     public static void setOnlyLiked(boolean onlyLiked) {
-        FilterOptions.onlyLiked = onlyLiked;
+        Filters.onlyLiked = onlyLiked;
     }
     public static void setMinLikes(int minLikes) {
-        FilterOptions.minLikes = minLikes;
+        Filters.minLikes = minLikes;
     }
-    public static void setSortByLikes(boolean sortByLikes) { FilterOptions.sortByLikes = sortByLikes; }
-    public static void setOrderAscending(boolean orderAscending) { FilterOptions.orderAscending = orderAscending; }
+    public static void setSortByLikes(boolean sortByLikes) { Filters.sortByLikes = sortByLikes; }
+    public static void setOrderAscending(boolean orderAscending) { Filters.orderAscending = orderAscending; }
     public static void resetFilters() {
         announcementsOnly = false;
         username = "";

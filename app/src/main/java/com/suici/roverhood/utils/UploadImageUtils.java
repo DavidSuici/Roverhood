@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.utils;
 
 import android.graphics.Bitmap;
 
@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
+import com.suici.roverhood.MainActivity;
 
 import java.io.ByteArrayOutputStream;
 import java.util.UUID;

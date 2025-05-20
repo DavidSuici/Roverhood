@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.dialogs;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -18,6 +18,12 @@ import androidx.fragment.app.DialogFragment;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.suici.roverhood.models.Filters;
+import com.suici.roverhood.R;
+import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.models.Topic;
+import com.suici.roverhood.models.User;
+import com.suici.roverhood.databases.LocalDatabase;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +62,7 @@ public class FilterSelector extends DialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.filter_selector, container, false);
+        View view = inflater.inflate(R.layout.dialog_filter_selector, container, false);
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
         isChanged = false;
@@ -83,14 +89,14 @@ public class FilterSelector extends DialogFragment {
         likesLabel = view.findViewById(R.id.labelSortByLikes);
         dateLabel = view.findViewById(R.id.labelSortByDate);
 
-        userFilter.setText(FilterOptions.getUsername());
-        teamDropdown.setText(FilterOptions.getTeam());
-        topicDropdown.setText(FilterOptions.getTopic());
-        minLikesInput.setText(String.valueOf(FilterOptions.getMinLikes()));
-        switchOnlyLiked.setChecked(FilterOptions.isOnlyLiked());
-        switchAnnouncements.setChecked(FilterOptions.isAnnouncementsOnly());
-        switchSortByLikes.setChecked(FilterOptions.isSortByLikes());
-        switchOrderAscending.setChecked(FilterOptions.isOrderAscending());
+        userFilter.setText(Filters.getUsername());
+        teamDropdown.setText(Filters.getTeam());
+        topicDropdown.setText(Filters.getTopic());
+        minLikesInput.setText(String.valueOf(Filters.getMinLikes()));
+        switchOnlyLiked.setChecked(Filters.isOnlyLiked());
+        switchAnnouncements.setChecked(Filters.isAnnouncementsOnly());
+        switchSortByLikes.setChecked(Filters.isSortByLikes());
+        switchOrderAscending.setChecked(Filters.isOrderAscending());
 
         setSelectAllOnFocus(userFilter);
         setSelectAllOnFocus(minLikesInput);
@@ -139,24 +145,24 @@ public class FilterSelector extends DialogFragment {
             boolean newSortByLikes = switchSortByLikes.isChecked();
             boolean newOrderAscending = switchOrderAscending.isChecked();
 
-            isChanged = !newUserFilter.equals(FilterOptions.getUsername()) ||
-                    !newTeamFilter.equals(FilterOptions.getTeam()) ||
-                    !newTopicFilter.equals(FilterOptions.getTopic()) ||
-                    newMinLikes != FilterOptions.getMinLikes() ||
-                    newOnlyLiked != FilterOptions.isOnlyLiked() ||
-                    newAnnouncementsOnly != FilterOptions.isAnnouncementsOnly() ||
-                    newSortByLikes != FilterOptions.isSortByLikes() ||
-                    newOrderAscending != FilterOptions.isOrderAscending();
+            isChanged = !newUserFilter.equals(Filters.getUsername()) ||
+                    !newTeamFilter.equals(Filters.getTeam()) ||
+                    !newTopicFilter.equals(Filters.getTopic()) ||
+                    newMinLikes != Filters.getMinLikes() ||
+                    newOnlyLiked != Filters.isOnlyLiked() ||
+                    newAnnouncementsOnly != Filters.isAnnouncementsOnly() ||
+                    newSortByLikes != Filters.isSortByLikes() ||
+                    newOrderAscending != Filters.isOrderAscending();
 
             if (isChanged) {
-                FilterOptions.setUsername(newUserFilter);
-                FilterOptions.setTeam(newTeamFilter);
-                FilterOptions.setTopic(newTopicFilter);
-                FilterOptions.setMinLikes(newMinLikes);
-                FilterOptions.setOnlyLiked(newOnlyLiked);
-                FilterOptions.setAnnouncementsOnly(newAnnouncementsOnly);
-                FilterOptions.setSortByLikes(newSortByLikes);
-                FilterOptions.setOrderAscending(newOrderAscending);
+                Filters.setUsername(newUserFilter);
+                Filters.setTeam(newTeamFilter);
+                Filters.setTopic(newTopicFilter);
+                Filters.setMinLikes(newMinLikes);
+                Filters.setOnlyLiked(newOnlyLiked);
+                Filters.setAnnouncementsOnly(newAnnouncementsOnly);
+                Filters.setSortByLikes(newSortByLikes);
+                Filters.setOrderAscending(newOrderAscending);
 
                 if (originalFeed != null) {
                     originalFeed.refreshFeed();

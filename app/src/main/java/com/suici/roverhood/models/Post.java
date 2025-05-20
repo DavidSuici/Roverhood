@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.models;
 
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
@@ -23,6 +23,12 @@ import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.signature.ObjectKey;
 import com.google.android.material.color.MaterialColors;
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.R;
+import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.dialogs.EditPost;
+import com.suici.roverhood.utils.DateUtils;
 
 import java.io.File;
 import java.util.HashMap;
@@ -86,9 +92,9 @@ public class Post {
             });
 
             topicView.setOnClickListener(v -> {
-                FilterOptions.resetFilters();
-                FilterOptions.setTopic(topic.getTitle());
-                FilterOptions.setOrderAscending(true);
+                Filters.resetFilters();
+                Filters.setTopic(topic.getTitle());
+                Filters.setOrderAscending(true);
 
                 if (activeFragment instanceof RoverFeed) {
                     RoverFeed roverFeed = (RoverFeed) activeFragment;
@@ -102,8 +108,8 @@ public class Post {
 
     public void loadUserAndTeamButtons(TextView userView, TextView teamView) {
         userView.setOnClickListener(v -> {
-            FilterOptions.resetFilters();
-            FilterOptions.setUsername(user.getUsername());
+            Filters.resetFilters();
+            Filters.setUsername(user.getUsername());
 
             if (activeFragment instanceof RoverFeed) {
                 RoverFeed roverFeed = (RoverFeed) activeFragment;
@@ -114,8 +120,8 @@ public class Post {
         });
 
         teamView.setOnClickListener(v -> {
-            FilterOptions.resetFilters();
-            FilterOptions.setTeam(user.getTeam());
+            Filters.resetFilters();
+            Filters.setTeam(user.getTeam());
 
             if (activeFragment instanceof RoverFeed) {
                 RoverFeed roverFeed = (RoverFeed) activeFragment;
@@ -278,7 +284,7 @@ public class Post {
         Glide.with(activeFragment.requireContext())
                 .load(imageSource)
                 .signature(offlinePost ? new ObjectKey(System.currentTimeMillis()) : new ObjectKey(imageUrl)) // Invalidates cache for offline
-                .placeholder(R.drawable.img_not_loaded)
+                .placeholder(R.drawable.image_not_loaded)
                 .override(Target.SIZE_ORIGINAL)
                 .listener(new RequestListener<Drawable>() {
                     @Override
@@ -360,7 +366,7 @@ public class Post {
 
         menuButton.setOnClickListener(view -> {
             androidx.appcompat.widget.PopupMenu popup = new androidx.appcompat.widget.PopupMenu(activeFragment.requireContext(), menuButton);
-            popup.getMenuInflater().inflate(R.menu.post_menu, popup.getMenu());
+            popup.getMenuInflater().inflate(R.menu.menu_post, popup.getMenu());
 
             popup.getMenu().findItem(R.id.action_edit).setVisible(isOwner);
             popup.getMenu().findItem(R.id.action_delete).setVisible(isOwner || isAdmin || isOrganizer);

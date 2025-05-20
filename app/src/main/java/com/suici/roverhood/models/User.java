@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.models;
 
 public class User {
     private String username;

@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.databases;
 
 import android.content.Context;
 import android.os.Handler;
@@ -18,6 +18,12 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.models.Topic;
+import com.suici.roverhood.models.User;
+import com.suici.roverhood.utils.DownloadImageUtils;
+import com.suici.roverhood.utils.ProgressBarUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;

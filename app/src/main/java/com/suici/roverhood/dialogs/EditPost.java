@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.dialogs;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -29,6 +29,13 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.TextInputLayout;
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.R;
+import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.models.User;
+import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.utils.UploadImageUtils;
 
 public class EditPost extends DialogFragment {
 
@@ -58,7 +65,7 @@ public class EditPost extends DialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.add_post, container, false);
+        View view = inflater.inflate(R.layout.dialog_add_post, container, false);
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         context = requireContext();

@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.dialogs;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -13,6 +13,11 @@ import android.widget.Toast;
 
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
+
+import com.suici.roverhood.LogIn;
+import com.suici.roverhood.R;
+import com.suici.roverhood.models.User;
+import com.suici.roverhood.databases.FirebaseRepository;
 
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -39,7 +44,7 @@ public class CreateUser extends DialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.create_user, container, false);
+        View view = inflater.inflate(R.layout.dialog_create_user, container, false);
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
         context = getContext();

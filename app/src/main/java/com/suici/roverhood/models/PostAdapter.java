@@ -1,14 +1,14 @@
-package com.suici.roverhood;
+package com.suici.roverhood.models;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.suici.roverhood.R;
 
 import java.util.List;
 

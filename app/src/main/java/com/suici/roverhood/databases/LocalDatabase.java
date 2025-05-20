@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.databases;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -8,6 +8,10 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
 import androidx.fragment.app.Fragment;
+
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.models.Topic;
+import com.suici.roverhood.models.User;
 
 import org.mindrot.jbcrypt.BCrypt;
 

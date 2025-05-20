@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.utils;
 
 import android.animation.ValueAnimator;
 import android.os.Handler;

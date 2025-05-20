@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.models;
 
 import java.util.ArrayList;
 import java.util.List;

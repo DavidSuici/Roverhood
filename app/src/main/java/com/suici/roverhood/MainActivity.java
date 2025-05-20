@@ -19,6 +19,7 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
@@ -26,6 +27,7 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import com.jakewharton.threetenabp.AndroidThreeTen;
+import com.suici.roverhood.models.User;
 
 public class MainActivity extends AppCompatActivity {
 

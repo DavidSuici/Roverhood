@@ -8,8 +8,8 @@
     <fragment
         android:id="@+id/RoverFeed"
         android:name="com.suici.roverhood.RoverFeed"
-        android:label="@string/first_fragment_label"
-        tools:layout="@layout/rover_feed">
+        android:label="RoverFeed"
+        tools:layout="@layout/fragment_rover_feed">
         <action
             android:id="@+id/action_RoverFeed_to_LogIn"
             app:destination="@id/LogIn" />
@@ -18,7 +18,7 @@
         android:id="@+id/LogIn"
         android:name="com.suici.roverhood.LogIn"
         android:label="Log In"
-        tools:layout="@layout/log_in">
+        tools:layout="@layout/fragment_log_in">
         <action
             android:id="@+id/action_LogIn_to_RoverFeed"
             app:destination="@id/RoverFeed" />

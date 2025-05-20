@@ -1,9 +1,11 @@
-package com.suici.roverhood;
+package com.suici.roverhood.utils;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
+
+import com.suici.roverhood.MainActivity;
 
 import java.io.File;
 import java.io.FileOutputStream;

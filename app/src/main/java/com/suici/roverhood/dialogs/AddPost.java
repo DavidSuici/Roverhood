@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.dialogs;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -27,6 +27,15 @@ import androidx.annotation.NonNull;
 
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.suici.roverhood.models.Filters;
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.R;
+import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.models.Topic;
+import com.suici.roverhood.models.User;
+import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.utils.UploadImageUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +66,7 @@ public class AddPost extends DialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.add_post, container, false);
+        View view = inflater.inflate(R.layout.dialog_add_post, container, false);
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         context = getContext();
@@ -74,7 +83,7 @@ public class AddPost extends DialogFragment {
         switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
-        topicDropdown.setText(FilterOptions.getTopic());
+        topicDropdown.setText(Filters.getTopic());
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
         populateTopicOptions();
 
