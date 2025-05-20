@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-public class PostRepository {
+public class FirebaseRepository {
 
     // Singleton instance
-    private static PostRepository instance;
+    private static FirebaseRepository instance;
 
     private final DatabaseReference postsRef;
     private final DatabaseReference topicsRef;
@@ -58,7 +58,12 @@ public class PostRepository {
         void onError(String errorMessage);
     }
 
-    public PostRepository(Context context) {
+    public interface UsersCallback {
+        void onUsersFetched(Map<String, User> users);
+        void onError(String errorMessage);
+    }
+
+    public FirebaseRepository(Context context) {
         this.context = context;
         this.postsRef = FirebaseDatabase
                 .getInstance("https://roverhoodapp-default-rtdb.europe-west1.firebasedatabase.app")
@@ -79,41 +84,52 @@ public class PostRepository {
         this.localDatabase = LocalDatabase.getInstance(context);
     }
 
-    public static synchronized PostRepository getInstance(Context context) {
+    public static synchronized FirebaseRepository getInstance(Context context) {
         if (instance == null) {
-            instance = new PostRepository(context);
+            instance = new FirebaseRepository(context);
         }
         return instance;
     }
 
-    public void loadPosts(PostRepositoryCallback callback) {
+    public void loadPosts( boolean isOffline, boolean isOfflineUser, PostRepositoryCallback callback) {
         loading = true;
         List<Post> posts = new ArrayList<>();
         boolean[] isTimeoutReached = {false};
+        int timeLimit = isOffline ? 2000 : 10000;
 
-        // Set a timeout of 10 seconds
-        final Handler timeoutHandler = new Handler();
-        timeoutHandler.postDelayed(() -> {
+        if (isOfflineUser) {
+            loading = false;
             isTimeoutReached[0] = true;
             callback.onPostsLoaded(loadOfflinePosts(), true);
-        }, 10000);
+        }
+
+        // Set a timeout of 10s or 2s if already offline
+        final Handler timeoutHandler = new Handler();
+        timeoutHandler.postDelayed(() -> {
+            loading = false;
+            isTimeoutReached[0] = true;
+            callback.onPostsLoaded(loadOfflinePosts(), true);
+        }, timeLimit);
 
         topicsLoaded = false;
         loadAllTopics();
 
         new Thread(() -> {
             int retryCount = 0;
-            while (!topicsLoaded && retryCount < 100) { // 10 seconds max
+            while (!topicsLoaded && retryCount < timeLimit/100) { // 10 seconds max
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
-                    Log.e("PostRepository", "Wait loop interrupted", e);
+                    Log.e("FirebaseRepository", "Wait loop interrupted", e);
                 }
                 retryCount++;
             }
 
             postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
-                if (isTimeoutReached[0]) return;
+                if (isTimeoutReached[0]) {
+                    loading = false;
+                    return;
+                }
                 timeoutHandler.removeCallbacksAndMessages(null);
 
                 if (!snapshot.hasChildren()) {
@@ -295,7 +311,7 @@ public class PostRepository {
     public void createPost(String description, User user, String imageUrl, boolean isAnnouncement, Topic topic, Fragment fragment, PostCreationCallback callback) {
         String postId = postsRef.push().getKey();
         if (postId == null) {
-            Log.e("PostRepository", "Failed to generate post ID");
+            Log.e("FirebaseRepository", "Failed to generate post ID");
             callback.onError("Post creation failed.");
             return;
         }
@@ -318,7 +334,7 @@ public class PostRepository {
 
         postsRef.child(postId).setValue(postMap)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("PostRepository", "Post successfully saved with ID: " + postId);
+                    Log.d("FirebaseRepository", "Post successfully saved with ID: " + postId);
 
                     Post post = new Post(fragment, postId, timestamp, user, topic, description, imageUrl, 1, likedByMap, isAnnouncement, 0, false);
                     new Thread(() -> {
@@ -327,7 +343,7 @@ public class PostRepository {
                     callback.onPostCreated(post);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("PostRepository", "Failed to save post in Firebase.", e);
+                    Log.e("FirebaseRepository", "Failed to save post in Firebase.", e);
                     callback.onError("Failed to save post.");
                 });
     }
@@ -336,33 +352,33 @@ public class PostRepository {
         DatabaseReference postRef = postsRef.child(postId);
         DatabaseReference deletedPostRef = deletedPostsRef.child(postId);
 
-        deleteImageFromStorage(imageUrl, new PostRepository.PostOperationCallback() {
+        deleteImageFromStorage(imageUrl, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {
-                Log.d("PostRepository", "Image deleted successfully");
+                Log.d("FirebaseRepository", "Image deleted successfully");
             }
             @Override
             public void onError(String errorMessage) {
-                Log.e("PostRepository", "Error deleting image: " + errorMessage);
+                Log.e("FirebaseRepository", "Error deleting image: " + errorMessage);
             }
         });
 
         postRef.removeValue().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
-                Log.d("PostRepository", "Post successfully deleted from Firebase.");
+                Log.d("FirebaseRepository", "Post successfully deleted from Firebase.");
                 localDatabase.deletePost(postId);
 
                 deletedPostRef.setValue(true).addOnCompleteListener(task2 -> {
                     if (task2.isSuccessful()) {
-                        Log.d("PostRepository", "Post ID added to deletedPosts list.");
+                        Log.d("FirebaseRepository", "Post ID added to deletedPosts list.");
                     } else {
-                        Log.e("PostRepository", "Failed to add post ID to deletedPosts list.", task2.getException());
+                        Log.e("FirebaseRepository", "Failed to add post ID to deletedPosts list.", task2.getException());
                     }
                 });
 
                 callback.onSuccess();
             } else {
-                Log.e("PostRepository", "Failed to delete post from Firebase.");
+                Log.e("FirebaseRepository", "Failed to delete post from Firebase.");
                 callback.onError("Failed to delete post");
             }
         });
@@ -392,9 +408,9 @@ public class PostRepository {
                 }).start();
 
                 callback.onSuccess();
-                Log.d("PostRepository", "Post successfully updated.");
+                Log.d("FirebaseRepository", "Post successfully updated.");
             } else {
-                Log.e("PostRepository", "Failed to update post in Firebase.");
+                Log.e("FirebaseRepository", "Failed to update post in Firebase.");
                 callback.onError("Failed to update post.");
             }
         });
@@ -449,10 +465,10 @@ public class PostRepository {
                     }
                 } else {
                     if (error != null) {
-                        Log.e("PostRepository", "Transaction failed: " + error.getMessage());
+                        Log.e("FirebaseRepository", "Transaction failed: " + error.getMessage());
                         callback.onError("Transaction failed.");
                     } else {
-                        Log.e("PostRepository", "Transaction not committed (possible conflict or error)");
+                        Log.e("FirebaseRepository", "Transaction not committed (possible conflict or error)");
                         callback.onError("Transaction not committed.");
                     }
                 }
@@ -462,7 +478,7 @@ public class PostRepository {
 
     public void deleteImageFromStorage(String imageUrl, PostOperationCallback callback) {
         if (imageUrl == null || imageUrl.isEmpty()) {
-            Log.e("PostRepository", "Image URL is empty or null, cannot delete.");
+            Log.e("FirebaseRepository", "Image URL is empty or null, cannot delete.");
             callback.onError("Image URL is invalid.");
             return;
         }
@@ -470,10 +486,10 @@ public class PostRepository {
         StorageReference imageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl);
         imageRef.delete().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
-                Log.d("PostRepository", "Image successfully deleted from Firebase Storage.");
+                Log.d("FirebaseRepository", "Image successfully deleted from Firebase Storage.");
                 callback.onSuccess();
             } else {
-                Log.e("PostRepository", "Failed to delete image from Firebase Storage.", task.getException());
+                Log.e("FirebaseRepository", "Failed to delete image from Firebase Storage.", task.getException());
                 callback.onError("Failed to delete image.");
             }
         });
@@ -493,18 +509,18 @@ public class PostRepository {
                     }
                 }
 
-                Log.d("PostRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
+                Log.d("FirebaseRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
                 topicsLoaded = true;
             } catch (Exception e) {
-                Log.e("PostRepository", "Failed to fetch topics synchronously", e);
+                Log.e("FirebaseRepository", "Failed to fetch topics synchronously", e);
             }
         });
     }
 
-    public void createTopic(String title, PostRepository.TopicCreationCallback callback) {
+    public void createTopic(String title, FirebaseRepository.TopicCreationCallback callback) {
         String topicId = topicsRef.push().getKey();
         if (topicId == null) {
-            Log.e("PostRepository", "Failed to generate topic ID");
+            Log.e("FirebaseRepository", "Failed to generate topic ID");
             callback.onError("Topic creation failed.");
             return;
         }
@@ -517,7 +533,7 @@ public class PostRepository {
 
         topicsRef.child(topicId).setValue(topicMap)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("PostRepository", "Topic successfully created with ID: " + topicId);
+                    Log.d("FirebaseRepository", "Topic successfully created with ID: " + topicId);
                     Topic newTopic = new Topic(topicId, title, timestamp);
                     Topic.addTopic(newTopic);
                     callback.onTopicCreated(newTopic);
@@ -525,6 +541,51 @@ public class PostRepository {
                 .addOnFailureListener(e -> {
                     callback.onError("Failed to create topic.");
                 });
+    }
+
+    public void getAllUsers(UsersCallback callback) {
+        usersRef.get()
+                .addOnSuccessListener(snapshot -> {
+                    Map<String, User> usersMap = new HashMap<>();
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        User user = child.getValue(User.class);
+                        if (user != null) {
+                            user.setId(child.getKey());
+                            usersMap.put(user.getId(), user);
+                        }
+                    }
+                    callback.onUsersFetched(usersMap);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("FirebaseRepository", "Failed to fetch users", e);
+                    callback.onError("Failed to fetch users from Firebase.");
+                });
+    }
+
+    public void setUsernameIfEmpty(String userId, String newUsername, PostOperationCallback callback) {
+        DatabaseReference userRef = usersRef.child(userId);
+
+        userRef.child("username").get().addOnSuccessListener(snapshot -> {
+            String existingUsername = snapshot.getValue(String.class);
+
+            if (existingUsername == null || existingUsername.trim().isEmpty()) {
+                userRef.child("username").setValue(newUsername)
+                        .addOnSuccessListener(unused -> {
+                            Log.d("FirebaseRepository", "Username set for user: " + userId);
+                            callback.onSuccess();
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("FirebaseRepository", "Failed to set username", e);
+                            callback.onError("Failed to set username.");
+                        });
+            } else {
+                Log.d("FirebaseRepository", "Username already exists for user: " + userId);
+                callback.onError("Username already exists.");
+            }
+        }).addOnFailureListener(e -> {
+            Log.e("FirebaseRepository", "Failed to fetch current username", e);
+            callback.onError("Failed to fetch current username.");
+        });
     }
 
     public boolean isLoading() { return loading; }

@@ -9,6 +9,8 @@ import android.util.Log;
 
 import androidx.fragment.app.Fragment;
 
+import org.mindrot.jbcrypt.BCrypt;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -27,7 +29,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 23;
+    public static final int DATABASE_VERSION = 24;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -35,6 +37,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_ACCESSCODE = "accessCode";
     public static final String COLUMN_USERTYPE = "userType";
     public static final String COLUMN_TEAM = "team";
+    public static final String COLUMN_OFFLINE_USER = "offlineUser";
 
     private static final String CREATE_TABLE_USERS =
             "CREATE TABLE " + TABLE_USERS + " (" +
@@ -43,6 +46,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     COLUMN_ACCESSCODE + " TEXT, " +
                     COLUMN_USERTYPE + " TEXT, " +
                     COLUMN_TEAM + " TEXT, " +
+                    COLUMN_OFFLINE_USER + " INTEGER DEFAULT 0, " +
                     "loggedIn INTEGER DEFAULT 0);";
 
     public static final String TABLE_SESSION = "session";
@@ -121,15 +125,33 @@ public class LocalDatabase extends SQLiteOpenHelper {
     // USER TABLE ACTIONS
 
     public void insertUser(User user) {
+        if (user.getId() == null || user.getId().isEmpty() ||
+                user.getUsername() == null || user.getUsername().isEmpty() ||
+                user.getAccessCode() == null || user.getAccessCode().isEmpty() ||
+                user.getUserType() == null || user.getUserType().isEmpty() ||
+                user.getTeam() == null || user.getTeam().isEmpty()) {
+            return;
+        }
+
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(COLUMN_ID, user.id);
-        values.put(COLUMN_USERNAME, user.username);
-        values.put(COLUMN_ACCESSCODE, user.accessCode);
-        values.put(COLUMN_USERTYPE, user.userType);
-        values.put(COLUMN_TEAM, user.team);
+
+        values.put(COLUMN_ID, user.getId());
+        values.put(COLUMN_USERNAME, user.getUsername());
+        values.put(COLUMN_ACCESSCODE, user.getAccessCode());
+        values.put(COLUMN_USERTYPE, user.getUserType());
+        values.put(COLUMN_TEAM, user.getTeam());
+        values.put(COLUMN_OFFLINE_USER, 0);
 
         db.insertWithOnConflict(TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public void setUsersOffline() {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_OFFLINE_USER, 1);
+        db.update(TABLE_USERS, values, null, null);
     }
 
     public User getUserByUsernameAndAccessCode(String username, String accessCode) {
@@ -138,20 +160,24 @@ public class LocalDatabase extends SQLiteOpenHelper {
         try (Cursor cursor = db.query(
                 TABLE_USERS,
                 null,
-                COLUMN_USERNAME + " = ? AND " + COLUMN_ACCESSCODE + " = ?",
-                new String[]{username, accessCode},
+                COLUMN_USERNAME + " = ?",
+                new String[]{username},
                 null,
                 null,
                 null
         )) {
             if (cursor.moveToFirst()) {
-                User user = new User();
-                user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-                user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-                user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-                user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-                user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
-                return user;
+                String storedHash = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
+                if (BCrypt.checkpw(accessCode, storedHash)) {
+                    User user = new User();
+                    user.setId(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+                    user.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME)));
+                    user.setAccessCode(storedHash);
+                    user.setUserType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE)));
+                    user.setTeam(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM)));
+                    user.setOfflineUser(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_OFFLINE_USER)) == 1);
+                    return user;
+                }
             }
         }
         return null;
@@ -169,11 +195,13 @@ public class LocalDatabase extends SQLiteOpenHelper {
         )) {
             if (cursor.moveToFirst()) {
                 User user = new User();
-                user.id = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-                user.username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-                user.accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-                user.userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-                user.team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
+                user.setId(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+                user.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME)));
+                user.setAccessCode(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE)));
+                user.setUserType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE)));
+                user.setTeam(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM)));
+                user.setOfflineUser(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_OFFLINE_USER)) == 1);
+
                 return user;
             }
         }
@@ -195,20 +223,15 @@ public class LocalDatabase extends SQLiteOpenHelper {
         )) {
             if (cursor.moveToFirst()) {
                 do {
-                    String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID));
-                    String username = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME));
-                    String accessCode = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE));
-                    String userType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE));
-                    String team = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM));
-
                     User user = new User();
-                    user.id = userId;
-                    user.username = username;
-                    user.accessCode = accessCode;
-                    user.userType = userType;
-                    user.team = team;
+                    user.setId(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ID)));
+                    user.setUsername(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERNAME)));
+                    user.setAccessCode(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ACCESSCODE)));
+                    user.setUserType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERTYPE)));
+                    user.setTeam(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TEAM)));
+                    user.setOfflineUser(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_OFFLINE_USER)) == 1);
 
-                    usersMap.put(userId, user);
+                    usersMap.put(user.getId(), user);
                 } while (cursor.moveToNext());
             }
         }

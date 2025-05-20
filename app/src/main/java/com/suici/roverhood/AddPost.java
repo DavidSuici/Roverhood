@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class AddPost extends DialogFragment {
 
     private Context context;
-    private PostRepository postRepository;
+    private FirebaseRepository firebaseRepository;
     private RoverFeed originalFeed;
 
     private EditText editTextDescription;
@@ -61,7 +61,7 @@ public class AddPost extends DialogFragment {
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         context = getContext();
-        postRepository = PostRepository.getInstance(context);
+        firebaseRepository = FirebaseRepository.getInstance(context);
 
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
@@ -247,7 +247,7 @@ public class AddPost extends DialogFragment {
 
     private void savePost(String description, User user, String imageUrl, Topic topic) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
-        postRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new PostRepository.PostCreationCallback() {
+        firebaseRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new FirebaseRepository.PostCreationCallback() {
             @Override
             public void onPostCreated(Post post) {
                 post.setImageView(imagePreview);
@@ -264,10 +264,10 @@ public class AddPost extends DialogFragment {
 
     private void savePostAndNewTopic(String description, User user, String imageUrl, String newTopicTitle) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
-        postRepository.createTopic(newTopicTitle, new PostRepository.TopicCreationCallback() {
+        firebaseRepository.createTopic(newTopicTitle, new FirebaseRepository.TopicCreationCallback() {
             @Override
             public void onTopicCreated(Topic topic) {
-                postRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new PostRepository.PostCreationCallback() {
+                firebaseRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new FirebaseRepository.PostCreationCallback() {
                     @Override
                     public void onPostCreated(Post post) {
                         post.setImageView(imagePreview);

@@ -32,7 +32,7 @@ import com.google.android.material.textfield.TextInputLayout;
 
 public class EditPost extends DialogFragment {
 
-    private PostRepository postRepository;
+    private FirebaseRepository firebaseRepository;
     private Context context;
 
     private EditText editTextDescription;
@@ -62,7 +62,7 @@ public class EditPost extends DialogFragment {
 
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         context = requireContext();
-        postRepository = PostRepository.getInstance(context);
+        firebaseRepository = FirebaseRepository.getInstance(context);
 
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
@@ -225,7 +225,7 @@ public class EditPost extends DialogFragment {
     private void updatePost(String description, String imageUrl) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
 
-        postRepository.updatePost(post, description, imageUrl, isAnnouncement, new PostRepository.PostOperationCallback() {
+        firebaseRepository.updatePost(post, description, imageUrl, isAnnouncement, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {
 
@@ -248,7 +248,7 @@ public class EditPost extends DialogFragment {
     }
 
     private void deleteOldImage(String imageUrl) {
-        postRepository.deleteImageFromStorage(imageUrl, new PostRepository.PostOperationCallback() {
+        firebaseRepository.deleteImageFromStorage(imageUrl, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {
                 Log.d("EditPost", "Image deleted successfully");

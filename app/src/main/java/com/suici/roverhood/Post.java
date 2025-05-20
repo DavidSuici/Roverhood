@@ -315,23 +315,25 @@ public class Post {
             heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (!isPostVisible) return;
 
-                PostRepository postRepository = PostRepository.getInstance(activeFragment.requireContext());
-                postRepository.toggleLike(id, currentUserId, isChecked, new PostRepository.PostOperationCallback() {
+                Boolean isLiked = likedBy.get(currentUserId);
+                if (isChecked) {
+                    if (isLiked == null || !isLiked) {
+                        likes++;
+                        likedBy.put(currentUserId, true);
+                    }
+                } else {
+                    if (isLiked != null && isLiked) {
+                        likes--;
+                        likedBy.remove(currentUserId);
+                    }
+                }
+                heartNrView.setText(String.valueOf(likes));
+
+                FirebaseRepository firebaseRepository = FirebaseRepository.getInstance(activeFragment.requireContext());
+                firebaseRepository.toggleLike(id, currentUserId, isChecked, new FirebaseRepository.PostOperationCallback() {
                     @Override
                     public void onSuccess() {
-                        Boolean isLiked = likedBy.get(currentUserId);
-                        if (isChecked) {
-                            if (isLiked == null || !isLiked) {
-                                likes++;
-                                likedBy.put(currentUserId, true);
-                            }
-                        } else {
-                            if (isLiked != null && isLiked) {
-                                likes--;
-                                likedBy.remove(currentUserId);
-                            }
-                        }
-                        heartNrView.setText(String.valueOf(likes));
+                        Log.d("Post", "Like status updated.");
                     }
                     @Override
                     public void onError(String errorMessage) {
@@ -384,12 +386,12 @@ public class Post {
     }
 
     private void deletePost() {
-        PostRepository postRepository = PostRepository.getInstance(activeFragment.requireContext());
+        FirebaseRepository firebaseRepository = FirebaseRepository.getInstance(activeFragment.requireContext());
         new AlertDialog.Builder(activeFragment.requireContext())
                 .setTitle("Delete Post")
                 .setMessage("Are you sure you want to delete this post?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    postRepository.deletePost(id, imageUrl, new PostRepository.PostOperationCallback() {
+                    firebaseRepository.deletePost(id, imageUrl, new FirebaseRepository.PostOperationCallback() {
                         @Override
                         public void onSuccess() {
                             Toast.makeText(activeFragment.requireContext(), "Post deleted", Toast.LENGTH_SHORT).show();

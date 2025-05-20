@@ -40,7 +40,7 @@ public class RoverFeed extends Fragment {
     private List<Post> visiblePostList = new ArrayList<>();
     private List<Post> allPostList = new ArrayList<>();
 
-    private PostRepository postRepository;
+    private FirebaseRepository firebaseRepository;
 
     @Override
     public View onCreateView(
@@ -73,7 +73,7 @@ public class RoverFeed extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         activity = (MainActivity) requireActivity();
-        postRepository = PostRepository.getInstance(requireContext());
+        firebaseRepository = FirebaseRepository.getInstance(requireContext());
 
         // Initialize RecyclerView
         recyclerView = binding.recyclerView;
@@ -112,7 +112,7 @@ public class RoverFeed extends Fragment {
                 if (!isLoading && linearLayoutManager != null
                         && linearLayoutManager.findLastCompletelyVisibleItemPosition()
                         >= visiblePostList.size() - PREFETCH_THRESHOLD) {
-                    if (!postRepository.isLoading() && !binding.swipeRefresh.isRefreshing()) {
+                    if (!firebaseRepository.isLoading() && !binding.swipeRefresh.isRefreshing()) {
                         isLoading = true;
                         waitThenDrawPosts();
                     }
@@ -154,9 +154,9 @@ public class RoverFeed extends Fragment {
 
         // User information - cosmetic logic
         if (activity.getCurrentUser() != null) {
-            binding.username.setText(activity.getCurrentUser().username);
-            binding.team.setText(activity.getCurrentUser().team);
-            binding.usernameLabel.setText(activity.getCurrentUser().userType);
+            binding.username.setText(activity.getCurrentUser().getUsername());
+            binding.team.setText(activity.getCurrentUser().getTeam());
+            binding.usernameLabel.setText(activity.getCurrentUser().getUserType());
         }
 
         // Refresh - cosmetic logic
@@ -198,7 +198,7 @@ public class RoverFeed extends Fragment {
             @Override
             public void run() {
                 int totalPosts = allPostList.size();
-                if (postRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
+                if (firebaseRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
                     List<Post> filteredList = FilterOptions.filterPosts(allPostList, activity);
@@ -210,7 +210,7 @@ public class RoverFeed extends Fragment {
                         int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
                         List<Post> sublist = filteredList.subList(startIndex, endIndex);
 
-                        new Thread(() -> { postRepository.syncPostsToLocalDB(sublist); }).start();
+                        new Thread(() -> { firebaseRepository.syncPostsToLocalDB(sublist); }).start();
                     }
 
                     drawMorePosts(filteredList);
@@ -294,14 +294,24 @@ public class RoverFeed extends Fragment {
         visiblePostList.clear();
         postAdapter.notifyDataSetChanged();
 
-        postRepository.loadPosts(new PostRepository.PostRepositoryCallback() {
+        User currentUser = activity.getCurrentUser();
+
+        firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
             @Override
             public void onPostsLoaded(List<Post> posts, boolean isOffline) {
                 if (isOffline) {
-                    Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_LONG).show();
+                    if(!offlineMode) {
+                        Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_SHORT).show();
+                        binding.offlineLabel.setVisibility(View.VISIBLE);
+                    }
+
                     Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(posts.size()));
                 } else {
-                    postRepository.removeUnusedTopics(posts);
+                    if(offlineMode) {
+                        Toast.makeText(requireContext(), "Online Mode", Toast.LENGTH_SHORT).show();
+                        binding.offlineLabel.setVisibility(View.GONE);
+                    }
+                    firebaseRepository.removeUnusedTopics(posts);
                     Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(posts.size()));
                 }
 
@@ -326,10 +336,10 @@ public class RoverFeed extends Fragment {
             public void run() {
                 counter[0]++;
                 // Continue the recurrency, but stop after 20 iterations = 10s
-                if (postRepository.isLoading() && counter[0] < 20) {
+                if (firebaseRepository.isLoading() && counter[0] < 20) {
                     new android.os.Handler().postDelayed(this, 500);
                 } else {
-                    if(!postRepository.isLoading()) {
+                    if(!firebaseRepository.isLoading()) {
                         postsLoadedCount = 0;
                         isLoading = true;
                         waitThenDrawPosts();
