@@ -9,6 +9,9 @@
         <item name="colorPrimary">@color/purple</item>
         <item name="colorSecondary">@color/light_purple</item>
 
+        <item name="materialThemeOverlay">@null</item>
+        <item name="elevationOverlayEnabled">false</item>
+
     </style>
 
     <style name="Theme.Roverhood" parent="Base.Theme.Roverhood" />

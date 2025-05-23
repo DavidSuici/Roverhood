@@ -1,4 +1,4 @@
-package com.suici.roverhood.models;
+package com.suici.roverhood.handlers;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.suici.roverhood.R;
+import com.suici.roverhood.models.Post;
 
 import java.util.List;
 

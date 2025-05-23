@@ -38,6 +38,7 @@ public class FilterSelector extends DialogFragment {
     private Button saveFiltersButton;
     private boolean isChanged = false;
     private TextView teamLabel;
+    private List<String> validUsernames;
 
     private TextView ascendingLabel;
     private TextView descendingLabel;
@@ -145,7 +146,7 @@ public class FilterSelector extends DialogFragment {
             boolean newSortByLikes = switchSortByLikes.isChecked();
             boolean newOrderAscending = switchOrderAscending.isChecked();
 
-            isChanged = !newUserFilter.equals(Filters.getUsername()) ||
+            isChanged = !newUserFilter.equalsIgnoreCase(Filters.getUsername()) ||
                     !newTeamFilter.equals(Filters.getTeam()) ||
                     !newTopicFilter.equals(Filters.getTopic()) ||
                     newMinLikes != Filters.getMinLikes() ||
@@ -153,6 +154,12 @@ public class FilterSelector extends DialogFragment {
                     newAnnouncementsOnly != Filters.isAnnouncementsOnly() ||
                     newSortByLikes != Filters.isSortByLikes() ||
                     newOrderAscending != Filters.isOrderAscending();
+
+            if (!newUserFilter.isEmpty() && validUsernames.stream().noneMatch(
+                    name -> name.equalsIgnoreCase(newUserFilter))) {
+                userFilter.setError("There is no user with this username");
+                return;
+            }
 
             if (isChanged) {
                 Filters.setUsername(newUserFilter);
@@ -279,6 +286,7 @@ public class FilterSelector extends DialogFragment {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_dropdown_item_1line, usernames);
         userFilter.setAdapter(adapter);
+        validUsernames = usernames;
 
         ArrayAdapter<String> teamAdapter = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_dropdown_item_1line, new ArrayList<>(teams));

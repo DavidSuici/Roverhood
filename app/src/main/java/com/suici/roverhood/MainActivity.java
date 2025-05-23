@@ -58,9 +58,30 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbar);
 
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
+            getSupportActionBar().setDisplayShowCustomEnabled(true);
+
+            View logoView = getLayoutInflater().inflate(R.layout.toolbar_logo, null);
+            getSupportActionBar().setCustomView(logoView);
+        }
+
+
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            if (getSupportActionBar() == null) return;
+
+            if (destination.getId() == R.id.RoverFeed) {
+                // Show toolbar with logo
+                binding.toolbar.setVisibility(View.VISIBLE);
+            } else {
+                // Hide toolbar completely
+                binding.toolbar.setVisibility(View.GONE);
+            }
+        });
 
         floatingButton =  findViewById(R.id.fab);
         getFloatingButton().setVisibility(View.INVISIBLE);

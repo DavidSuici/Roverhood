@@ -67,13 +67,13 @@ public class CreateUser extends DialogFragment {
             }
 
             if (newUsername.length() > 15) {
-                Toast.makeText(context, "Username " + (newUsername.length() - 15) + " characters too long", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Username is " + (newUsername.length() - 15) + " characters too long", Toast.LENGTH_SHORT).show();
                 endLoadingUI();
                 return;
             }
 
             if (newUsername.length() < 5) {
-                Toast.makeText(context, "Username " + (5 - newUsername.length()) + " characters too short", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Username is " + (5 - newUsername.length()) + " characters too short", Toast.LENGTH_SHORT).show();
                 endLoadingUI();
                 return;
             }

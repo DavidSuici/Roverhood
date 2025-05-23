@@ -82,7 +82,7 @@ public class Filters {
                 continue;
             }
 
-            if (!username.isEmpty() && !post.getUser().getUsername().equals(username)) {
+            if (!username.isEmpty() && !post.getUser().getUsername().equalsIgnoreCase(username)) {
                 continue;
             }
 

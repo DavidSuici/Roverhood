@@ -6,7 +6,7 @@ public class User {
     private String userType;
     private String team;
     private String id;
-    private boolean offlineUser = false;
+    private boolean offlineUser;
 
     public User() {}
 

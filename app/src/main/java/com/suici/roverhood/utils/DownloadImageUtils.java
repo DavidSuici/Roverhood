@@ -117,7 +117,7 @@ public class DownloadImageUtils {
         }
     }
 
-    private static boolean isImageCorrupted(Bitmap bitmap, IntPredicate pixelCheck) {
+    public static boolean isImageCorrupted(Bitmap bitmap, IntPredicate pixelCheck) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         int matchPixelCount = 0;
@@ -139,7 +139,7 @@ public class DownloadImageUtils {
         return matchPixelCount >= threshold;
     }
 
-    private static boolean isBlackPixel(int pixel) {
+    public static boolean isBlackPixel(int pixel) {
         int red = (pixel >> 16) & 0xff;
         int green = (pixel >> 8) & 0xff;
         int blue = pixel & 0xff;
@@ -147,11 +147,17 @@ public class DownloadImageUtils {
         return red < threshold && green < threshold && blue < threshold;
     }
 
-    private static boolean isWhitePixel(int pixel) {
+    public static boolean isWhitePixel(int pixel) {
         int red = (pixel >> 16) & 0xff;
         int green = (pixel >> 8) & 0xff;
         int blue = pixel & 0xff;
         int threshold = 245;
         return red > threshold && green > threshold && blue > threshold;
+    }
+
+    public static boolean isTransparentPixel(int pixel) {
+        int alpha = (pixel >> 24) & 0xff;
+        int threshold = 10; // 0 = fully transparent, 255 = fully opaque
+        return alpha < threshold;
     }
 }

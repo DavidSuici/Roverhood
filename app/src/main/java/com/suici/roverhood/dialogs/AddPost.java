@@ -35,6 +35,7 @@ import com.suici.roverhood.RoverFeed;
 import com.suici.roverhood.models.Topic;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.utils.DownloadImageUtils;
 import com.suici.roverhood.utils.UploadImageUtils;
 
 import java.util.ArrayList;
@@ -162,7 +163,7 @@ public class AddPost extends DialogFragment {
             }
 
             if (newTopic.length() > 50) {
-                Toast.makeText(context, "Topic " + (newTopic.length() - 50) + " characters too long", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Topic is" + (newTopic.length() - 50) + " characters too long", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -187,8 +188,10 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            if (currentUser == null) {
-                Toast.makeText(context, "You're logged out, log in again", Toast.LENGTH_SHORT).show();
+            if (DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isBlackPixel) ||
+                    DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isWhitePixel) ||
+                    DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isTransparentPixel)) {
+                Toast.makeText(context, "Too much plain color at the bottom of the image", Toast.LENGTH_LONG).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -198,6 +201,12 @@ public class AddPost extends DialogFragment {
             float ratio = (float) width / height;
             if (ratio < 0.45f || ratio > 6.0f) {
                 Toast.makeText(context, "Image too tall or too wide", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
+            if (currentUser == null) {
+                Toast.makeText(context, "You're logged out, log in again", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }

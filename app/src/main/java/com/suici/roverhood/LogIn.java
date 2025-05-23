@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.suici.roverhood.databases.FirebaseAccessCodeHasher;
 import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.databases.LocalDatabase;
 import com.suici.roverhood.databinding.FragmentLogInBinding;
@@ -36,7 +37,7 @@ public class LogIn extends Fragment {
     ) {
         binding = FragmentLogInBinding.inflate(inflater, container, false);
 
-        //FirebaseAccessCodeHasher.hashAllAccessCodes();
+        FirebaseAccessCodeHasher.hashAllAccessCodes();
 
         setSelectAllOnFocus(binding.usernameText);
         setSelectAllOnFocus(binding.accessCodeText);
@@ -169,7 +170,6 @@ public class LogIn extends Fragment {
         startLoadingUI();
         syncUserDB();
 
-        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         final int[] counter = {0};
         new android.os.Handler().postDelayed(new Runnable() {
             @Override

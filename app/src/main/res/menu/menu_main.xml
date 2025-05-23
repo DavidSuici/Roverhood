@@ -7,6 +7,5 @@
         android:id="@+id/filters"
         android:title="Filters"
         android:icon="@drawable/icon_filter_list"
-        android:visible="false"
         app:showAsAction="always" />
 </menu>

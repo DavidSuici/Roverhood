@@ -24,7 +24,7 @@ import com.suici.roverhood.dialogs.AddPost;
 import com.suici.roverhood.dialogs.FilterSelector;
 import com.suici.roverhood.models.Filters;
 import com.suici.roverhood.models.Post;
-import com.suici.roverhood.models.PostAdapter;
+import com.suici.roverhood.handlers.PostAdapter;
 import com.suici.roverhood.models.User;
 
 import java.util.ArrayList;
@@ -133,9 +133,6 @@ public class RoverFeed extends Fragment {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
                 filterButton = optionsMenu.findItem(R.id.filters);
-                if (filterButton != null) {
-                    filterButton.setVisible(true);
-                }
             }
         });
 
@@ -179,11 +176,6 @@ public class RoverFeed extends Fragment {
 
     @Override
     public void onDestroyView() {
-        if (filterButton != null) {
-            filterButton.setVisible(false);
-            filterButton = null;
-        }
-
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setVisibility(View.INVISIBLE);
         }

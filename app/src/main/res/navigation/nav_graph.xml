@@ -17,7 +17,7 @@
     <fragment
         android:id="@+id/LogIn"
         android:name="com.suici.roverhood.LogIn"
-        android:label="Log In"
+        android:label=""
         tools:layout="@layout/fragment_log_in">
         <action
             android:id="@+id/action_LogIn_to_RoverFeed"
