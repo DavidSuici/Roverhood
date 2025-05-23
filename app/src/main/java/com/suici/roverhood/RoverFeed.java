@@ -35,6 +35,8 @@ public class RoverFeed extends Fragment {
     private FragmentRoverFeedBinding binding;
     private MainActivity activity;
     private MenuItem filterButton;
+    private MenuItem likedPostsButton;
+    private MenuItem announcementsButton;
     private OnBackPressedCallback backCallback;
     private boolean offlineMode = false;
 
@@ -133,6 +135,8 @@ public class RoverFeed extends Fragment {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
                 filterButton = optionsMenu.findItem(R.id.filters);
+                likedPostsButton = optionsMenu.findItem(R.id.likedPosts);
+                announcementsButton = optionsMenu.findItem(R.id.announcements);
             }
         });
 
@@ -170,6 +174,7 @@ public class RoverFeed extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(this::refreshFeed);
 
         // Refresh feed for the first load
+        binding.recyclerView.requestFocus();
         Filters.resetFilters();
         refreshFeed();
     }
@@ -191,6 +196,22 @@ public class RoverFeed extends Fragment {
         FilterSelector filterSelectorFragment = new FilterSelector();
         filterSelectorFragment.setOriginalFeed(this);
         filterSelectorFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
+    }
+
+    public void applyLikedPostsFilter() {
+        if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
+            Filters.resetFilters();
+            Filters.setOnlyLiked(true);
+            refreshFeed();
+        }
+    }
+
+    public void applyAnnouncementsFilter() {
+        if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
+            Filters.resetFilters();
+            Filters.setAnnouncementsOnly(true);
+            refreshFeed();
+        }
     }
 
     private void waitThenDrawPosts() {
@@ -222,6 +243,7 @@ public class RoverFeed extends Fragment {
     private void drawMorePosts(List<Post> filteredList) {
         if(filterButton != null)
             filterButton.setEnabled(false);
+
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
             postAdapter.setLoading(false);

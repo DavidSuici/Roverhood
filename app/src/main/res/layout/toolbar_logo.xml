@@ -15,9 +15,10 @@
         android:src="@drawable/title"
         android:adjustViewBounds="true"
         android:scaleType="fitCenter"
+        android:layout_marginTop="8dp"
+        app:layout_constraintHeight_percent="0.6"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHeight_percent="0.6"
         app:layout_constraintStart_toStartOf="parent"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

@@ -126,15 +126,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.filters) {
-            NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
-            if (navHostFragment != null) {
-                RoverFeed fragment = (RoverFeed) navHostFragment.getChildFragmentManager().getFragments().get(0);
-                if (fragment != null) {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment != null) {
+            RoverFeed fragment = (RoverFeed) navHostFragment.getChildFragmentManager().getFragments().get(0);
+            if (fragment != null) {
+                if (item.getItemId() == R.id.filters)
                     fragment.openFiltersDialog();
-                }
+                if (item.getItemId() == R.id.likedPosts)
+                    fragment.applyLikedPostsFilter();
+                if (item.getItemId() == R.id.announcements)
+                    fragment.applyAnnouncementsFilter();
             }
-            return true;
         }
         return super.onOptionsItemSelected(item);
     }

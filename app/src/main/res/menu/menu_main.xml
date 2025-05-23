@@ -4,6 +4,18 @@
     tools:context="com.suici.roverhood.MainActivity">
 
     <item
+        android:id="@+id/announcements"
+        android:title="Filters"
+        android:icon="@drawable/icon_announcements"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/likedPosts"
+        android:title="Filters"
+        android:icon="@drawable/icon_liked_posts"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/filters"
         android:title="Filters"
         android:icon="@drawable/icon_filter_list"
