@@ -143,10 +143,10 @@ public class FirebaseRepository {
                 }
                 timeoutHandler.removeCallbacksAndMessages(null);
 
-                if (!snapshot.hasChildren()) {
-                    callback.onPostsLoaded(loadOfflinePosts(), true);
-                    return;
-                }
+//                if (!snapshot.hasChildren()) {
+//                    callback.onPostsLoaded(loadOfflinePosts(), true);
+//                    return;
+//                }
 
                 removeDeletedPostsFromLocalDB();
                 localDatabase.refreshTopics(Topic.getAllTopics());
@@ -346,8 +346,8 @@ public class FirebaseRepository {
                 callback.onSuccess();
                 Log.d("FirebaseRepository", "Post successfully updated.");
             } else {
-                Log.e("FirebaseRepository", "Failed to update postHandler in Firebase.");
-                callback.onError("Failed to update postHandler.");
+                Log.e("FirebaseRepository", "Failed to update post in Firebase.");
+                callback.onError("Failed to update post.");
             }
         });
     }
@@ -466,7 +466,7 @@ public class FirebaseRepository {
 
                 @Override
                 public void onFailure(Exception e) {
-                    Log.e("LocalSync", "Failed to save image for postHandler " + postHandler.getPost().getId(), e);
+                    Log.e("LocalSync", "Failed to save image for post " + postHandler.getPost().getId(), e);
                     ((MainActivity) context).runOnUiThread(() -> {
                         ImageDownload.incrementProgressBar();
                     });

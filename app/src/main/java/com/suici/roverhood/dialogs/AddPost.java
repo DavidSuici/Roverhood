@@ -276,7 +276,7 @@ public class AddPost extends DialogFragment {
             public void onPostCreated(PostHandler postHandler) {
                 postHandler.setImageView(imagePreview);
                 originalFeed.addPostToUI(postHandler);
-                Toast.makeText(context, "PostHandler created successfully!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -296,7 +296,7 @@ public class AddPost extends DialogFragment {
                     public void onPostCreated(PostHandler postHandler) {
                         postHandler.setImageView(imagePreview);
                         originalFeed.addPostToUI(postHandler);
-                        Toast.makeText(context, "PostHandler created successfully!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
                     }
                     @Override
                     public void onError(String errorMessage) {

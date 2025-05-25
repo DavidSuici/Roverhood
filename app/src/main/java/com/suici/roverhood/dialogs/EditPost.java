@@ -83,10 +83,10 @@ public class EditPost extends DialogFragment {
         imagePreview.setImageDrawable(postHandler.getImageView().getDrawable());
         selectedImage = drawableToBitmap(postHandler.getImageView().getDrawable());
 
-        titleView.setText("Edit postHandler");
+        titleView.setText("Edit post");
         submitPostButton.setText("Submit updates");
         TextInputLayout inputLayoutDescription = view.findViewById(R.id.inputLayoutDescription);
-        inputLayoutDescription.setHint("Edit PostHandler Description");
+        inputLayoutDescription.setHint("Edit Post Description");
         ConstraintLayout topicSelectGroup = view.findViewById(R.id.topicSelectGroup);
         topicSelectGroup.setVisibility(View.GONE);
 
@@ -193,7 +193,7 @@ public class EditPost extends DialogFragment {
                     @Override
                     public void onFailure(Exception e) {
                         Log.e("EditPost", "Failed to upload image: " + e.getMessage());
-                        Toast.makeText(context, "Failed to update postHandler.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "Failed to update post.", Toast.LENGTH_SHORT).show();
                     }
                 });
             } else {
