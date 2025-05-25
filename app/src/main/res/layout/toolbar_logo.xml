@@ -12,7 +12,7 @@
         android:id="@+id/logo_image"
         android:layout_width="wrap_content"
         android:layout_height="0dp"
-        android:src="@drawable/title"
+        android:src="@drawable/image_title"
         android:adjustViewBounds="true"
         android:scaleType="fitCenter"
         android:layout_marginTop="8dp"

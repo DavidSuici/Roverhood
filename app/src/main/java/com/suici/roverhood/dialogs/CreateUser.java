@@ -14,7 +14,7 @@ import android.widget.Toast;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
 
-import com.suici.roverhood.LogIn;
+import com.suici.roverhood.fragments.LogIn;
 import com.suici.roverhood.R;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.databases.FirebaseRepository;
@@ -122,7 +122,7 @@ public class CreateUser extends DialogFragment {
                             Toast.makeText(context, "Invalid accessCode", Toast.LENGTH_SHORT).show();
                             endLoadingUI();
                         } else {
-                            firebaseRepository.setUsernameIfEmpty(matchedUserId, newUsername, new FirebaseRepository.PostOperationCallback() {
+                            firebaseRepository.setUsernameIfNewUser(matchedUserId, newUsername, new FirebaseRepository.PostOperationCallback() {
                                 @Override
                                 public void onSuccess() {
                                     Toast.makeText(context, "Account created", Toast.LENGTH_SHORT).show();

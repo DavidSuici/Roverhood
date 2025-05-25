@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/RoverFeed"
-        android:name="com.suici.roverhood.RoverFeed"
+        android:name="com.suici.roverhood.fragments.RoverFeed"
         android:label="RoverFeed"
         tools:layout="@layout/fragment_rover_feed">
         <action
@@ -16,7 +16,7 @@
     </fragment>
     <fragment
         android:id="@+id/LogIn"
-        android:name="com.suici.roverhood.LogIn"
+        android:name="com.suici.roverhood.fragments.LogIn"
         android:label=""
         tools:layout="@layout/fragment_log_in">
         <action

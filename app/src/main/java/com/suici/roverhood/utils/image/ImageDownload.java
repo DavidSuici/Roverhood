@@ -1,4 +1,4 @@
-package com.suici.roverhood.utils;
+package com.suici.roverhood.utils.image;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.presentation.ProgressBar;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -16,9 +17,9 @@ import java.net.URL;
 
 import java.util.function.IntPredicate;
 
-public class DownloadImageUtils {
+public class ImageDownload {
 
-    // Logic for Download LoadingBar
+    // LoadingBar logic
     static int loadedImageCount = 0;
     static int totalImageCount = 0;
 
@@ -32,7 +33,7 @@ public class DownloadImageUtils {
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
             activity.runOnUiThread(() -> {
-                ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
+                ProgressBar.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
         }
     }
@@ -42,11 +43,12 @@ public class DownloadImageUtils {
         if (MainActivity.instance != null) {
             MainActivity activity = MainActivity.instance;
             activity.runOnUiThread(() -> {
-                ProgressBarUtils.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
+                ProgressBar.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
         }
     }
 
+    // Download logic
     public interface ImageSaveCallback {
         void onSuccess(String imagePath);
         void onFailure(Exception e);
@@ -104,8 +106,8 @@ public class DownloadImageUtils {
             }
         } else {
             // Optionally, run additional checks like checking for white pixels
-            if (isImageCorrupted(bitmap, DownloadImageUtils::isWhitePixel)
-                    || isImageCorrupted(bitmap, DownloadImageUtils::isBlackPixel)) {
+            if (isImageCorrupted(bitmap, ImageDownload::isWhitePixel)
+                    || isImageCorrupted(bitmap, ImageDownload::isBlackPixel)) {
                 Log.e("ImageUtils", "Corrupted image detected, deleting file: " + fileName);
                 boolean deleted = file.delete();
                 if (deleted) {
@@ -122,7 +124,7 @@ public class DownloadImageUtils {
         int height = bitmap.getHeight();
         int matchPixelCount = 0;
 
-        int threshold = (int) (height * 0.15);  // 15% of height
+        int threshold = (int) (height * 0.15);
 
         for (int y = height - 1; y >= height - threshold; y--) {
             for (int x = 0; x < width; x++) {
@@ -157,7 +159,7 @@ public class DownloadImageUtils {
 
     public static boolean isTransparentPixel(int pixel) {
         int alpha = (pixel >> 24) & 0xff;
-        int threshold = 10; // 0 = fully transparent, 255 = fully opaque
+        int threshold = 10;
         return alpha < threshold;
     }
 }

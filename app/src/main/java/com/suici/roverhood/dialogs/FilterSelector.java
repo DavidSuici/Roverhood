@@ -1,5 +1,6 @@
 package com.suici.roverhood.dialogs;
 
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,9 +19,9 @@ import androidx.fragment.app.DialogFragment;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
-import com.suici.roverhood.models.Filters;
+import com.suici.roverhood.utils.FiltersManager;
 import com.suici.roverhood.R;
-import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.Topic;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.databases.LocalDatabase;
@@ -90,95 +91,29 @@ public class FilterSelector extends DialogFragment {
         likesLabel = view.findViewById(R.id.labelSortByLikes);
         dateLabel = view.findViewById(R.id.labelSortByDate);
 
-        userFilter.setText(Filters.getUsername());
-        teamDropdown.setText(Filters.getTeam());
-        topicDropdown.setText(Filters.getTopic());
-        minLikesInput.setText(String.valueOf(Filters.getMinLikes()));
-        switchOnlyLiked.setChecked(Filters.isOnlyLiked());
-        switchAnnouncements.setChecked(Filters.isAnnouncementsOnly());
-        switchSortByLikes.setChecked(Filters.isSortByLikes());
-        switchOrderAscending.setChecked(Filters.isOrderAscending());
+        userFilter.setText(FiltersManager.getActiveFilters().getUsername());
+        teamDropdown.setText(FiltersManager.getActiveFilters().getTeam());
+        topicDropdown.setText(FiltersManager.getActiveFilters().getTopic());
+        minLikesInput.setText(String.valueOf(FiltersManager.getActiveFilters().getMinLikes()));
+        switchOnlyLiked.setChecked(FiltersManager.getActiveFilters().isOnlyLiked());
+        switchAnnouncements.setChecked(FiltersManager.getActiveFilters().isAnnouncementsOnly());
+        switchSortByLikes.setChecked(FiltersManager.getActiveFilters().isSortByLikes());
+        switchOrderAscending.setChecked(FiltersManager.getActiveFilters().isOrderAscending());
 
         setSelectAllOnFocus(userFilter);
         setSelectAllOnFocus(minLikesInput);
         populateFilterOptions();
-        if (switchAnnouncements.isChecked()) {
-            teamDropdown.setText("");
-            teamDropdown.setEnabled(false);
-            teamLabel.setEnabled(false);
-        } else {
-            teamDropdown.setEnabled(true);
-            teamLabel.setEnabled(true);
-        }
 
-        if (switchSortByLikes.isChecked()) {
-            int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-            int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
-            likesLabel.setTextColor(secondaryColor);
-            dateLabel.setTextColor(defaultColor);
-        } else {
-            int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-            int defaultColor = MaterialColors.getColor(likesLabel, com.google.android.material.R.attr.colorOnSurface);
-            dateLabel.setTextColor(secondaryColor);
-            likesLabel.setTextColor(defaultColor);
-        }
+        bindClearButtons();
+        bindSaveFiltersButton();
+        bindSwitchAnnouncements();
+        bindSwitchSortByLikes();
+        bindSwitchOrderAscending();
 
-        if (switchOrderAscending.isChecked()) {
-            int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-            int defaultColor = MaterialColors.getColor(descendingLabel, com.google.android.material.R.attr.colorOnSurface);
-            ascendingLabel.setTextColor(secondaryColor);
-            descendingLabel.setTextColor(defaultColor);
-        } else {
-            int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-            int defaultColor = MaterialColors.getColor(ascendingLabel, com.google.android.material.R.attr.colorOnSurface);
-            descendingLabel.setTextColor(secondaryColor);
-            ascendingLabel.setTextColor(defaultColor);
-        }
+        return view;
+    }
 
-        saveFiltersButton.setOnClickListener(v -> {
-            String newUserFilter = userFilter.getText().toString();
-            String newTeamFilter = teamDropdown.getText().toString();
-            String newTopicFilter = topicDropdown.getText().toString();
-            String minLikesText = minLikesInput.getText().toString();
-            int newMinLikes = minLikesText.isEmpty() ? 0 : Integer.parseInt(minLikesText);
-            boolean newOnlyLiked = switchOnlyLiked.isChecked();
-            boolean newAnnouncementsOnly = switchAnnouncements.isChecked();
-            boolean newSortByLikes = switchSortByLikes.isChecked();
-            boolean newOrderAscending = switchOrderAscending.isChecked();
-
-            isChanged = !newUserFilter.equalsIgnoreCase(Filters.getUsername()) ||
-                    !newTeamFilter.equals(Filters.getTeam()) ||
-                    !newTopicFilter.equals(Filters.getTopic()) ||
-                    newMinLikes != Filters.getMinLikes() ||
-                    newOnlyLiked != Filters.isOnlyLiked() ||
-                    newAnnouncementsOnly != Filters.isAnnouncementsOnly() ||
-                    newSortByLikes != Filters.isSortByLikes() ||
-                    newOrderAscending != Filters.isOrderAscending();
-
-            if (!newUserFilter.isEmpty() && validUsernames.stream().noneMatch(
-                    name -> name.equalsIgnoreCase(newUserFilter))) {
-                userFilter.setError("There is no user with this username");
-                return;
-            }
-
-            if (isChanged) {
-                Filters.setUsername(newUserFilter);
-                Filters.setTeam(newTeamFilter);
-                Filters.setTopic(newTopicFilter);
-                Filters.setMinLikes(newMinLikes);
-                Filters.setOnlyLiked(newOnlyLiked);
-                Filters.setAnnouncementsOnly(newAnnouncementsOnly);
-                Filters.setSortByLikes(newSortByLikes);
-                Filters.setOrderAscending(newOrderAscending);
-
-                if (originalFeed != null) {
-                    originalFeed.refreshFeed();
-                }
-            }
-
-            dismiss();
-        });
-
+    private void bindClearButtons() {
         clearFiltersButton.setOnClickListener(v -> {
             userFilter.setText("");
             teamDropdown.setText("");
@@ -205,6 +140,63 @@ public class FilterSelector extends DialogFragment {
         clearLikesButton.setOnClickListener(v -> {
             minLikesInput.setText("0");
         });
+    }
+
+    private void bindSaveFiltersButton() {
+        saveFiltersButton.setOnClickListener(v -> {
+            String newUserFilter = userFilter.getText().toString();
+            String newTeamFilter = teamDropdown.getText().toString();
+            String newTopicFilter = topicDropdown.getText().toString();
+            String minLikesText = minLikesInput.getText().toString();
+            int newMinLikes = minLikesText.isEmpty() ? 0 : Integer.parseInt(minLikesText);
+            boolean newOnlyLiked = switchOnlyLiked.isChecked();
+            boolean newAnnouncementsOnly = switchAnnouncements.isChecked();
+            boolean newSortByLikes = switchSortByLikes.isChecked();
+            boolean newOrderAscending = switchOrderAscending.isChecked();
+
+            isChanged = !newUserFilter.equalsIgnoreCase(FiltersManager.getActiveFilters().getUsername()) ||
+                    !newTeamFilter.equals(FiltersManager.getActiveFilters().getTeam()) ||
+                    !newTopicFilter.equals(FiltersManager.getActiveFilters().getTopic()) ||
+                    newMinLikes != FiltersManager.getActiveFilters().getMinLikes() ||
+                    newOnlyLiked != FiltersManager.getActiveFilters().isOnlyLiked() ||
+                    newAnnouncementsOnly != FiltersManager.getActiveFilters().isAnnouncementsOnly() ||
+                    newSortByLikes != FiltersManager.getActiveFilters().isSortByLikes() ||
+                    newOrderAscending != FiltersManager.getActiveFilters().isOrderAscending();
+
+            if (!newUserFilter.isEmpty() && validUsernames.stream().noneMatch(
+                    name -> name.equalsIgnoreCase(newUserFilter))) {
+                userFilter.setError("There is no user with this username");
+                return;
+            }
+
+            if (isChanged) {
+                FiltersManager.getActiveFilters().setUsername(newUserFilter);
+                FiltersManager.getActiveFilters().setTeam(newTeamFilter);
+                FiltersManager.getActiveFilters().setTopic(newTopicFilter);
+                FiltersManager.getActiveFilters().setMinLikes(newMinLikes);
+                FiltersManager.getActiveFilters().setOnlyLiked(newOnlyLiked);
+                FiltersManager.getActiveFilters().setAnnouncementsOnly(newAnnouncementsOnly);
+                FiltersManager.getActiveFilters().setSortByLikes(newSortByLikes);
+                FiltersManager.getActiveFilters().setOrderAscending(newOrderAscending);
+
+                if (originalFeed != null) {
+                    originalFeed.refreshFeed();
+                }
+            }
+
+            dismiss();
+        });
+    }
+
+    private void bindSwitchAnnouncements() {
+        if (switchAnnouncements.isChecked()) {
+            teamDropdown.setText("");
+            teamDropdown.setEnabled(false);
+            teamLabel.setEnabled(false);
+        } else {
+            teamDropdown.setEnabled(true);
+            teamLabel.setEnabled(true);
+        }
 
         switchAnnouncements.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
@@ -216,36 +208,100 @@ public class FilterSelector extends DialogFragment {
                 teamLabel.setEnabled(true);
             }
         });
+    }
+
+    private void bindSwitchSortByLikes() {
+        int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
+        int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
+
+        if (switchSortByLikes.isChecked()) {
+            likesLabel.setTypeface(Typeface.DEFAULT_BOLD);
+            dateLabel.setTypeface(Typeface.DEFAULT);
+
+            likesLabel.setTextColor(secondaryColor);
+            dateLabel.setTextColor(defaultColor);
+
+            likesLabel.setAlpha(1f);
+            dateLabel.setAlpha(0.2f);
+        } else {
+            dateLabel.setTypeface(Typeface.DEFAULT_BOLD);
+            likesLabel.setTypeface(Typeface.DEFAULT);
+
+            dateLabel.setTextColor(secondaryColor);
+            likesLabel.setTextColor(defaultColor);
+
+            dateLabel.setAlpha(1f);
+            likesLabel.setAlpha(0.2f);
+        }
 
         switchSortByLikes.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-                int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
+                likesLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                dateLabel.setTypeface(Typeface.DEFAULT);
+
                 likesLabel.setTextColor(secondaryColor);
                 dateLabel.setTextColor(defaultColor);
+
+                likesLabel.setAlpha(1f);
+                dateLabel.setAlpha(0.2f);
             } else {
-                int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-                int defaultColor = MaterialColors.getColor(likesLabel, com.google.android.material.R.attr.colorOnSurface);
+                dateLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                likesLabel.setTypeface(Typeface.DEFAULT);
+
                 dateLabel.setTextColor(secondaryColor);
                 likesLabel.setTextColor(defaultColor);
+
+                dateLabel.setAlpha(1f);
+                likesLabel.setAlpha(0.2f);
             }
         });
+    }
+
+    private void bindSwitchOrderAscending() {
+        int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
+        int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
+
+        if (switchOrderAscending.isChecked()) {
+            ascendingLabel.setTypeface(Typeface.DEFAULT_BOLD);
+            descendingLabel.setTypeface(Typeface.DEFAULT);
+
+            ascendingLabel.setTextColor(secondaryColor);
+            descendingLabel.setTextColor(defaultColor);
+
+            ascendingLabel.setAlpha(1f);
+            descendingLabel.setAlpha(0.2f);
+        } else {
+            descendingLabel.setTypeface(Typeface.DEFAULT_BOLD);
+            ascendingLabel.setTypeface(Typeface.DEFAULT);
+
+            descendingLabel.setTextColor(secondaryColor);
+            ascendingLabel.setTextColor(defaultColor);
+
+            descendingLabel.setAlpha(1f);
+            ascendingLabel.setAlpha(0.2f);
+        }
 
         switchOrderAscending.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-                int defaultColor = MaterialColors.getColor(descendingLabel, com.google.android.material.R.attr.colorOnSurface);
+                ascendingLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                descendingLabel.setTypeface(Typeface.DEFAULT);
+
                 ascendingLabel.setTextColor(secondaryColor);
                 descendingLabel.setTextColor(defaultColor);
+
+                ascendingLabel.setAlpha(1f);
+                descendingLabel.setAlpha(0.2f);
             } else {
-                int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
-                int defaultColor = MaterialColors.getColor(ascendingLabel, com.google.android.material.R.attr.colorOnSurface);
+                descendingLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                ascendingLabel.setTypeface(Typeface.DEFAULT);
+
                 descendingLabel.setTextColor(secondaryColor);
                 ascendingLabel.setTextColor(defaultColor);
+
+                descendingLabel.setAlpha(1f);
+                ascendingLabel.setAlpha(0.2f);
             }
         });
-
-        return view;
     }
 
     @Override

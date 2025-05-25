@@ -19,11 +19,12 @@ import com.google.firebase.storage.StorageReference;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.suici.roverhood.MainActivity;
-import com.suici.roverhood.models.Post;
+import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.models.Topic;
 import com.suici.roverhood.models.User;
-import com.suici.roverhood.utils.DownloadImageUtils;
-import com.suici.roverhood.utils.ProgressBarUtils;
+import com.suici.roverhood.models.Post;
+import com.suici.roverhood.utils.image.ImageDownload;
+import com.suici.roverhood.presentation.ProgressBar;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +48,7 @@ public class FirebaseRepository {
     private boolean topicsLoaded = false;
 
     public interface PostRepositoryCallback {
-        void onPostsLoaded(List<Post> posts, boolean isOffline);
+        void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline);
         void onError(String errorMessage);
     }
 
@@ -57,7 +58,7 @@ public class FirebaseRepository {
     }
 
     public interface PostCreationCallback {
-        void onPostCreated(Post post);
+        void onPostCreated(PostHandler postHandler);
         void onError(String errorMessage);
     }
 
@@ -99,24 +100,11 @@ public class FirebaseRepository {
         return instance;
     }
 
-    public void signInAnonymously() {
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        if (auth.getCurrentUser() == null) {
-            auth.signInAnonymously()
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            FirebaseUser user = auth.getCurrentUser();
-                            Log.d("Auth", "Signed in as: " + user.getUid());
-                        } else {
-                            Log.e("Auth", "Anonymous sign-in failed", task.getException());
-                        }
-                    });
-        }
-    }
+    // ONLINE POST MANAGEMENT
 
     public void loadPosts( boolean isOffline, boolean isOfflineUser, PostRepositoryCallback callback) {
         loading = true;
-        List<Post> posts = new ArrayList<>();
+        List<PostHandler> postHandlers = new ArrayList<>();
         boolean[] isTimeoutReached = {false};
         int timeLimit = isOffline ? 2000 : 10000;
 
@@ -135,7 +123,7 @@ public class FirebaseRepository {
         }, timeLimit);
 
         topicsLoaded = false;
-        loadAllTopics();
+        fetchAllTopics();
 
         new Thread(() -> {
             int retryCount = 0;
@@ -213,19 +201,20 @@ public class FirebaseRepository {
                                         .orElse(null);
                             }
 
-                            Post post = new Post(null, postId, date, user, fetchedTopic, description, imageUrl, likes, likedByMap, announcement, finalVersion, false);
-                            posts.add(post);
+                            Post post = new Post(postId, user, date, fetchedTopic, description, imageUrl, likes, likedByMap, announcement, finalVersion);
+                            PostHandler postHandler = new PostHandler(null, post, false);
+                            postHandlers.add(postHandler);
                         }
                         loadedCount[0]++;
                         if (loadedCount[0] == totalPosts) {
                             loading = false;
-                            callback.onPostsLoaded(posts, false);
+                            callback.onPostsLoaded(postHandlers, false);
                         }
                     }).addOnFailureListener(e -> {
                         loadedCount[0]++;
                         if (loadedCount[0] == totalPosts) {
                             loading = false;
-                            callback.onPostsLoaded(posts, false);
+                            callback.onPostsLoaded(postHandlers, false);
                         }
                     });
                 }
@@ -233,102 +222,6 @@ public class FirebaseRepository {
                 callback.onPostsLoaded(loadOfflinePosts(), true);
             });
         }).start();
-    }
-
-    private void removeDeletedPostsFromLocalDB() {
-        deletedPostsRef.get().addOnSuccessListener(snapshot2 -> {
-            if (snapshot2.exists()) {
-                for (DataSnapshot postSnapshot : snapshot2.getChildren()) {
-                    localDatabase.deletePost(postSnapshot.getKey());
-                }
-            }
-        });
-    }
-
-    public void removeUnusedTopics(List<Post> posts) {
-        List<String> usedTopicIds = new ArrayList<>();
-        for (Post post : posts) {
-            if (post.getTopic() != null) {
-                if (!usedTopicIds.contains(post.getTopic().getId())) {
-                    usedTopicIds.add(post.getTopic().getId());
-                }
-            }
-        }
-
-        List<Topic> allTopics = Topic.getAllTopics();
-        List<Topic> unusedTopics = new ArrayList<>();
-        for (Topic topic : allTopics) {
-            if (!usedTopicIds.contains(topic.getId())) {
-                unusedTopics.add(topic);
-            }
-        }
-
-        for (Topic topic : unusedTopics) {
-            localDatabase.removeTopic(topic.getId());
-            topicsRef.child(topic.getId()).removeValue();
-        }
-
-        Log.d("removeDeletedTopics", "Finished removing unused topics. Total removed: " + unusedTopics.size());
-    }
-
-    private List<Post> loadOfflinePosts() {
-        Topic.clearTopics();
-        Topic.getAllTopics().addAll(localDatabase.getAllTopics().values());
-
-        Map<String, Post> offlinePosts = localDatabase.getAllOfflinePosts(null, localDatabase.getAllUsers(), localDatabase.getAllTopics());
-        loading = false;
-        return new ArrayList<>(offlinePosts.values());
-    }
-
-    public void syncPostsToLocalDB(List<Post> postsToSync) {
-        ((MainActivity) context).runOnUiThread(() -> {
-            if (DownloadImageUtils.getLoadedImageCount() >= DownloadImageUtils.getTotalImageCount()) {
-                DownloadImageUtils.setLoadedImageCount(0);
-                DownloadImageUtils.setTotalImageCount(0);
-                ProgressBarUtils.resetProgressBar(((MainActivity) context).getDownloadProgressBar());
-            }
-        });
-
-        for (Post post : postsToSync) {
-            String userId = post.getUser().getId();
-            String fileName = post.getId();
-            String imageUrl = post.getImageUrl();
-
-            String topicId = null;
-            if (post.getTopic() != null) {
-                topicId = post.getTopic().getId();
-            }
-            String fetchedTopic = topicId;
-
-            ((MainActivity) context).runOnUiThread(() -> {
-                DownloadImageUtils.incrementProgressBarMax();
-            });
-
-            DownloadImageUtils.saveImageToInternalStorage(context, imageUrl, fileName, new DownloadImageUtils.ImageSaveCallback() {
-                @Override
-                public void onSuccess(String imagePath) {
-                    Log.d("LocalSync", "Image saved at: " + imagePath);
-                    ((MainActivity) context).runOnUiThread(() -> {
-                        DownloadImageUtils.incrementProgressBar();
-                    });
-                    localDatabase.insertPost(post.getId(), post.getDate(), fetchedTopic, post.getDescription(), imagePath, post.getLikes(), post.getLikedBy(), post.isAnnouncement(), userId, post.getVersion());
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-                    Log.e("LocalSync", "Failed to save image for post " + post.getId(), e);
-                    ((MainActivity) context).runOnUiThread(() -> {
-                        DownloadImageUtils.incrementProgressBar();
-                    });
-                }
-            });
-        }
-    }
-
-    public void syncSinglePostToLocalDB(Post post) {
-        List<Post> singlePostList = new ArrayList<>();
-        singlePostList.add(post);
-        syncPostsToLocalDB(singlePostList);
     }
 
     public void createPost(String description, User user, String imageUrl, boolean isAnnouncement, Topic topic, Fragment fragment, PostCreationCallback callback) {
@@ -359,11 +252,13 @@ public class FirebaseRepository {
                 .addOnSuccessListener(aVoid -> {
                     Log.d("FirebaseRepository", "Post successfully saved with ID: " + postId);
 
-                    Post post = new Post(fragment, postId, timestamp, user, topic, description, imageUrl, 1, likedByMap, isAnnouncement, 0, false);
+                    Post post = new Post(postId, user, timestamp, topic, description, imageUrl, 1, likedByMap, isAnnouncement, 0);
+                    PostHandler postHandler = new PostHandler(fragment, post, false);
+
                     new Thread(() -> {
-                        syncSinglePostToLocalDB(post);
+                        saveSinglePostToLocalDB(postHandler);
                     }).start();
-                    callback.onPostCreated(post);
+                    callback.onPostCreated(postHandler);
                 })
                 .addOnFailureListener(e -> {
                     Log.e("FirebaseRepository", "Failed to save post in Firebase.", e);
@@ -407,34 +302,52 @@ public class FirebaseRepository {
         });
     }
 
-    public void updatePost(Post post, String description, String imageUrl, boolean isAnnouncement, PostOperationCallback callback) {
-        DatabaseReference postRef = postsRef.child(post.getId());
+    public void deleteImageFromStorage(String imageUrl, PostOperationCallback callback) {
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            Log.e("FirebaseRepository", "Image URL is empty or null, cannot delete.");
+            callback.onError("Image URL is invalid.");
+            return;
+        }
 
-        post.incrementVersion();
+        StorageReference imageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl);
+        imageRef.delete().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                Log.d("FirebaseRepository", "Image successfully deleted from Firebase Storage.");
+                callback.onSuccess();
+            } else {
+                Log.e("FirebaseRepository", "Failed to delete image from Firebase Storage.", task.getException());
+                callback.onError("Failed to delete image.");
+            }
+        });
+    }
+
+    public void updatePost(PostHandler postHandler, String description, String imageUrl, boolean isAnnouncement, PostOperationCallback callback) {
+        DatabaseReference postRef = postsRef.child(postHandler.getPost().getId());
+
+        postHandler.getPost().incrementVersion();
 
         Map<String, Object> updates = new HashMap<>();
         updates.put("description", description);
         updates.put("imageUrl", imageUrl);
         updates.put("announcement", isAnnouncement);
-        updates.put("version", post.getVersion());
+        updates.put("version", postHandler.getPost().getVersion());
 
         postRef.updateChildren(updates).addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 new Thread(() -> {
-                    Post updatedPost = post;
-                    updatedPost.setDescription(description);
-                    updatedPost.setImageUrl(imageUrl);
-                    updatedPost.setAnnouncement(isAnnouncement);
+                    postHandler.getPost().setDescription(description);
+                    postHandler.getPost().setImageUrl(imageUrl);
+                    postHandler.getPost().setAnnouncement(isAnnouncement);
 
-                    localDatabase.deletePost(updatedPost.getId());
-                    syncSinglePostToLocalDB(updatedPost);
+                    localDatabase.deletePost(postHandler.getPost().getId());
+                    saveSinglePostToLocalDB(postHandler);
                 }).start();
 
                 callback.onSuccess();
                 Log.d("FirebaseRepository", "Post successfully updated.");
             } else {
-                Log.e("FirebaseRepository", "Failed to update post in Firebase.");
-                callback.onError("Failed to update post.");
+                Log.e("FirebaseRepository", "Failed to update postHandler in Firebase.");
+                callback.onError("Failed to update postHandler.");
             }
         });
     }
@@ -499,26 +412,88 @@ public class FirebaseRepository {
         });
     }
 
-    public void deleteImageFromStorage(String imageUrl, PostOperationCallback callback) {
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            Log.e("FirebaseRepository", "Image URL is empty or null, cannot delete.");
-            callback.onError("Image URL is invalid.");
-            return;
-        }
+    // OFFLINE POST MANAGEMENT
 
-        StorageReference imageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl);
-        imageRef.delete().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                Log.d("FirebaseRepository", "Image successfully deleted from Firebase Storage.");
-                callback.onSuccess();
-            } else {
-                Log.e("FirebaseRepository", "Failed to delete image from Firebase Storage.", task.getException());
-                callback.onError("Failed to delete image.");
+    private List<PostHandler> loadOfflinePosts() {
+        Topic.clearTopics();
+        Topic.getAllTopics().addAll(localDatabase.getAllTopics().values());
+
+        Map<String, PostHandler> offlinePosts = localDatabase.getAllOfflinePosts(null, localDatabase.getAllUsers(), localDatabase.getAllTopics());
+        loading = false;
+        return new ArrayList<>(offlinePosts.values());
+    }
+
+    public void savePostsToLocalDB(List<PostHandler> postsToSave) {
+        ((MainActivity) context).runOnUiThread(() -> {
+            if (ImageDownload.getLoadedImageCount() >= ImageDownload.getTotalImageCount()) {
+                ImageDownload.setLoadedImageCount(0);
+                ImageDownload.setTotalImageCount(0);
+                ProgressBar.resetProgressBar(((MainActivity) context).getDownloadProgressBar());
+            }
+        });
+
+        for (PostHandler postHandler : postsToSave) {
+            String fileName = postHandler.getPost().getId();
+            String imageUrl = postHandler.getPost().getImageUrl();
+
+            ((MainActivity) context).runOnUiThread(() -> {
+                ImageDownload.incrementProgressBarMax();
+            });
+
+            ImageDownload.saveImageToInternalStorage(context, imageUrl, fileName, new ImageDownload.ImageSaveCallback() {
+                @Override
+                public void onSuccess(String imagePath) {
+                    Log.d("LocalSync", "Image saved at: " + imagePath);
+                    ((MainActivity) context).runOnUiThread(() -> {
+                        ImageDownload.incrementProgressBar();
+                    });
+
+                    Post adjustedPost = new Post(
+                            postHandler.getPost().getId(),
+                            postHandler.getPost().getUser(),
+                            postHandler.getPost().getDate(),
+                            postHandler.getPost().getTopic(),
+                            postHandler.getPost().getDescription(),
+                            imagePath,
+                            postHandler.getPost().getLikes(),
+                            postHandler.getPost().getLikedBy(),
+                            postHandler.getPost().isAnnouncement(),
+                            postHandler.getPost().getVersion()
+                    );
+
+                    localDatabase.insertPost(adjustedPost);
+                }
+
+                @Override
+                public void onFailure(Exception e) {
+                    Log.e("LocalSync", "Failed to save image for postHandler " + postHandler.getPost().getId(), e);
+                    ((MainActivity) context).runOnUiThread(() -> {
+                        ImageDownload.incrementProgressBar();
+                    });
+                }
+            });
+        }
+    }
+
+    public void saveSinglePostToLocalDB(PostHandler postHandler) {
+        List<PostHandler> singlePostHandlerList = new ArrayList<>();
+        singlePostHandlerList.add(postHandler);
+        savePostsToLocalDB(singlePostHandlerList);
+    }
+
+    private void removeDeletedPostsFromLocalDB() {
+        deletedPostsRef.get().addOnSuccessListener(snapshot2 -> {
+            if (snapshot2.exists()) {
+                for (DataSnapshot postSnapshot : snapshot2.getChildren()) {
+                    localDatabase.deletePost(postSnapshot.getKey());
+                }
             }
         });
     }
 
-    public void loadAllTopics() {
+    // TOPIC MANAGEMENT
+
+    public void fetchAllTopics() {
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 DataSnapshot snapshot = Tasks.await(topicsRef.get());
@@ -535,7 +510,7 @@ public class FirebaseRepository {
                 Log.d("FirebaseRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
                 topicsLoaded = true;
             } catch (Exception e) {
-                Log.e("FirebaseRepository", "Failed to fetch topics synchronously", e);
+                Log.e("FirebaseRepository", "Failed to fetch topics", e);
             }
         });
     }
@@ -566,6 +541,34 @@ public class FirebaseRepository {
                 });
     }
 
+    public void deleteUnusedTopics(List<PostHandler> postHandlers) {
+        List<String> usedTopicIds = new ArrayList<>();
+        for (PostHandler postHandler : postHandlers) {
+            if (postHandler.getPost().getTopic() != null) {
+                if (!usedTopicIds.contains(postHandler.getPost().getTopic().getId())) {
+                    usedTopicIds.add(postHandler.getPost().getTopic().getId());
+                }
+            }
+        }
+
+        List<Topic> allTopics = Topic.getAllTopics();
+        List<Topic> unusedTopics = new ArrayList<>();
+        for (Topic topic : allTopics) {
+            if (!usedTopicIds.contains(topic.getId())) {
+                unusedTopics.add(topic);
+            }
+        }
+
+        for (Topic topic : unusedTopics) {
+            localDatabase.removeTopic(topic.getId());
+            topicsRef.child(topic.getId()).removeValue();
+        }
+
+        Log.d("removeDeletedTopics", "Finished removing unused topics. Total removed: " + unusedTopics.size());
+    }
+
+    // USER MANAGEMENT
+
     public void getAllUsers(UsersCallback callback) {
         signInAnonymously();
         usersRef.get()
@@ -586,7 +589,7 @@ public class FirebaseRepository {
                 });
     }
 
-    public void setUsernameIfEmpty(String userId, String newUsername, PostOperationCallback callback) {
+    public void setUsernameIfNewUser(String userId, String newUsername, PostOperationCallback callback) {
         signInAnonymously();
         DatabaseReference userRef = usersRef.child(userId);
 
@@ -611,6 +614,23 @@ public class FirebaseRepository {
             Log.e("FirebaseRepository", "Failed to fetch current username", e);
             callback.onError("Failed to fetch current username.");
         });
+    }
+
+    // OTHERS
+
+    public void signInAnonymously() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
+            auth.signInAnonymously()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            FirebaseUser user = auth.getCurrentUser();
+                            Log.d("Auth", "Signed in as: " + user.getUid());
+                        } else {
+                            Log.e("Auth", "Anonymous sign-in failed", task.getException());
+                        }
+                    });
+        }
     }
 
     public boolean isLoading() { return loading; }

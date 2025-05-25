@@ -30,12 +30,12 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.TextInputLayout;
 import com.suici.roverhood.MainActivity;
-import com.suici.roverhood.models.Post;
+import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.R;
-import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.databases.FirebaseRepository;
-import com.suici.roverhood.utils.UploadImageUtils;
+import com.suici.roverhood.utils.image.ImageUpload;
 
 public class EditPost extends DialogFragment {
 
@@ -50,14 +50,14 @@ public class EditPost extends DialogFragment {
     private SwitchCompat switchAnnouncement;
     private TextView labelAnnouncement;
 
-    private Post post;
+    private PostHandler postHandler;
     private Fragment activeFragment;
     private Bitmap selectedImage;
     private boolean imageChanged = false;
     private int rotationTimes = 0;
 
-    public EditPost(Post post, Fragment activeFragment) {
-        this.post = post;
+    public EditPost(PostHandler postHandler, Fragment activeFragment) {
+        this.postHandler = postHandler;
         this.activeFragment = activeFragment;
     }
 
@@ -79,14 +79,14 @@ public class EditPost extends DialogFragment {
         switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
-        editTextDescription.setText(post.getDescription());
-        imagePreview.setImageDrawable(post.getImageView().getDrawable());
-        selectedImage = drawableToBitmap(post.getImageView().getDrawable());
+        editTextDescription.setText(postHandler.getPost().getDescription());
+        imagePreview.setImageDrawable(postHandler.getImageView().getDrawable());
+        selectedImage = drawableToBitmap(postHandler.getImageView().getDrawable());
 
-        titleView.setText("Edit post");
+        titleView.setText("Edit postHandler");
         submitPostButton.setText("Submit updates");
         TextInputLayout inputLayoutDescription = view.findViewById(R.id.inputLayoutDescription);
-        inputLayoutDescription.setHint("Edit Post Description");
+        inputLayoutDescription.setHint("Edit PostHandler Description");
         ConstraintLayout topicSelectGroup = view.findViewById(R.id.topicSelectGroup);
         topicSelectGroup.setVisibility(View.GONE);
 
@@ -107,7 +107,7 @@ public class EditPost extends DialogFragment {
             }
         });
 
-        switchAnnouncement.setChecked(post.isAnnouncement());
+        switchAnnouncement.setChecked(postHandler.getPost().isAnnouncement());
         if ("ORGANIZER".equals(currentUser.getUserType())
                 || "ADMIN".equals(currentUser.getUserType())) {
             switchAnnouncement.setVisibility(View.VISIBLE);
@@ -147,6 +147,12 @@ public class EditPost extends DialogFragment {
             }
         });
 
+        bindSubmitPostButton();
+
+        return view;
+    }
+
+    private void bindSubmitPostButton() {
         submitPostButton.setOnClickListener(v -> {
             submitPostButton.setEnabled(false);
 
@@ -174,25 +180,25 @@ public class EditPost extends DialogFragment {
                 return;
             }
 
-            boolean descriptionChanged = !description.equals(post.getDescription());
-            boolean announcementChanged = switchAnnouncement.isChecked() != post.isAnnouncement();
+            boolean descriptionChanged = !description.equals(postHandler.getPost().getDescription());
+            boolean announcementChanged = switchAnnouncement.isChecked() != postHandler.getPost().isAnnouncement();
 
             if (imageChanged) {
-                UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
+                ImageUpload.uploadImageToFirebase(selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
                     @Override
                     public void onSuccess(String downloadUrl) {
-                        deleteOldImage(post.getImageUrl());
+                        deleteOldImage(postHandler.getPost().getImageUrl());
                         updatePost(description, downloadUrl);
                     }
                     @Override
                     public void onFailure(Exception e) {
                         Log.e("EditPost", "Failed to upload image: " + e.getMessage());
-                        Toast.makeText(context, "Failed to update post.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "Failed to update postHandler.", Toast.LENGTH_SHORT).show();
                     }
                 });
             } else {
                 if(descriptionChanged || announcementChanged)
-                    updatePost(description, post.getImageUrl());
+                    updatePost(description, postHandler.getPost().getImageUrl());
                 else  {
                     Toast.makeText(context, "Nothing was changed", Toast.LENGTH_SHORT).show();
                     submitPostButton.setEnabled(true);
@@ -201,8 +207,6 @@ public class EditPost extends DialogFragment {
             }
             dismiss();
         });
-
-        return view;
     }
 
     private Bitmap rotateBitmap(Bitmap bitmap) {
@@ -232,18 +236,18 @@ public class EditPost extends DialogFragment {
     private void updatePost(String description, String imageUrl) {
         boolean isAnnouncement = switchAnnouncement.isChecked();
 
-        firebaseRepository.updatePost(post, description, imageUrl, isAnnouncement, new FirebaseRepository.PostOperationCallback() {
+        firebaseRepository.updatePost(postHandler, description, imageUrl, isAnnouncement, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {
 
-                post.setDescription(description);
-                post.setImageUrl(imageUrl);
-                post.setAnnouncement(isAnnouncement);
-                post.setImageView(imagePreview);
+                postHandler.getPost().setDescription(description);
+                postHandler.getPost().setImageUrl(imageUrl);
+                postHandler.getPost().setAnnouncement(isAnnouncement);
+                postHandler.setImageView(imagePreview);
 
                 RoverFeed roverFeed = (RoverFeed) activeFragment;
                 if (roverFeed != null) {
-                    roverFeed.updatePostInUI(post);
+                    roverFeed.updatePostInUI(postHandler);
                 }
             }
 

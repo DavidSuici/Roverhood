@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.fragments;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -17,14 +17,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.R;
 import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.databases.LocalDatabase;
 import com.suici.roverhood.databinding.FragmentRoverFeedBinding;
 import com.suici.roverhood.dialogs.AddPost;
 import com.suici.roverhood.dialogs.FilterSelector;
-import com.suici.roverhood.models.Filters;
-import com.suici.roverhood.models.Post;
-import com.suici.roverhood.handlers.PostAdapter;
+import com.suici.roverhood.utils.FiltersManager;
+import com.suici.roverhood.presentation.PostHandler;
+import com.suici.roverhood.presentation.PostAdapter;
 import com.suici.roverhood.models.User;
 
 import java.util.ArrayList;
@@ -47,8 +49,8 @@ public class RoverFeed extends Fragment {
 
     private PostAdapter postAdapter;
     RecyclerView recyclerView;
-    private List<Post> visiblePostList = new ArrayList<>();
-    private List<Post> allPostList = new ArrayList<>();
+    private List<PostHandler> visiblePostHandlerList = new ArrayList<>();
+    private List<PostHandler> allPostHandlerList = new ArrayList<>();
 
     private FirebaseRepository firebaseRepository;
 
@@ -69,7 +71,7 @@ public class RoverFeed extends Fragment {
                 setEnabled(true);
 
                 if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
-                    Filters.resetFilters();
+                    FiltersManager.resetFilters();
                     refreshFeed();
                 }
             }
@@ -88,7 +90,7 @@ public class RoverFeed extends Fragment {
         // Initialize RecyclerView
         recyclerView = binding.recyclerView;
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        postAdapter = new PostAdapter(getContext(), visiblePostList);
+        postAdapter = new PostAdapter(getContext(), visiblePostHandlerList);
         recyclerView.setAdapter(postAdapter);
 
         // Add post - button logic
@@ -121,7 +123,7 @@ public class RoverFeed extends Fragment {
 
                 if (!isLoading && linearLayoutManager != null
                         && linearLayoutManager.findLastCompletelyVisibleItemPosition()
-                        >= visiblePostList.size() - PREFETCH_THRESHOLD) {
+                        >= visiblePostHandlerList.size() - PREFETCH_THRESHOLD) {
                     if (!firebaseRepository.isLoading() && !binding.swipeRefresh.isRefreshing()) {
                         isLoading = true;
                         waitThenDrawPosts();
@@ -141,22 +143,22 @@ public class RoverFeed extends Fragment {
         });
 
         binding.clearFiltersButton.setOnClickListener(v -> {
-            Filters.resetFilters();
+            FiltersManager.resetFilters();
             Toast.makeText(requireContext(), "Filters cleared", Toast.LENGTH_SHORT).show();
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
 
         binding.username.setOnClickListener(v -> {
-            Filters.resetFilters();
-            Filters.setUsername(activity.getCurrentUser().getUsername());
+            FiltersManager.resetFilters();
+            FiltersManager.getActiveFilters().setUsername(activity.getCurrentUser().getUsername());
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
 
         binding.team.setOnClickListener(v -> {
-            Filters.resetFilters();
-            Filters.setTeam(activity.getCurrentUser().getTeam());
+            FiltersManager.resetFilters();
+            FiltersManager.getActiveFilters().setTeam(activity.getCurrentUser().getTeam());
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
         });
@@ -175,7 +177,7 @@ public class RoverFeed extends Fragment {
 
         // Refresh feed for the first load
         binding.recyclerView.requestFocus();
-        Filters.resetFilters();
+        FiltersManager.resetFilters();
         refreshFeed();
     }
 
@@ -200,16 +202,16 @@ public class RoverFeed extends Fragment {
 
     public void applyLikedPostsFilter() {
         if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
-            Filters.resetFilters();
-            Filters.setOnlyLiked(true);
+            FiltersManager.resetFilters();
+            FiltersManager.getActiveFilters().setOnlyLiked(true);
             refreshFeed();
         }
     }
 
     public void applyAnnouncementsFilter() {
         if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
-            Filters.resetFilters();
-            Filters.setAnnouncementsOnly(true);
+            FiltersManager.resetFilters();
+            FiltersManager.getActiveFilters().setAnnouncementsOnly(true);
             refreshFeed();
         }
     }
@@ -218,20 +220,20 @@ public class RoverFeed extends Fragment {
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                int totalPosts = allPostList.size();
+                int totalPosts = allPostHandlerList.size();
                 if (firebaseRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
-                    List<Post> filteredList = Filters.filterPosts(allPostList, activity);
+                    List<PostHandler> filteredList = FiltersManager.filterPosts(allPostHandlerList, activity);
                     Collections.reverse(filteredList);
 
                     //Sync current posts
                     if (!offlineMode) {
                         int startIndex = Math.min(postsLoadedCount, filteredList.size());
                         int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
-                        List<Post> sublist = filteredList.subList(startIndex, endIndex);
+                        List<PostHandler> sublist = filteredList.subList(startIndex, endIndex);
 
-                        new Thread(() -> { firebaseRepository.syncPostsToLocalDB(sublist); }).start();
+                        new Thread(() -> { firebaseRepository.savePostsToLocalDB(sublist); }).start();
                     }
 
                     drawMorePosts(filteredList);
@@ -240,7 +242,7 @@ public class RoverFeed extends Fragment {
         }, 100);
     }
 
-    private void drawMorePosts(List<Post> filteredList) {
+    private void drawMorePosts(List<PostHandler> filteredList) {
         if(filterButton != null)
             filterButton.setEnabled(false);
 
@@ -254,7 +256,7 @@ public class RoverFeed extends Fragment {
         int nextLimit = Math.min(postsLoadedCount + POSTS_PER_PAGE, totalPosts);
 
         for (int i = postsLoadedCount; i < nextLimit; i++) {
-            filteredList.get(i).createImage();
+            filteredList.get(i).prepareImageView();
         }
 
         new android.os.Handler().postDelayed(new Runnable() {
@@ -278,16 +280,16 @@ public class RoverFeed extends Fragment {
                     }
                     // First batch of posts will refresh the list
                     if (postsLoadedCount == 0 && nextLimit > 0) {
-                        visiblePostList.clear();
-                        visiblePostList.addAll(filteredList.subList(0, nextLimit));
+                        visiblePostHandlerList.clear();
+                        visiblePostHandlerList.addAll(filteredList.subList(0, nextLimit));
                         postAdapter.notifyDataSetChanged();
                     }
                     // Next ones will just add to existing list
                     else {
                         for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
-                            Post post = filteredList.get(i);
-                            visiblePostList.add(post);
-                            postAdapter.notifyItemInserted(visiblePostList.size() - 1);
+                            PostHandler postHandler = filteredList.get(i);
+                            visiblePostHandlerList.add(postHandler);
+                            postAdapter.notifyItemInserted(visiblePostHandlerList.size() - 1);
                         }
                     }
 
@@ -313,36 +315,36 @@ public class RoverFeed extends Fragment {
         startRefreshUI();
 
         postAdapter.detachAllViews(recyclerView);
-        visiblePostList.clear();
+        visiblePostHandlerList.clear();
         postAdapter.notifyDataSetChanged();
 
         User currentUser = activity.getCurrentUser();
 
         firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
             @Override
-            public void onPostsLoaded(List<Post> posts, boolean isOffline) {
+            public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
                 if (isOffline) {
                     if(!offlineMode) {
                         Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_SHORT).show();
                         binding.offlineLabel.setVisibility(View.VISIBLE);
                     }
 
-                    Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(posts.size()));
+                    Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(postHandlers.size()));
                 } else {
                     if(offlineMode) {
                         Toast.makeText(requireContext(), "Online Mode", Toast.LENGTH_SHORT).show();
                         binding.offlineLabel.setVisibility(View.GONE);
                     }
-                    firebaseRepository.removeUnusedTopics(posts);
-                    Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(posts.size()));
+                    firebaseRepository.deleteUnusedTopics(postHandlers);
+                    Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(postHandlers.size()));
                 }
 
                 offlineMode = isOffline;
-                allPostList.clear();
-                allPostList.addAll(posts);
+                allPostHandlerList.clear();
+                allPostHandlerList.addAll(postHandlers);
 
-                for (Post post : allPostList) {
-                    post.setFragment(RoverFeed.this);
+                for (PostHandler postHandler : allPostHandlerList) {
+                    postHandler.setFragment(RoverFeed.this);
                 }
             }
             @Override
@@ -383,9 +385,9 @@ public class RoverFeed extends Fragment {
         }
         postAdapter.setLoading(false);
 
-        if (Filters.areFiltersOrSortEnabled()) {
+        if (FiltersManager.areFiltersOrSortEnabled()) {
             binding.filtersLayout.setVisibility(View.VISIBLE);
-            binding.filterList.setText(Filters.getFiltersText());
+            binding.filterList.setText(FiltersManager.getFiltersText());
         }
         else
             binding.filtersLayout.setVisibility(View.GONE);
@@ -399,33 +401,33 @@ public class RoverFeed extends Fragment {
         postAdapter.setLoading(true);
     }
 
-    public void removePostFromUI(Post post) {
-        int index = visiblePostList.indexOf(post);
+    public void removePostFromUI(PostHandler postHandler) {
+        int index = visiblePostHandlerList.indexOf(postHandler);
         if (index != -1) {
-            visiblePostList.remove(index);
+            visiblePostHandlerList.remove(index);
             postAdapter.notifyItemRemoved(index);
         }
     }
 
-    public void updatePostInUI(Post post) {
-        int index = visiblePostList.indexOf(post);
+    public void updatePostInUI(PostHandler postHandler) {
+        int index = visiblePostHandlerList.indexOf(postHandler);
         if (index != -1) {
-            visiblePostList.set(index, post);
+            visiblePostHandlerList.set(index, postHandler);
             postAdapter.notifyItemChanged(index);
         }
     }
 
-    public void addPostToUI(Post post) {
-        if (Filters.isVisibleAfterFilter(post, activity)) {
-            int index = visiblePostList.indexOf(post);
+    public void addPostToUI(PostHandler postHandler) {
+        if (FiltersManager.isVisibleAfterFilter(postHandler, activity)) {
+            int index = visiblePostHandlerList.indexOf(postHandler);
 
             if (index == -1 && (!binding.swipeRefresh.isRefreshing() && !isLoading)) {
-                if (Filters.isOrderAscending()) {
-                    visiblePostList.add(post);
-                    postAdapter.notifyItemInserted(visiblePostList.size() - 1);
-                    recyclerView.scrollToPosition(visiblePostList.size()-1);
+                if (FiltersManager.getActiveFilters().isOrderAscending()) {
+                    visiblePostHandlerList.add(postHandler);
+                    postAdapter.notifyItemInserted(visiblePostHandlerList.size() - 1);
+                    recyclerView.scrollToPosition(visiblePostHandlerList.size()-1);
                 } else {
-                    visiblePostList.add(0, post);
+                    visiblePostHandlerList.add(0, postHandler);
                     postAdapter.notifyItemInserted(0);
                     recyclerView.scrollToPosition(0);
                 }

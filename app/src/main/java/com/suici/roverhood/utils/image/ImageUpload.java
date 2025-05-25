@@ -1,4 +1,4 @@
-package com.suici.roverhood.utils;
+package com.suici.roverhood.utils.image;
 
 import android.graphics.Bitmap;
 
@@ -7,18 +7,19 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.presentation.ProgressBar;
 
 import java.io.ByteArrayOutputStream;
 import java.util.UUID;
 
-public class UploadImageUtils {
+public class ImageUpload {
 
-    public interface UploadCallback {
+    public interface imageUploadCallback {
         void onSuccess(String downloadUrl);
         void onFailure(Exception e);
     }
 
-    public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, UploadCallback callback) {
+    public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, imageUploadCallback callback) {
         Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -45,14 +46,14 @@ public class UploadImageUtils {
         // Logic for Upload LoadingBar
         MainActivity activity = MainActivity.instance;
         if (activity != null)
-            ProgressBarUtils.resetProgressBar(activity.getUploadProgressBar());
+            ProgressBar.resetProgressBar(activity.getUploadProgressBar());
         uploadTask.addOnProgressListener(taskSnapshot -> {
             long bytesTransferred = taskSnapshot.getBytesTransferred();
             long totalBytes = taskSnapshot.getTotalByteCount();
             int progress = (int) ((100.0 * bytesTransferred) / totalBytes);
 
             activity.runOnUiThread(() -> {
-                ProgressBarUtils.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
+                ProgressBar.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
             });
         });
 

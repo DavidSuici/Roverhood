@@ -1,11 +1,11 @@
-package com.suici.roverhood.utils;
+package com.suici.roverhood.presentation;
 
 import android.animation.ValueAnimator;
 import android.os.Handler;
 import android.view.View;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
-public class ProgressBarUtils {
+public class ProgressBar {
 
     public static void updateProgressBar(LinearProgressIndicator progressBar, int currentProgress, int totalProgress) {
         if (progressBar != null) {

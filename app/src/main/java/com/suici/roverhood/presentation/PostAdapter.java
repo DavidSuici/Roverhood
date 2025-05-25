@@ -1,4 +1,4 @@
-package com.suici.roverhood.handlers;
+package com.suici.roverhood.presentation;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -9,7 +9,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.suici.roverhood.R;
-import com.suici.roverhood.models.Post;
 
 import java.util.List;
 
@@ -18,19 +17,19 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VIEW_TYPE_POST = 0;
     private static final int VIEW_TYPE_SPACE = 1;
 
-    private final List<Post> postList;
+    private final List<PostHandler> postHandlerList;
     private final Context context;
 
     private boolean isLoading = false;
 
-    public PostAdapter(Context context, List<Post> postList) {
+    public PostAdapter(Context context, List<PostHandler> postHandlerList) {
         this.context = context;
-        this.postList = postList;
+        this.postHandlerList = postHandlerList;
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (position == postList.size()) {
+        if (position == postHandlerList.size()) {
             return VIEW_TYPE_SPACE;
         } else {
             return VIEW_TYPE_POST;
@@ -52,8 +51,8 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof PostViewHolder) {
-            Post post = postList.get(position);
-            post.loadIntoView(holder.itemView);
+            PostHandler postHandler = postHandlerList.get(position);
+            postHandler.loadIntoView(holder.itemView);
         }
         else if (holder instanceof SpaceViewHolder) {
             SpaceViewHolder spaceHolder = (SpaceViewHolder) holder;
@@ -68,12 +67,12 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     @Override
     public int getItemCount() {
-        return postList.size() + 1;
+        return postHandlerList.size() + 1;
     }
 
     public void setLoading(boolean loading) {
         this.isLoading = loading;
-        notifyItemChanged(postList.size());
+        notifyItemChanged(postHandlerList.size());
     }
 
     public static class PostViewHolder extends RecyclerView.ViewHolder {
@@ -96,9 +95,9 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onViewAttachedToWindow(holder);
 
         int position = holder.getBindingAdapterPosition();
-        if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
-            Post post = postList.get(position);
-            post.setPostVisible(true);
+        if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
+            PostHandler postHandler = postHandlerList.get(position);
+            postHandler.setPostVisible(true);
         }
     }
 
@@ -107,9 +106,9 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onViewDetachedFromWindow(holder);
 
         int position = holder.getBindingAdapterPosition();
-        if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
-            Post post = postList.get(position);
-            post.setPostVisible(false);
+        if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
+            PostHandler postHandler = postHandlerList.get(position);
+            postHandler.setPostVisible(false);
         }
     }
 
@@ -120,9 +119,9 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(child);
 
             int position = holder.getBindingAdapterPosition();
-            if (position != RecyclerView.NO_POSITION && position < postList.size() && holder instanceof PostViewHolder) {
-                Post post = postList.get(position);
-                post.setPostVisible(false);
+            if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
+                PostHandler postHandler = postHandlerList.get(position);
+                postHandler.setPostVisible(false);
             }
         }
     }

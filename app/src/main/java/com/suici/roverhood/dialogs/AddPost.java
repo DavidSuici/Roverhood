@@ -27,16 +27,16 @@ import androidx.annotation.NonNull;
 
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.suici.roverhood.models.Filters;
+import com.suici.roverhood.utils.FiltersManager;
 import com.suici.roverhood.MainActivity;
-import com.suici.roverhood.models.Post;
+import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.R;
-import com.suici.roverhood.RoverFeed;
+import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.Topic;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.databases.FirebaseRepository;
-import com.suici.roverhood.utils.DownloadImageUtils;
-import com.suici.roverhood.utils.UploadImageUtils;
+import com.suici.roverhood.utils.image.ImageDownload;
+import com.suici.roverhood.utils.image.ImageUpload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +84,7 @@ public class AddPost extends DialogFragment {
         switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
-        topicDropdown.setText(Filters.getTopic());
+        topicDropdown.setText(FiltersManager.getActiveFilters().getTopic());
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
         populateTopicOptions();
 
@@ -149,6 +149,14 @@ public class AddPost extends DialogFragment {
             }
         });
 
+        bindSubmitPostButton();
+
+        return view;
+    }
+
+    private void bindSubmitPostButton() {
+        User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+
         submitPostButton.setOnClickListener(v -> {
             submitPostButton.setEnabled(false);
 
@@ -176,7 +184,7 @@ public class AddPost extends DialogFragment {
 
             if (editTextDescription.getLineCount() > 45) {
                 if (editTextDescription.getError() == null
-                    || "Description required".equals(editTextDescription.getError().toString()))
+                        || "Description required".equals(editTextDescription.getError().toString()))
                     editTextDescription.setError((editTextDescription.getLineCount() - 45) + " too many lines");
                 submitPostButton.setEnabled(true);
                 return;
@@ -188,9 +196,9 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            if (DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isBlackPixel) ||
-                    DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isWhitePixel) ||
-                    DownloadImageUtils.isImageCorrupted(selectedImage, DownloadImageUtils::isTransparentPixel)) {
+            if (ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isBlackPixel) ||
+                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isWhitePixel) ||
+                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isTransparentPixel)) {
                 Toast.makeText(context, "Too much plain color at the bottom of the image", Toast.LENGTH_LONG).show();
                 submitPostButton.setEnabled(true);
                 return;
@@ -211,7 +219,7 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            UploadImageUtils.uploadImageToFirebase(selectedImage, "postImage", new UploadImageUtils.UploadCallback() {
+            ImageUpload.uploadImageToFirebase(selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
                     if(switchAnnouncement.isChecked() && !newTopic.isEmpty()) {
@@ -229,8 +237,6 @@ public class AddPost extends DialogFragment {
 
             dismiss();
         });
-
-        return view;
     }
 
     @Override
@@ -267,10 +273,10 @@ public class AddPost extends DialogFragment {
         boolean isAnnouncement = switchAnnouncement.isChecked();
         firebaseRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new FirebaseRepository.PostCreationCallback() {
             @Override
-            public void onPostCreated(Post post) {
-                post.setImageView(imagePreview);
-                originalFeed.addPostToUI(post);
-                Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
+            public void onPostCreated(PostHandler postHandler) {
+                postHandler.setImageView(imagePreview);
+                originalFeed.addPostToUI(postHandler);
+                Toast.makeText(context, "PostHandler created successfully!", Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -287,10 +293,10 @@ public class AddPost extends DialogFragment {
             public void onTopicCreated(Topic topic) {
                 firebaseRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new FirebaseRepository.PostCreationCallback() {
                     @Override
-                    public void onPostCreated(Post post) {
-                        post.setImageView(imagePreview);
-                        originalFeed.addPostToUI(post);
-                        Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
+                    public void onPostCreated(PostHandler postHandler) {
+                        postHandler.setImageView(imagePreview);
+                        originalFeed.addPostToUI(postHandler);
+                        Toast.makeText(context, "PostHandler created successfully!", Toast.LENGTH_SHORT).show();
                     }
                     @Override
                     public void onError(String errorMessage) {

@@ -10,6 +10,7 @@ import android.util.Log;
 import androidx.fragment.app.Fragment;
 
 import com.suici.roverhood.models.Post;
+import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.models.Topic;
 import com.suici.roverhood.models.User;
 
@@ -33,7 +34,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 24;
+    public static final int DATABASE_VERSION = 26;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -54,14 +55,14 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     "loggedIn INTEGER DEFAULT 0);";
 
     public static final String TABLE_SESSION = "session";
-    public static final String COLUMN_LOGGED_IN_ID = "idLoggedIn";
-    public static final String COLUMN_PREV_LOGGED_IN_ID = "idPrevLoggedIn";
+    public static final String COLUMN_CURRENT_USER_ID = "idLoggedIn";
+    public static final String COLUMN_LAST_USER_ID = "idPrevLoggedIn";
 
     private static final String CREATE_TABLE_SESSION =
             "CREATE TABLE " + TABLE_SESSION + " (" +
                     "id INTEGER PRIMARY KEY CHECK(id = 1), " +  // Fixed ID, always = 1
-                    COLUMN_LOGGED_IN_ID + " TEXT, " +
-                    COLUMN_PREV_LOGGED_IN_ID + " TEXT);";
+                    COLUMN_CURRENT_USER_ID + " TEXT, " +
+                    COLUMN_LAST_USER_ID + " TEXT);";
 
     public static final String TABLE_POSTS = "posts";
     public static final String COLUMN_POST_ID = "postId";
@@ -112,8 +113,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
         // Initialize with empty session row
         ContentValues values = new ContentValues();
         values.put("id", 1);
-        values.put(COLUMN_LOGGED_IN_ID, "");
-        values.put(COLUMN_PREV_LOGGED_IN_ID, "");
+        values.put(COLUMN_CURRENT_USER_ID, "");
+        values.put(COLUMN_LAST_USER_ID, "");
         db.insert(TABLE_SESSION, null, values);
     }
 
@@ -249,8 +250,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
         String prevId = "";
         try (Cursor cursor = db.query(
-                "session",
-                new String[]{"idLoggedIn"},
+                TABLE_SESSION ,
+                new String[]{COLUMN_CURRENT_USER_ID},
                 "id = 1",
                 null,
                 null,
@@ -258,22 +259,22 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null
         )) {
             if (cursor.moveToFirst()) {
-                prevId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
+                prevId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CURRENT_USER_ID));
             }
         }
 
         ContentValues values = new ContentValues();
-        values.put("idLoggedIn", userid);
-        values.put("idPrevLoggedIn", prevId);
-        db.update("session", values, "id = 1", null);
+        values.put(COLUMN_CURRENT_USER_ID, userid);
+        values.put(COLUMN_LAST_USER_ID, prevId);
+        db.update(TABLE_SESSION , values, "id = 1", null);
     }
 
     public void markLoggedOut() {
         SQLiteDatabase db = this.getWritableDatabase();
 
         try (Cursor cursor = db.query(
-                "session",
-                new String[]{"idLoggedIn"},
+                TABLE_SESSION ,
+                new String[]{COLUMN_CURRENT_USER_ID},
                 "id = 1",
                 null,
                 null,
@@ -281,12 +282,12 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null
         )) {
             if (cursor.moveToFirst()) {
-                String currentLoggedIn = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
+                String currentLoggedIn = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CURRENT_USER_ID));
 
                 ContentValues values = new ContentValues();
-                values.put("idPrevLoggedIn", currentLoggedIn);
-                values.put("idLoggedIn", "");
-                db.update("session", values, "id = 1", null);
+                values.put(COLUMN_LAST_USER_ID, currentLoggedIn);
+                values.put(COLUMN_CURRENT_USER_ID, "");
+                db.update(TABLE_SESSION , values, "id = 1", null);
             }
         }
     }
@@ -294,8 +295,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public User getLoggedInUser() {
         SQLiteDatabase db = this.getReadableDatabase();
         try (Cursor cursor = db.query(
-                "session",
-                new String[]{"idLoggedIn"},
+                TABLE_SESSION ,
+                new String[]{COLUMN_CURRENT_USER_ID},
                 "id = 1",
                 null,
                 null,
@@ -303,7 +304,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null
         )) {
             if (cursor.moveToFirst()) {
-                String userId = cursor.getString(cursor.getColumnIndexOrThrow("idLoggedIn"));
+                String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CURRENT_USER_ID));
                 return getUserById(userId);
             }
         }
@@ -313,8 +314,8 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public User getPrevLoggedInUser() {
         SQLiteDatabase db = this.getReadableDatabase();
         try (Cursor cursor = db.query(
-                "session",
-                new String[]{"idPrevLoggedIn"},
+                TABLE_SESSION ,
+                new String[]{COLUMN_LAST_USER_ID},
                 "id = 1",
                 null,
                 null,
@@ -322,7 +323,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                 null
         )) {
             if (cursor.moveToFirst()) {
-                String userId = cursor.getString(cursor.getColumnIndexOrThrow("idPrevLoggedIn"));
+                String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_USER_ID));
                 return getUserById(userId);
             }
         }
@@ -331,22 +332,22 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     // POSTS TABLE ACTIONS
 
-    public void insertPost(String postId, Long date, String topicId, String description, String imagePath, int likes, Map<String, Boolean> likedBy, boolean announcement, String userId, int version) {
+    public void insertPost(Post post) {
         SQLiteDatabase db = this.getWritableDatabase();
 
-        String likedByString = serializeLikedBy(likedBy);
+        String likedByString = serializeLikedBy(post.getLikedBy());
 
         ContentValues values = new ContentValues();
-        values.put(COLUMN_POST_ID, postId);
-        values.put(COLUMN_DATE, date);
-        values.put(COLUMN_TOPIC_ID, topicId);
-        values.put(COLUMN_DESCRIPTION, description);
-        values.put(COLUMN_IMAGE_PATH, imagePath);
-        values.put(COLUMN_LIKES, likes);
+        values.put(COLUMN_POST_ID, post.getId());
+        values.put(COLUMN_DATE, post.getDate());
+        values.put(COLUMN_TOPIC_ID, post.getTopic() != null ? post.getTopic().getId() : null);
+        values.put(COLUMN_DESCRIPTION, post.getDescription());
+        values.put(COLUMN_IMAGE_PATH, post.getImageUrl());
+        values.put(COLUMN_LIKES, post.getLikes());
         values.put(COLUMN_LIKED_BY, likedByString);
-        values.put(COLUMN_ANNOUNCEMENT, announcement ? 1 : 0);
-        values.put(COLUMN_USERID, userId);
-        values.put(COLUMN_VERSION, version);
+        values.put(COLUMN_ANNOUNCEMENT, post.isAnnouncement() ? 1 : 0);
+        values.put(COLUMN_USERID, post.getUser().getId());
+        values.put(COLUMN_VERSION, post.getVersion());
 
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
@@ -428,9 +429,9 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return null;
     }
 
-    public Map<String, Post> getAllOfflinePosts(Fragment fragment, Map<String, User> usersMap, Map<String, Topic> topicMap) {
+    public Map<String, PostHandler> getAllOfflinePosts(Fragment fragment, Map<String, User> usersMap, Map<String, Topic> topicMap) {
         SQLiteDatabase db = this.getReadableDatabase();
-        Map<String, Post> postsMap = new LinkedHashMap<>();
+        Map<String, PostHandler> postsMap = new LinkedHashMap<>();
 
         try (Cursor cursor = db.query(
                 TABLE_POSTS,
@@ -460,20 +461,20 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
                     if (user != null) {
                         Post post = new Post(
-                                fragment,
                                 postId,
-                                date,
                                 user,
+                                date,
                                 topic,
                                 description,
                                 imagePath,
                                 likes,
                                 likedBy,
                                 announcement == 1,
-                                version,
-                                true
+                                version
                         );
-                        postsMap.put(postId, post);
+
+                        PostHandler postHandler = new PostHandler(fragment, post, true);
+                        postsMap.put(postId, postHandler);
                     }
                 } while (cursor.moveToNext());
             }

@@ -1,4 +1,4 @@
-package com.suici.roverhood;
+package com.suici.roverhood.fragments;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -11,6 +11,8 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.suici.roverhood.MainActivity;
+import com.suici.roverhood.R;
 import com.suici.roverhood.databases.FirebaseAccessCodeHasher;
 import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.databases.LocalDatabase;
@@ -37,7 +39,7 @@ public class LogIn extends Fragment {
     ) {
         binding = FragmentLogInBinding.inflate(inflater, container, false);
 
-        FirebaseAccessCodeHasher.hashAllAccessCodes();
+        // FirebaseAccessCodeHasher.hashAllAccessCodes();
 
         setSelectAllOnFocus(binding.usernameText);
         setSelectAllOnFocus(binding.accessCodeText);
@@ -84,8 +86,11 @@ public class LogIn extends Fragment {
         // LogIn - button logic
         binding.buttonLogIn.setOnClickListener(v -> {
             if (isLoggingIn) return;
-            startLoadingUI();
-            syncUserDB();
+
+            if(!isLoading) {
+                startLoadingUI();
+                syncUserDB();
+            }
 
             String username = binding.usernameText.getText().toString().trim();
             String accessCode = binding.accessCodeText.getText().toString().trim();
@@ -167,8 +172,10 @@ public class LogIn extends Fragment {
     }
 
     private void reLogActiveUser(User loggedInUser) {
-        startLoadingUI();
-        syncUserDB();
+        if(!isLoading) {
+            startLoadingUI();
+            syncUserDB();
+        }
 
         final int[] counter = {0};
         new android.os.Handler().postDelayed(new Runnable() {

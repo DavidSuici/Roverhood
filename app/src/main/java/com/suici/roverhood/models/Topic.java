@@ -19,18 +19,29 @@ public class Topic {
         this.creationTime = creationTime;
     }
 
+    public void setId(String id) {
+        this.id = id;
+    }
+    public String getId() { return id; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public long getCreationTime() { return creationTime; }
+    public void setCreationTime(long creationTime) { this.creationTime = creationTime; }
+
     public static List<Topic> getAllTopics() {
         return allTopics;
+    }
+
+    public static void clearTopics() {
+        allTopics.clear();
     }
 
     public static void addTopic(Topic topic) {
         if (!allTopics.contains(topic)) {
             allTopics.add(topic);
         }
-    }
-
-    public static void clearTopics() {
-        allTopics.clear();
     }
 
     public static Topic findTopicByTitle(String title) {
@@ -41,13 +52,4 @@ public class Topic {
         }
         return null;
     }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-    public String getId() { return id; }
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-    public long getCreationTime() { return creationTime; }
-    public void setCreationTime(long creationTime) { this.creationTime = creationTime; }
 }

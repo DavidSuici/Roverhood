@@ -5,13 +5,13 @@
     android:id="@+id/nestedScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".LogIn">
+    tools:context=".fragments.LogIn">
 
     <ImageView
         android:id="@+id/title"
         android:layout_width="362dp"
         android:layout_height="62dp"
-        android:src="@drawable/title"
+        android:src="@drawable/image_title"
         android:layout_marginTop="64dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
