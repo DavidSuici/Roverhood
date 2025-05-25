@@ -36,7 +36,6 @@
                 android:gravity="end"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:visibility="gone"
                 app:layout_constraintTop_toTopOf="@id/switchAnnouncement"
                 app:layout_constraintBottom_toBottomOf="@id/switchAnnouncement"
                 app:layout_constraintStart_toEndOf="@id/titleText"
@@ -46,10 +45,9 @@
                 android:id="@+id/switchAnnouncement"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
                 app:layout_constraintTop_toTopOf="@id/titleText"
                 app:layout_constraintBottom_toBottomOf="@id/titleText"
-                app:layout_constraintEnd_toEndOf="@id/topicSelectGroup" />
+                app:layout_constraintEnd_toEndOf="@id/inputLayoutDescription" />
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/topicSelectGroup"
