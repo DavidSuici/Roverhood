@@ -216,6 +216,13 @@ public class RoverFeed extends Fragment {
         }
     }
 
+    public void refreshFeedAndFilters() {
+        if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
+            FiltersManager.resetFilters();
+            refreshFeed();
+        }
+    }
+
     private void waitThenDrawPosts() {
         new android.os.Handler().postDelayed(new Runnable() {
             @Override

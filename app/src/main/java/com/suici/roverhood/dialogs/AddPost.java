@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -38,6 +40,7 @@ import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.utils.image.ImageDownload;
 import com.suici.roverhood.utils.image.ImageUpload;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -144,7 +147,7 @@ public class AddPost extends DialogFragment {
 
         rotateRightButton.setOnClickListener(v -> {
             if (selectedImage != null) {
-                selectedImage = rotateBitmap(selectedImage);
+                selectedImage = rotateBitmap(selectedImage, 90);
                 imagePreview.setImageBitmap(selectedImage);
             }
         });
@@ -196,19 +199,23 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            if (ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isBlackPixel) ||
-                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isWhitePixel) ||
-                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isTransparentPixel)) {
-                Toast.makeText(context, "Too much plain color at the bottom of the image", Toast.LENGTH_LONG).show();
+            int width = selectedImage.getWidth();
+            int height = selectedImage.getHeight();
+            float ratio = (float) width / height;
+            if (ratio < 0.33f) {
+                Toast.makeText(context, "Image too tall", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            } else if (ratio > 6.0f) {
+                Toast.makeText(context, "Image too wide", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
 
-            int width = selectedImage.getWidth();
-            int height = selectedImage.getHeight();
-            float ratio = (float) width / height;
-            if (ratio < 0.45f || ratio > 6.0f) {
-                Toast.makeText(context, "Image too tall or too wide", Toast.LENGTH_SHORT).show();
+            if (ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isBlackPixel) ||
+                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isWhitePixel) ||
+                    ImageDownload.isImageCorrupted(selectedImage, ImageDownload::isTransparentPixel)) {
+                Toast.makeText(context, "Too much plain color at the bottom of the image", Toast.LENGTH_LONG).show();
                 submitPostButton.setEnabled(true);
                 return;
             }
@@ -219,7 +226,7 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            ImageUpload.uploadImageToFirebase(selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
+            ImageUpload.uploadImageToFirebase(context, selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
                     if(switchAnnouncement.isChecked() && !newTopic.isEmpty()) {
@@ -244,7 +251,9 @@ public class AddPost extends DialogFragment {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK && data != null) {
             try {
-                selectedImage = MediaStore.Images.Media.getBitmap(getActivity().getContentResolver(), data.getData());
+                Uri imageUri = data.getData();
+                Bitmap rawBitmap = MediaStore.Images.Media.getBitmap(getActivity().getContentResolver(), data.getData());
+                selectedImage = rotateBitmapIfRequired(requireContext(), imageUri, rawBitmap);
                 imagePreview.setImageBitmap(selectedImage);
             } catch (Exception e) {
                 Log.e("AddPost", "Failed to load image from gallery", e);
@@ -263,9 +272,30 @@ public class AddPost extends DialogFragment {
         this.originalFeed = roverFeed;
     }
 
-    private Bitmap rotateBitmap(Bitmap bitmap) {
+    private Bitmap rotateBitmapIfRequired(Context context, Uri imageUri, Bitmap bitmap) {
+        try (InputStream input = context.getContentResolver().openInputStream(imageUri)) {
+            ExifInterface exif = new ExifInterface(input);
+            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    return rotateBitmap(bitmap, 90);
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    return rotateBitmap(bitmap, 180);
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    return rotateBitmap(bitmap, 270);
+                default:
+                    return bitmap;
+            }
+        } catch (Exception e) {
+            Log.e("AddPost", "Failed to load image InputStream", e);
+            return bitmap;
+        }
+    }
+
+    private Bitmap rotateBitmap(Bitmap bitmap, float degrees) {
         Matrix matrix = new Matrix();
-        matrix.postRotate(90);
+        matrix.postRotate(degrees);
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 

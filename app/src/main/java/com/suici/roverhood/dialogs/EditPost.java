@@ -184,7 +184,7 @@ public class EditPost extends DialogFragment {
             boolean announcementChanged = switchAnnouncement.isChecked() != postHandler.getPost().isAnnouncement();
 
             if (imageChanged) {
-                ImageUpload.uploadImageToFirebase(selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
+                ImageUpload.uploadImageToFirebase(context, selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
                     @Override
                     public void onSuccess(String downloadUrl) {
                         deleteOldImage(postHandler.getPost().getImageUrl());

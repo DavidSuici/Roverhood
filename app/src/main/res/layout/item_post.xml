@@ -13,10 +13,10 @@
         android:layout_height="0dp"
         android:background="?attr/colorPrimary"
         android:alpha="0.075"
-        app:layout_constraintBottom_toTopOf="@id/image"
+        app:layout_constraintBottom_toBottomOf="@id/image"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.8" />
+        android:layout_marginBottom="-8dp"/>
 
     <TextView
         android:id="@+id/user"
@@ -118,6 +118,7 @@
         android:textSize="14sp"
         android:maxLines="5"
         android:ellipsize="end"
+        android:autoLink="web"
         app:layout_constraintTop_toBottomOf="@id/topicLabel"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -173,7 +174,7 @@
         android:layout_width="0dp"
         android:layout_height="15dp"
         android:background="@drawable/post_fade_bottom"
-        app:layout_constraintTop_toBottomOf="@id/image"
+        app:layout_constraintTop_toBottomOf="@id/postBG"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

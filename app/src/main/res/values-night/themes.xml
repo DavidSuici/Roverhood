@@ -11,5 +11,7 @@
 
         <item name="materialThemeOverlay">@null</item>
         <item name="elevationOverlayEnabled">false</item>
+
+        <item name="colorControlActivated">@color/light_purple</item>
     </style>
 </resources>

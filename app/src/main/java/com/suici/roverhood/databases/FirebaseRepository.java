@@ -42,7 +42,7 @@ public class FirebaseRepository {
     private final DatabaseReference usersRef;
     private final DatabaseReference deletedPostsRef;
     private final LocalDatabase localDatabase;
-    private final Context context;
+    private Context context;
 
     private boolean loading = false;
     private boolean topicsLoaded = false;
@@ -98,6 +98,12 @@ public class FirebaseRepository {
             instance = new FirebaseRepository(context);
         }
         return instance;
+    }
+
+    public static synchronized void updateContext(Context newContext) {
+        if (instance != null && newContext != null) {
+            instance.context = newContext;
+        }
     }
 
     // ONLINE POST MANAGEMENT
@@ -437,7 +443,7 @@ public class FirebaseRepository {
             String imageUrl = postHandler.getPost().getImageUrl();
 
             ((MainActivity) context).runOnUiThread(() -> {
-                ImageDownload.incrementProgressBarMax();
+                ImageDownload.incrementProgressBarMax(context);
             });
 
             ImageDownload.saveImageToInternalStorage(context, imageUrl, fileName, new ImageDownload.ImageSaveCallback() {
@@ -445,7 +451,7 @@ public class FirebaseRepository {
                 public void onSuccess(String imagePath) {
                     Log.d("LocalSync", "Image saved at: " + imagePath);
                     ((MainActivity) context).runOnUiThread(() -> {
-                        ImageDownload.incrementProgressBar();
+                        ImageDownload.incrementProgressBar(context);
                     });
 
                     Post adjustedPost = new Post(
@@ -468,7 +474,7 @@ public class FirebaseRepository {
                 public void onFailure(Exception e) {
                     Log.e("LocalSync", "Failed to save image for post " + postHandler.getPost().getId(), e);
                     ((MainActivity) context).runOnUiThread(() -> {
-                        ImageDownload.incrementProgressBar();
+                        ImageDownload.incrementProgressBar(context);
                     });
                 }
             });

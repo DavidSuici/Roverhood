@@ -78,8 +78,8 @@ public class CreateUser extends DialogFragment {
                 return;
             }
 
-            if (!newUsername.matches("^[a-zA-Z0-9]*$")) {
-                Toast.makeText(context, "Username can only contain letters and numbers", Toast.LENGTH_SHORT).show();
+            if (!newUsername.matches("^[a-zA-Z0-9._]*$")) {
+                Toast.makeText(context, "Username can only contain letters, numbers, underscore and dot.", Toast.LENGTH_SHORT).show();
                 endLoadingUI();
                 return;
             }

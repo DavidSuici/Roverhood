@@ -1,6 +1,7 @@
 package com.suici.roverhood.presentation;
 
 import android.graphics.drawable.Drawable;
+import android.text.Layout;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -116,21 +117,23 @@ public class PostHandler {
     }
 
     public void bindDescriptionToggle(TextView descriptionView, TextView seeMoreView) {
-        descriptionView.setMaxLines(Integer.MAX_VALUE);
-        descriptionView.setEllipsize(null);
+        descriptionView.setMaxLines(MAX_PREVIEW_ROWS + 1);
         seeMoreView.setVisibility(View.GONE);
-        isExpanded = true;
+        isExpanded = false;
 
         descriptionView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
                 descriptionView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                Layout layout = descriptionView.getLayout();
 
-                if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                if (descriptionView.getLineCount() == MAX_PREVIEW_ROWS + 1
+                        && layout.getEllipsisCount(MAX_PREVIEW_ROWS) > 0) {
                     descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
-                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
                     seeMoreView.setVisibility(View.VISIBLE);
-                    isExpanded = false;
+                } else {
+                    descriptionView.setMaxLines(Integer.MAX_VALUE);
+                    isExpanded = true;
                 }
             }
         });
@@ -139,13 +142,11 @@ public class PostHandler {
             if (isExpanded) {
                 if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
                     descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
-                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
                     seeMoreView.setVisibility(View.VISIBLE);
                     isExpanded = false;
                 }
             } else {
                 descriptionView.setMaxLines(Integer.MAX_VALUE);
-                descriptionView.setEllipsize(null);
                 seeMoreView.setVisibility(View.GONE);
                 isExpanded = true;
             }
@@ -155,13 +156,11 @@ public class PostHandler {
             if (isExpanded) {
                 if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
                     descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
-                    descriptionView.setEllipsize(TextUtils.TruncateAt.END);
                     seeMoreView.setVisibility(View.VISIBLE);
                     isExpanded = false;
                 }
             } else {
                 descriptionView.setMaxLines(Integer.MAX_VALUE);
-                descriptionView.setEllipsize(null);
                 seeMoreView.setVisibility(View.GONE);
                 isExpanded = true;
             }
@@ -170,34 +169,33 @@ public class PostHandler {
 
     public void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
-        params.dimensionRatio = null;
-        params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
-        params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
-        imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        imageView.setLayoutParams(params);
-        imageView.requestLayout();
-        fullScreenIcon.setVisibility(View.GONE);
 
-        imageView.post(() -> {
-            if (imageView.getDrawable() != null) {
-                int width = imageView.getDrawable().getIntrinsicWidth();
-                int height = imageView.getDrawable().getIntrinsicHeight();
+        if (imageView.getDrawable() != null) {
+            int width = imageView.getDrawable().getIntrinsicWidth();
+            int height = imageView.getDrawable().getIntrinsicHeight();
 
-                if (width > 0 && height > 0) {
-                    float ratio = (float) width / height;
-                    if (ratio < 1) {
-                        params.dimensionRatio = "1:1";
-                        params.width = 0;
-                        params.height = 0;
-                        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                        imageView.setLayoutParams(params);
-                        imageView.requestLayout();
-                        fullScreenIcon.setVisibility(View.VISIBLE);
-                    }
-
+            if (width > 0 && height > 0) {
+                float ratio = (float) width / height;
+                if (ratio < 1) {
+                    params.dimensionRatio = "1:1";
+                    params.width = 0;
+                    params.height = 0;
+                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    imageView.setLayoutParams(params);
+                    imageView.requestLayout();
+                    fullScreenIcon.setVisibility(View.VISIBLE);
+                }
+                else {
+                    params.dimensionRatio = null;
+                    params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
+                    params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
+                    imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    imageView.setLayoutParams(params);
+                    imageView.requestLayout();
+                    fullScreenIcon.setVisibility(View.GONE);
                 }
             }
-        });
+        }
 
         imageView.setOnClickListener(v -> {
             if ("1:1".equals(params.dimensionRatio)) {

@@ -28,20 +28,20 @@ public class ImageDownload {
     public static int getTotalImageCount() { return totalImageCount; }
     public static void setTotalImageCount(int nr) { totalImageCount = nr; }
 
-    public static void incrementProgressBar() {
+    public static void incrementProgressBar(Context context) {
         loadedImageCount++;
-        if (MainActivity.instance != null) {
-            MainActivity activity = MainActivity.instance;
+        MainActivity activity = (MainActivity) context;
+        if (activity != null) {
             activity.runOnUiThread(() -> {
                 ProgressBar.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });
         }
     }
 
-    public static void incrementProgressBarMax() {
+    public static void incrementProgressBarMax(Context context) {
         totalImageCount++;
-        if (MainActivity.instance != null) {
-            MainActivity activity = MainActivity.instance;
+        MainActivity activity = (MainActivity) context;
+        if (activity != null) {
             activity.runOnUiThread(() -> {
                 ProgressBar.updateProgressBar(activity.getDownloadProgressBar(), loadedImageCount, totalImageCount);
             });

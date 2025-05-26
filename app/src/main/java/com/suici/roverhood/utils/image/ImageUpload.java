@@ -1,6 +1,8 @@
 package com.suici.roverhood.utils.image;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.util.Log;
 
 
 import com.google.firebase.storage.FirebaseStorage;
@@ -19,7 +21,7 @@ public class ImageUpload {
         void onFailure(Exception e);
     }
 
-    public static void uploadImageToFirebase(Bitmap originalBitmap, String fileNameHint, imageUploadCallback callback) {
+    public static void uploadImageToFirebase(Context context, Bitmap originalBitmap, String fileNameHint, imageUploadCallback callback) {
         Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -44,21 +46,21 @@ public class ImageUpload {
         UploadTask uploadTask = storageRef.putBytes(data);
 
         // Logic for Upload LoadingBar
-        MainActivity activity = MainActivity.instance;
-        if (activity != null)
+        MainActivity activity = (MainActivity) context;
+        if (activity != null) {
             ProgressBar.resetProgressBar(activity.getUploadProgressBar());
-        uploadTask.addOnProgressListener(taskSnapshot -> {
-            long bytesTransferred = taskSnapshot.getBytesTransferred();
-            long totalBytes = taskSnapshot.getTotalByteCount();
-            int progress = (int) ((100.0 * bytesTransferred) / totalBytes);
-
-            activity.runOnUiThread(() -> {
-                ProgressBar.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
-            });
-        });
-
-        if (activity != null)
             activity.getFloatingButton().setEnabled(false);
+
+            uploadTask.addOnProgressListener(taskSnapshot -> {
+                long bytesTransferred = taskSnapshot.getBytesTransferred();
+                long totalBytes = taskSnapshot.getTotalByteCount();
+                int progress = (int) ((100.0 * bytesTransferred) / totalBytes);
+
+                activity.runOnUiThread(() -> {
+                    ProgressBar.updateProgressBar(activity.getUploadProgressBar(), progress, 100);
+                });
+            });
+        }
 
         uploadTask
                 .addOnSuccessListener(taskSnapshot -> {

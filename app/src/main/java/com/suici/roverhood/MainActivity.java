@@ -24,7 +24,9 @@ import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 import android.widget.Toast;
+import android.widget.Toolbar;
 
 import com.jakewharton.threetenabp.AndroidThreeTen;
 import com.suici.roverhood.fragments.RoverFeed;
@@ -44,12 +46,9 @@ public class MainActivity extends AppCompatActivity {
     private LinearProgressIndicator downloadProgressBar;
     private LinearProgressIndicator uploadProgressBar;
 
-    public static MainActivity instance;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        instance = this;
 
         lastNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
 
@@ -65,8 +64,9 @@ public class MainActivity extends AppCompatActivity {
 
             View logoView = getLayoutInflater().inflate(R.layout.toolbar_logo, null);
             getSupportActionBar().setCustomView(logoView);
-        }
 
+            logoView.setOnClickListener(v -> tryRefreshCurrentFragment());
+        }
 
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed).build();
@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
+        FirebaseRepository.updateContext(MainActivity.this);
 
         // Initialize ProgressBars
         downloadProgressBar = binding.downloadProgressBar;
@@ -115,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        instance = null;
     }
 
     @Override
@@ -142,6 +142,16 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    private void tryRefreshCurrentFragment() {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment != null) {
+            RoverFeed fragment = (RoverFeed) navHostFragment.getChildFragmentManager().getFragments().get(0);
+            if (fragment != null) {
+                fragment.refreshFeedAndFilters();
+            }
+        }
+    }
+
     // Restart app if theme is changed - used to crash, or enter a state with uninitialised variables
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -163,9 +173,7 @@ public class MainActivity extends AppCompatActivity {
         finish();
     }
 
-    public LinearProgressIndicator getDownloadProgressBar() {
-        return downloadProgressBar;
-    }
+    public LinearProgressIndicator getDownloadProgressBar() { return downloadProgressBar; }
     public LinearProgressIndicator getUploadProgressBar() {
         return uploadProgressBar;
     }
