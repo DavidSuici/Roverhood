@@ -173,6 +173,12 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
+            if (!editTextTopic.getText().toString().isEmpty() && newTopic.isEmpty()) {
+                Toast.makeText(context, "Topic cannot be empty", Toast.LENGTH_SHORT).show();
+                submitPostButton.setEnabled(true);
+                return;
+            }
+
             if (newTopic.length() > 50) {
                 Toast.makeText(context, "Topic is" + (newTopic.length() - 50) + " characters too long", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
@@ -185,10 +191,10 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
-            if (editTextDescription.getLineCount() > 45) {
+            if (editTextDescription.getLineCount() > 55) {
                 if (editTextDescription.getError() == null
                         || "Description required".equals(editTextDescription.getError().toString()))
-                    editTextDescription.setError((editTextDescription.getLineCount() - 45) + " too many lines");
+                    editTextDescription.setError("Exceeded text limit. Reduce by " + (editTextDescription.getLineCount() - 55) + " row(s)");
                 submitPostButton.setEnabled(true);
                 return;
             }

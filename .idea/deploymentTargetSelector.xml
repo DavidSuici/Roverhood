@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="Roverhood ">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-05-25T11:07:37.344857300Z">
+        <DropdownSelection timestamp="2025-05-26T12:36:52.699648300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="Default" identifier="serial=192.168.1.151:39365;connection=326fad49" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CW22MXKNW" />
             </handle>
           </Target>
         </DropdownSelection>

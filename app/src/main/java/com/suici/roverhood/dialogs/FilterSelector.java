@@ -102,6 +102,10 @@ public class FilterSelector extends DialogFragment {
 
         setSelectAllOnFocus(userFilter);
         setSelectAllOnFocus(minLikesInput);
+
+        userFilter.setDropDownHeight(600);
+        userFilter.setDropDownVerticalOffset(-userFilter.getHeight());
+
         populateFilterOptions();
 
         bindClearButtons();

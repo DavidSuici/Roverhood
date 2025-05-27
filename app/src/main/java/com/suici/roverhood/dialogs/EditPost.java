@@ -163,10 +163,10 @@ public class EditPost extends DialogFragment {
                 return;
             }
 
-            if (editTextDescription.getLineCount() > 45) {
+            if (editTextDescription.getLineCount() > 55) {
                 if (editTextDescription.getError() == null
                         || "Description required".equals(editTextDescription.getError().toString()))
-                    editTextDescription.setError((editTextDescription.getLineCount() - 45) + " too many lines");
+                    editTextDescription.setError("Exceeded text limit. Reduce by " + (editTextDescription.getLineCount() - 55) + " row(s)");
                 submitPostButton.setEnabled(true);
                 return;
             }

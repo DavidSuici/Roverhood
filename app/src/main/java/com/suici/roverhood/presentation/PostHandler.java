@@ -3,6 +3,8 @@ package com.suici.roverhood.presentation;
 import android.graphics.drawable.Drawable;
 import android.text.Layout;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -54,6 +56,14 @@ public class PostHandler {
         this.activeFragment = fragment;
         this.post = post;
         this.offlinePost = offlinePost;
+    }
+
+    public void bindEditedLabel(TextView editedLabelView) {
+        if (post.getVersion() > 0) {
+            editedLabelView.setVisibility(View.VISIBLE);
+        } else {
+            editedLabelView.setVisibility(View.GONE);
+        }
     }
 
     public void bindTopicLabel(TextView topicView) {
@@ -119,52 +129,38 @@ public class PostHandler {
     public void bindDescriptionToggle(TextView descriptionView, TextView seeMoreView) {
         descriptionView.setMaxLines(MAX_PREVIEW_ROWS + 1);
         seeMoreView.setVisibility(View.GONE);
+        descriptionView.setMovementMethod(null);
         isExpanded = false;
 
-        descriptionView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                descriptionView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                Layout layout = descriptionView.getLayout();
-
-                if (descriptionView.getLineCount() == MAX_PREVIEW_ROWS + 1
-                        && layout.getEllipsisCount(MAX_PREVIEW_ROWS) > 0) {
-                    descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
-                    seeMoreView.setVisibility(View.VISIBLE);
-                } else {
-                    descriptionView.setMaxLines(Integer.MAX_VALUE);
-                    isExpanded = true;
-                }
+        descriptionView.post(() -> {
+            if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
+                seeMoreView.setVisibility(View.VISIBLE);
+            } else {
+                descriptionView.setMovementMethod(LinkMovementMethod.getInstance());
+                isExpanded = true;
             }
         });
 
-        descriptionView.setOnClickListener(v -> {
+        View.OnClickListener toggleListener = v -> {
             if (isExpanded) {
                 if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
+                    descriptionView.setMovementMethod(null);
                     descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
                     seeMoreView.setVisibility(View.VISIBLE);
+                    descriptionView.setClickable(true);
                     isExpanded = false;
                 }
             } else {
                 descriptionView.setMaxLines(Integer.MAX_VALUE);
                 seeMoreView.setVisibility(View.GONE);
+                descriptionView.setMovementMethod(LinkMovementMethod.getInstance());
                 isExpanded = true;
             }
-        });
+        };
 
-        seeMoreView.setOnClickListener(v -> {
-            if (isExpanded) {
-                if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
-                    descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
-                    seeMoreView.setVisibility(View.VISIBLE);
-                    isExpanded = false;
-                }
-            } else {
-                descriptionView.setMaxLines(Integer.MAX_VALUE);
-                seeMoreView.setVisibility(View.GONE);
-                isExpanded = true;
-            }
-        });
+        descriptionView.setOnClickListener(toggleListener);
+        seeMoreView.setOnClickListener(toggleListener);
     }
 
     public void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
@@ -400,11 +396,14 @@ public class PostHandler {
     }
 
     public void loadIntoView(View itemView) {
+        Log.d("test2", "load into view  -  " + post.getDescription());
+
         // Find views
         TextView itemUser = itemView.findViewById(R.id.user);
         TextView itemTeam = itemView.findViewById(R.id.team);
         TextView itemUserType = itemView.findViewById(R.id.userType);
         TextView itemDate = itemView.findViewById(R.id.date);
+        TextView itemEdited = itemView.findViewById(R.id.editedLabel);
         TextView itemTopic = itemView.findViewById(R.id.topicLabel);
         TextView itemDescription = itemView.findViewById(R.id.description);
         TextView itemSeeMore = itemView.findViewById(R.id.seeMoreLabel);
@@ -421,12 +420,13 @@ public class PostHandler {
         itemUser.setText(post.getUser().getUsername());
         itemTeam.setText(post.getUser().getTeam());
         itemUserType.setText(post.getUser().getUserType());
-        itemDate.setText(Date.formatTimestamp(post.getDate()));
+        itemDate.setText(Date.formatTimestamp(post.getDate()) + "\u00A0");
         itemDescription.setText(post.getDescription());
         itemHeartNr.setText(String.valueOf(post.getLikes()));
         itemImage.setImageDrawable(imageView.getDrawable());
         itemHeart.setChecked(post.getLikedBy().containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
 
+        bindEditedLabel(itemEdited);
         bindTopicLabel(itemTopic);
         bindUserAndTeamButtons(itemUser, itemTeam);
         bindDescriptionToggle(itemDescription, itemSeeMore);
