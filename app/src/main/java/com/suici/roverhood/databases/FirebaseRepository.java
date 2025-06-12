@@ -149,11 +149,6 @@ public class FirebaseRepository {
                 }
                 timeoutHandler.removeCallbacksAndMessages(null);
 
-//                if (!snapshot.hasChildren()) {
-//                    callback.onPostsLoaded(loadOfflinePosts(), true);
-//                    return;
-//                }
-
                 removeDeletedPostsFromLocalDB();
                 localDatabase.refreshTopics(Topic.getAllTopics());
 

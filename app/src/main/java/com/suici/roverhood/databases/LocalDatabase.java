@@ -352,7 +352,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
-    public static String serializeLikedBy(Map<String, Boolean> likedBy) {
+    private static String serializeLikedBy(Map<String, Boolean> likedBy) {
         StringBuilder likedByString = new StringBuilder();
 
         for (String userId : likedBy.keySet()) {
@@ -365,7 +365,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return likedByString.toString();
     }
 
-    public static Map<String, Boolean> deserializeLikedBy(String likedByString) {
+    private static Map<String, Boolean> deserializeLikedBy(String likedByString) {
         Map<String, Boolean> likedBy = new HashMap<>();
 
         String[] userIds = likedByString.split(",");
@@ -404,7 +404,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         }
     }
 
-    public boolean deleteFileFromPath(String path) {
+    private boolean deleteFileFromPath(String path) {
         File file = new File(path);
         if (file.exists()) {
             return file.delete();

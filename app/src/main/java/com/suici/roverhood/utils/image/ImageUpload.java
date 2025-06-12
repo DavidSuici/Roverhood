@@ -2,8 +2,6 @@ package com.suici.roverhood.utils.image;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.util.Log;
-
 
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;

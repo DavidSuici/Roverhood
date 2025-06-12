@@ -48,7 +48,7 @@ public class RoverFeed extends Fragment {
     private boolean isLoading = true;
 
     private PostAdapter postAdapter;
-    RecyclerView recyclerView;
+    private RecyclerView recyclerView;
     private List<PostHandler> visiblePostHandlerList = new ArrayList<>();
     private List<PostHandler> allPostHandlerList = new ArrayList<>();
 

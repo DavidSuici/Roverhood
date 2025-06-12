@@ -1,13 +1,9 @@
 package com.suici.roverhood.presentation;
 
 import android.graphics.drawable.Drawable;
-import android.text.Layout;
-import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
-import android.text.util.Linkify;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -58,7 +54,7 @@ public class PostHandler {
         this.offlinePost = offlinePost;
     }
 
-    public void bindEditedLabel(TextView editedLabelView) {
+    private void bindEditedLabel(TextView editedLabelView) {
         if (post.getVersion() > 0) {
             editedLabelView.setVisibility(View.VISIBLE);
         } else {
@@ -66,7 +62,7 @@ public class PostHandler {
         }
     }
 
-    public void bindTopicLabel(TextView topicView) {
+    private void bindTopicLabel(TextView topicView) {
         if (post.getTopic() == null) {
             topicView.setVisibility(View.GONE);
         } else {
@@ -100,7 +96,7 @@ public class PostHandler {
         }
     }
 
-    public void bindUserAndTeamButtons(TextView userView, TextView teamView) {
+    private void bindUserAndTeamButtons(TextView userView, TextView teamView) {
         userView.setOnClickListener(v -> {
             FiltersManager.resetFilters();
             FiltersManager.getActiveFilters().setUsername(post.getUser().getUsername());
@@ -126,7 +122,7 @@ public class PostHandler {
         });
     }
 
-    public void bindDescriptionToggle(TextView descriptionView, TextView seeMoreView) {
+    private void bindDescriptionToggle(TextView descriptionView, TextView seeMoreView) {
         descriptionView.setMaxLines(MAX_PREVIEW_ROWS + 1);
         seeMoreView.setVisibility(View.GONE);
         descriptionView.setMovementMethod(null);
@@ -163,7 +159,7 @@ public class PostHandler {
         seeMoreView.setOnClickListener(toggleListener);
     }
 
-    public void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
+    private void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
 
         if (imageView.getDrawable() != null) {
@@ -218,7 +214,7 @@ public class PostHandler {
         });
     }
 
-    public void bindFlair(View flair) {
+    private void bindFlair(View flair) {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
 
         if (Objects.equals(currentUser.getId(), post.getUser().getId())) {
@@ -279,7 +275,7 @@ public class PostHandler {
                 .into(imageView);
     }
 
-    public void bindLikeButton(CheckBox heartButton, TextView heartNrView) {
+    private void bindLikeButton(CheckBox heartButton, TextView heartNrView) {
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
         heartButton.setOnCheckedChangeListener(null);
 
@@ -328,7 +324,7 @@ public class PostHandler {
         }
     }
 
-    public void bindMenuButton(ImageButton menuButton) {
+    private void bindMenuButton(ImageButton menuButton) {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
         boolean isOwner = Objects.equals(post.getUser().getId(), currentUser.getId());
         boolean isOrganizer = "ORGANIZER".equals(currentUser.getUserType());

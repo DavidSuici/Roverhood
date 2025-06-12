@@ -30,7 +30,7 @@ public class LogIn extends Fragment {
     private FragmentLogInBinding binding;
     private boolean isLoading = false;
     private boolean isLoggingIn = false;
-    FirebaseRepository firebaseRepository;
+    private FirebaseRepository firebaseRepository;
 
     @Override
     public View onCreateView(

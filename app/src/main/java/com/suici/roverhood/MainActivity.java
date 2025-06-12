@@ -24,25 +24,22 @@ import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ImageView;
 import android.widget.Toast;
-import android.widget.Toolbar;
 
 import com.jakewharton.threetenabp.AndroidThreeTen;
 import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.User;
 
 public class MainActivity extends AppCompatActivity {
-
-    private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
 
     private long pressedTime;
+    private User currentUser = null;
+    private int lastNightMode;
 
+    private AppBarConfiguration appBarConfiguration;
     private FloatingActionButton floatingButton;
     private Menu optionsMenu;
-    public User currentUser = null;
-    private int lastNightMode = Configuration.UI_MODE_NIGHT_NO;
     private LinearProgressIndicator downloadProgressBar;
     private LinearProgressIndicator uploadProgressBar;
 
@@ -102,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
         FirebaseRepository.updateContext(MainActivity.this);
+        FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
 
         // Initialize ProgressBars
         downloadProgressBar = binding.downloadProgressBar;

@@ -20,8 +20,8 @@ import java.util.function.IntPredicate;
 public class ImageDownload {
 
     // LoadingBar logic
-    static int loadedImageCount = 0;
-    static int totalImageCount = 0;
+    private static int loadedImageCount = 0;
+    private static int totalImageCount = 0;
 
     public static int getLoadedImageCount() { return loadedImageCount; }
     public static void setLoadedImageCount(int nr) { loadedImageCount = nr; }
