@@ -76,6 +76,7 @@ public class AddPost extends DialogFragment {
         context = getContext();
         firebaseRepository = FirebaseRepository.getInstance(context);
 
+        // Find  all the visual elements and initialise some of them
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
         submitPostButton = view.findViewById(R.id.submitPostButton);
@@ -83,7 +84,6 @@ public class AddPost extends DialogFragment {
         topicDropdown = view.findViewById(R.id.topicDropdown);
         editTextTopic = view.findViewById(R.id.editTextTopic);
         clearTopicButton = view.findViewById(R.id.clearTopicButton);
-
         switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
         labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
 
@@ -96,6 +96,7 @@ public class AddPost extends DialogFragment {
             editTextTopic.setText("");
         });
 
+        // Logic for scrolling by dragging while editing the description
         editTextDescription.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -140,6 +141,7 @@ public class AddPost extends DialogFragment {
             }
         });
 
+        // Select image from gallery when clicking on the image
         imagePreview.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(intent, PICK_IMAGE_REQUEST);
@@ -167,6 +169,7 @@ public class AddPost extends DialogFragment {
             Topic topic = Topic.findTopicByTitle(topicDropdown.getText().toString().trim());
             String newTopic = editTextTopic.getText().toString().trim();
 
+            // Enforce the required criteria for inputs:
             if (Topic.findTopicByTitle(newTopic) != null) {
                 Toast.makeText(context, "Topic already exists", Toast.LENGTH_SHORT).show();
                 submitPostButton.setEnabled(true);
@@ -232,6 +235,7 @@ public class AddPost extends DialogFragment {
                 return;
             }
 
+            // All criteria met, uploading the image to Firebase Storage
             ImageUpload.uploadImageToFirebase(context, selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
@@ -253,6 +257,7 @@ public class AddPost extends DialogFragment {
     }
 
     @Override
+    // Inserts selected image from gallery to the ImageView displayed
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK && data != null) {
@@ -270,7 +275,6 @@ public class AddPost extends DialogFragment {
     @Override
     public void onStart() {
         super.onStart();
-        // Need this or the fragment wont load
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
@@ -278,6 +282,7 @@ public class AddPost extends DialogFragment {
         this.originalFeed = roverFeed;
     }
 
+    // Use information from Image Exif to rotate the image in default position
     private Bitmap rotateBitmapIfRequired(Context context, Uri imageUri, Bitmap bitmap) {
         try (InputStream input = context.getContentResolver().openInputStream(imageUri)) {
             ExifInterface exif = new ExifInterface(input);
@@ -322,23 +327,12 @@ public class AddPost extends DialogFragment {
         });
     }
 
+    // Same as savePost, but first waits for callback from creating a new Topic
     private void savePostAndNewTopic(String description, User user, String imageUrl, String newTopicTitle) {
-        boolean isAnnouncement = switchAnnouncement.isChecked();
         firebaseRepository.createTopic(newTopicTitle, new FirebaseRepository.TopicCreationCallback() {
             @Override
             public void onTopicCreated(Topic topic) {
-                firebaseRepository.createPost(description, user, imageUrl, isAnnouncement, topic, originalFeed, new FirebaseRepository.PostCreationCallback() {
-                    @Override
-                    public void onPostCreated(PostHandler postHandler) {
-                        postHandler.setImageView(imagePreview);
-                        originalFeed.addPostToUI(postHandler);
-                        Toast.makeText(context, "Post created successfully!", Toast.LENGTH_SHORT).show();
-                    }
-                    @Override
-                    public void onError(String errorMessage) {
-                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
-                    }
-                });
+                savePost(description, user, imageUrl, topic);
             }
             @Override
             public void onError(String errorMessage) {
@@ -347,6 +341,7 @@ public class AddPost extends DialogFragment {
         });
     }
 
+    // Populates the topics dropdown with corresponding values.
     private void populateTopicOptions() {
         List<Topic> sortedTopics = Topic.getAllTopics().stream()
                 .sorted((t1, t2) -> Long.compare(t2.getCreationTime(), t1.getCreationTime()))

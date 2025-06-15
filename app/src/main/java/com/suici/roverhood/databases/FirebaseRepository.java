@@ -47,6 +47,9 @@ public class FirebaseRepository {
     private boolean loading = false;
     private boolean topicsLoaded = false;
 
+
+    // Callback Interfaces
+
     public interface PostRepositoryCallback {
         void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline);
         void onError(String errorMessage);
@@ -106,8 +109,12 @@ public class FirebaseRepository {
         }
     }
 
+
     // ONLINE POST MANAGEMENT
 
+    // Loads posts from Firebase or local database depending on connectivity,
+    // synchronizes topics and user data, and returns the result via callback.
+    // Falls back to offline data if timeout is reached or connection fails.
     public void loadPosts( boolean isOffline, boolean isOfflineUser, PostRepositoryCallback callback) {
         loading = true;
         List<PostHandler> postHandlers = new ArrayList<>();
@@ -128,12 +135,14 @@ public class FirebaseRepository {
             callback.onPostsLoaded(loadOfflinePosts(), true);
         }, timeLimit);
 
+        // Start fetching topics
         topicsLoaded = false;
         fetchAllTopics();
 
+        // Using thread to sequentially wait for topics to load before fetching posts
         new Thread(() -> {
             int retryCount = 0;
-            while (!topicsLoaded && retryCount < timeLimit/100) { // 10 seconds max
+            while (!topicsLoaded && retryCount < timeLimit/100) { // 10 or 2 seconds max
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -142,6 +151,7 @@ public class FirebaseRepository {
                 retryCount++;
             }
 
+            // All topics have been loaded, start fetching posts
             postsRef.orderByChild("date").get().addOnSuccessListener(snapshot -> {
                 if (isTimeoutReached[0]) {
                     loading = false;
@@ -176,6 +186,8 @@ public class FirebaseRepository {
                         loadedCount[0]++;
                         continue;
                     }
+
+                    // Removing outdated posts from local storage, to be downloaded later again
                     if (version == null) {
                         version = 0;
                     }
@@ -184,11 +196,12 @@ public class FirebaseRepository {
                     Integer localVersion = localDatabase.getPostVersion(postId);
                     if (localVersion != null) {
                         if (!version.equals(localVersion)) {
-                            Log.d("PostSync", "Post " + postId + " is outdated. Removing from Local DB.");
+                            Log.d("FirebaseRepository", "Post " + postId + " is outdated. Removing from Local DB.");
                             localDatabase.deletePost(postId);
                         }
                     }
 
+                    // Fetch the user of this post, and add the post to the list
                     usersRef.child(userId).get().addOnSuccessListener(userSnap -> {
                         User user = userSnap.getValue(User.class);
                         if (user != null) {
@@ -297,7 +310,6 @@ public class FirebaseRepository {
 
                 callback.onSuccess();
             } else {
-                Log.e("FirebaseRepository", "Failed to delete post from Firebase.");
                 callback.onError("Failed to delete post");
             }
         });
@@ -335,6 +347,7 @@ public class FirebaseRepository {
 
         postRef.updateChildren(updates).addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
+                // Using thread to sequentially wait for post to be deleted before saving it again
                 new Thread(() -> {
                     postHandler.getPost().setDescription(description);
                     postHandler.getPost().setImageUrl(imageUrl);
@@ -353,6 +366,7 @@ public class FirebaseRepository {
         });
     }
 
+    // Using Firebase transaction to update safely the number of likes and list of users who liked
     public void toggleLike(String postId, String currentUserId, boolean isChecked, PostOperationCallback callback) {
         DatabaseReference postRef = postsRef.child(postId);
 
@@ -413,6 +427,7 @@ public class FirebaseRepository {
         });
     }
 
+
     // OFFLINE POST MANAGEMENT
 
     private List<PostHandler> loadOfflinePosts() {
@@ -424,7 +439,10 @@ public class FirebaseRepository {
         return new ArrayList<>(offlinePosts.values());
     }
 
+    // Saves posts and their images to local storage.
+    // Updates a progress bar on the UI thread as each image is saved.
     public void savePostsToLocalDB(List<PostHandler> postsToSave) {
+        // Resetting the progress bar if its done loading from previous tasks
         ((MainActivity) context).runOnUiThread(() -> {
             if (ImageDownload.getLoadedImageCount() >= ImageDownload.getTotalImageCount()) {
                 ImageDownload.setLoadedImageCount(0);
@@ -441,6 +459,7 @@ public class FirebaseRepository {
                 ImageDownload.incrementProgressBarMax(context);
             });
 
+            // Downloads each image, and saves posts with local path instead of URL
             ImageDownload.saveImageToInternalStorage(context, imageUrl, fileName, new ImageDownload.ImageSaveCallback() {
                 @Override
                 public void onSuccess(String imagePath) {
@@ -492,8 +511,11 @@ public class FirebaseRepository {
         });
     }
 
+
     // TOPIC MANAGEMENT
 
+    // Fetches all topics from Firebase on a single background thread.
+    // Executed this way to preserve the sequential logic in loadPosts().
     public void fetchAllTopics() {
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
@@ -508,8 +530,8 @@ public class FirebaseRepository {
                     }
                 }
 
-                Log.d("FirebaseRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
                 topicsLoaded = true;
+                Log.d("FirebaseRepository", "All topics pre-fetched: " + Topic.getAllTopics().size());
             } catch (Exception e) {
                 Log.e("FirebaseRepository", "Failed to fetch topics", e);
             }
@@ -542,6 +564,8 @@ public class FirebaseRepository {
                 });
     }
 
+    // Deletes all topics that are not assigned to any existing post.
+    // Removes them both from the local database and from Firebase.
     public void deleteUnusedTopics(List<PostHandler> postHandlers) {
         List<String> usedTopicIds = new ArrayList<>();
         for (PostHandler postHandler : postHandlers) {
@@ -568,6 +592,7 @@ public class FirebaseRepository {
         Log.d("removeDeletedTopics", "Finished removing unused topics. Total removed: " + unusedTopics.size());
     }
 
+
     // USER MANAGEMENT
 
     public void getAllUsers(UsersCallback callback) {
@@ -590,6 +615,7 @@ public class FirebaseRepository {
                 });
     }
 
+    // Sets the username for a user only if it hasn't been set already
     public void setUsernameIfNewUser(String userId, String newUsername, PostOperationCallback callback) {
         signInAnonymously();
         DatabaseReference userRef = usersRef.child(userId);
@@ -617,8 +643,10 @@ public class FirebaseRepository {
         });
     }
 
+
     // OTHERS
 
+    // Performs anonymous sign-in using Firebase Authentication
     public void signInAnonymously() {
         FirebaseAuth auth = FirebaseAuth.getInstance();
         if (auth.getCurrentUser() == null) {

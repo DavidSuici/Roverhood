@@ -127,6 +127,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         onCreate(db);
     }
 
+
     // USER TABLE ACTIONS
 
     public void insertUser(User user) {
@@ -243,6 +244,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return usersMap;
     }
 
+
     // SESSION TABLE ACTIONS
 
     public void markLoggedIn(String userid) {
@@ -329,6 +331,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         }
         return null;
     }
+
 
     // POSTS TABLE ACTIONS
 
@@ -497,6 +500,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.update(TABLE_POSTS, values, selection, selectionArgs);
     }
 
+
     // TOPICS TABLE ACTIONS
 
     public Map<String, Topic> getAllTopics() {
@@ -528,25 +532,15 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     public void refreshTopics(List<Topic> newTopics) {
         SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_TOPICS, null, null);
 
-        db.beginTransaction();
-        try {
-            db.delete(TABLE_TOPICS, null, null);
-
-            ContentValues values = new ContentValues();
-            for (Topic topic : newTopics) {
-                values.put(COLUMN_TOPIC_ID, topic.getId());
-                values.put(COLUMN_TOPIC_TITLE, topic.getTitle());
-                values.put(COLUMN_TOPIC_CREATION_TIME, topic.getCreationTime());
-                db.insert(TABLE_TOPICS, null, values);
-                values.clear();
-            }
-
-            db.setTransactionSuccessful();
-        } catch (Exception e) {
-            Log.e("LocalDatabase", "Failed to refresh topics: " + e.getMessage());
-        } finally {
-            db.endTransaction();
+        ContentValues values = new ContentValues();
+        for (Topic topic : newTopics) {
+            values.put(COLUMN_TOPIC_ID, topic.getId());
+            values.put(COLUMN_TOPIC_TITLE, topic.getTitle());
+            values.put(COLUMN_TOPIC_CREATION_TIME, topic.getCreationTime());
+            db.insert(TABLE_TOPICS, null, values);
+            values.clear();
         }
     }
 

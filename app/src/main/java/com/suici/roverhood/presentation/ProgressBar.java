@@ -7,6 +7,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 public class ProgressBar {
 
+    // Setting the values to a given progress bar, and animates the changes
     public static void updateProgressBar(LinearProgressIndicator progressBar, int currentProgress, int totalProgress) {
         if (progressBar != null) {
             progressBar.setMax(totalProgress);

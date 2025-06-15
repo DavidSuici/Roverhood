@@ -10,7 +10,7 @@ public class Date {
     private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("dd MMMM yyyy - HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    // Converts a Unix timestamp (in seconds) to a formatted date string for display.
+    // Converts a Unix timestamp to a formatted date string for display.
     public static String formatTimestamp(long timestamp) {
         return DISPLAY_FORMATTER.format(Instant.ofEpochSecond(timestamp));
     }

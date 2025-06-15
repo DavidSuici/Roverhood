@@ -28,6 +28,7 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     @Override
+    // Last element is reserved for a space with a loading spin
     public int getItemViewType(int position) {
         if (position == postHandlerList.size()) {
             return VIEW_TYPE_SPACE;
@@ -66,12 +67,15 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     @Override
+    // Adding +1 accounting for the last space element
     public int getItemCount() {
         return postHandlerList.size() + 1;
     }
 
     public void setLoading(boolean loading) {
         this.isLoading = loading;
+
+        // Updating the loading space element at the end
         notifyItemChanged(postHandlerList.size());
     }
 
@@ -90,6 +94,7 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    // Marking the post as visible or not, for different actions in PostHandler
     @Override
     public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
         super.onViewAttachedToWindow(holder);

@@ -19,7 +19,9 @@ import java.util.function.IntPredicate;
 
 public class ImageDownload {
 
+
     // LoadingBar logic
+
     private static int loadedImageCount = 0;
     private static int totalImageCount = 0;
 
@@ -48,12 +50,17 @@ public class ImageDownload {
         }
     }
 
+
     // Download logic
+
     public interface ImageSaveCallback {
         void onSuccess(String imagePath);
         void onFailure(Exception e);
     }
 
+    // Downloads an image from URL and saves it to the app's internal storage.
+    // If the file already exists, it returns the path directly, and if the
+    // image is corrupted, it will be deleted.
     public static void saveImageToInternalStorage(Context context, String imageUrl, String fileName, ImageSaveCallback callback) {
         new Thread(() -> {
             try {
@@ -92,6 +99,7 @@ public class ImageDownload {
         }).start();
     }
 
+    // Checking an image after download for corruption signs
     private static void checkAndHandleCorruptedImage(Context context, String fileName) {
         File file = new File(context.getFilesDir(), fileName);
         Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
@@ -105,7 +113,7 @@ public class ImageDownload {
                 Log.e("ImageUtils", "Failed to delete the corrupted file: " + fileName);
             }
         } else {
-            // Optionally, run additional checks like checking for white pixels
+            // Running checks for continuous white or black pixels
             if (isImageCorrupted(bitmap, ImageDownload::isWhitePixel)
                     || isImageCorrupted(bitmap, ImageDownload::isBlackPixel)) {
                 Log.e("ImageUtils", "Corrupted image detected, deleting file: " + fileName);
@@ -119,6 +127,9 @@ public class ImageDownload {
         }
     }
 
+    // Sometimes after download, image will be part white / black if it didn't load properly
+    // Checking if the bottom 15% of image is continuous pixels
+    // Also used when checking the images about to be uploaded, hence the public access.
     public static boolean isImageCorrupted(Bitmap bitmap, IntPredicate pixelCheck) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();

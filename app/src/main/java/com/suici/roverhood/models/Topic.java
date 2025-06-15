@@ -10,8 +10,7 @@ public class Topic {
 
     private static final List<Topic> allTopics = new ArrayList<>();
 
-    public Topic() {
-    }
+    public Topic() {}
 
     public Topic(String id, String title, long creationTime) {
         this.id = id;

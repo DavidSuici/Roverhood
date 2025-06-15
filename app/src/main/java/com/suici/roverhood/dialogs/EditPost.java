@@ -71,6 +71,7 @@ public class EditPost extends DialogFragment {
         context = requireContext();
         firebaseRepository = FirebaseRepository.getInstance(context);
 
+        // Find  all the visual elements and initialise some of them
         editTextDescription = view.findViewById(R.id.editTextDescription);
         imagePreview = view.findViewById(R.id.imagePreview);
         submitPostButton = view.findViewById(R.id.submitPostButton);
@@ -92,6 +93,7 @@ public class EditPost extends DialogFragment {
 
         User currentUser = ((MainActivity) getActivity()).getCurrentUser();
 
+        // Logic for scrolling by dragging while editing the description
         editTextDescription.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -156,6 +158,7 @@ public class EditPost extends DialogFragment {
         submitPostButton.setOnClickListener(v -> {
             submitPostButton.setEnabled(false);
 
+            // Enforce the required criteria for inputs:
             String description = editTextDescription.getText().toString().trim();
             if (description.isEmpty()) {
                 editTextDescription.setError("Description required");
@@ -180,6 +183,8 @@ public class EditPost extends DialogFragment {
                 return;
             }
 
+            // Check which element has changed, an image change requires uploading a new image,
+            // while only a description or announcement change only requires changes in the Firebase Database.
             boolean descriptionChanged = !description.equals(postHandler.getPost().getDescription());
             boolean announcementChanged = switchAnnouncement.isChecked() != postHandler.getPost().isAnnouncement();
 
@@ -215,6 +220,7 @@ public class EditPost extends DialogFragment {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
+    // Extracts the Bitmap from the image assigned to the post
     private Bitmap drawableToBitmap(Drawable drawable) {
         if (drawable instanceof BitmapDrawable) {
             return ((BitmapDrawable) drawable).getBitmap();

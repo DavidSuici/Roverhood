@@ -69,6 +69,7 @@ public class FilterSelector extends DialogFragment {
 
         isChanged = false;
 
+        // Find and initialise all the visual elements
         userFilter = view.findViewById(R.id.userFilter);
         teamDropdown = view.findViewById(R.id.teamDropdown);
         topicDropdown = view.findViewById(R.id.topicDropdown);
@@ -100,9 +101,11 @@ public class FilterSelector extends DialogFragment {
         switchSortByLikes.setChecked(FiltersManager.getActiveFilters().isSortByLikes());
         switchOrderAscending.setChecked(FiltersManager.getActiveFilters().isOrderAscending());
 
+        // Auto select all the contents when clicking on these text inputs
         setSelectAllOnFocus(userFilter);
         setSelectAllOnFocus(minLikesInput);
 
+        // Limits on User Drop down
         userFilter.setDropDownHeight(600);
         userFilter.setDropDownVerticalOffset(-userFilter.getHeight());
 
@@ -214,6 +217,8 @@ public class FilterSelector extends DialogFragment {
         });
     }
 
+    // Extra lines of code to control the color change. Behaviour changed to be more
+    // like a x or y switch, rather than on or off. Selected option is bolded and colored.
     private void bindSwitchSortByLikes() {
         int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
         int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
@@ -261,6 +266,8 @@ public class FilterSelector extends DialogFragment {
         });
     }
 
+    // Extra lines of code to control the color change. Behaviour changed to be more
+    // like a x or y switch, rather than on or off. Selected option is bolded and colored.
     private void bindSwitchOrderAscending() {
         int secondaryColor = ContextCompat.getColor(requireContext(), R.color.light_purple);
         int defaultColor = MaterialColors.getColor(dateLabel, com.google.android.material.R.attr.colorOnSurface);
@@ -326,6 +333,7 @@ public class FilterSelector extends DialogFragment {
         });
     }
 
+    // Populates the dropdowns and search bars with corresponding values.
     private void populateFilterOptions() {
         LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
         Map<String, User> users = localDB.getAllUsers();

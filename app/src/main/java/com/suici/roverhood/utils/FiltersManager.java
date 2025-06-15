@@ -75,7 +75,8 @@ public class FiltersManager {
                 !postHandler.getPost().getLikedBy().containsKey(activity.getCurrentUser().getId()))
             return false;
 
-        if (postHandler.getPost().getLikes() < activeFilters.getMinLikes()) return false;
+        if (postHandler.getPost().getLikes() < activeFilters.getMinLikes())
+            return false;
 
         return true;
     }

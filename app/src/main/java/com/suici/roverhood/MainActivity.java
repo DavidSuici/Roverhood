@@ -47,14 +47,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        lastNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-
-        AndroidThreeTen.init(this);
-
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbar);
 
+        lastNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        AndroidThreeTen.init(this);
+
+        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
+        appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed).build();
+        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+
+        floatingButton =  findViewById(R.id.fab);
+        getFloatingButton().setVisibility(View.INVISIBLE);
+
+        // Initialise App Bar to show logo instead of fragment name, and
+        // add logic on interacting with the logo
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayShowTitleEnabled(false);
             getSupportActionBar().setDisplayShowCustomEnabled(true);
@@ -65,10 +73,7 @@ public class MainActivity extends AppCompatActivity {
             logoView.setOnClickListener(v -> tryRefreshCurrentFragment());
         }
 
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
-        appBarConfiguration = new AppBarConfiguration.Builder(R.id.LogIn, R.id.RoverFeed).build();
-        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-
+        // Only show app bar in RoverFeed fragment
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             if (getSupportActionBar() == null) return;
 
@@ -80,9 +85,6 @@ public class MainActivity extends AppCompatActivity {
                 binding.toolbar.setVisibility(View.GONE);
             }
         });
-
-        floatingButton =  findViewById(R.id.fab);
-        getFloatingButton().setVisibility(View.INVISIBLE);
 
         // Exit app if pressed back 2 times in 2s
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -99,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Initialize FirebaseRepository
         FirebaseRepository.updateContext(MainActivity.this);
         FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
 
@@ -123,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    // Adding correspondent actions in RoverFeed fragment to each option from the app bar menu
     public boolean onOptionsItemSelected(MenuItem item) {
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
         if (navHostFragment != null) {
@@ -139,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    // Logic for clicking on Roverhood app logo from the app bar
     private void tryRefreshCurrentFragment() {
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
         if (navHostFragment != null) {
@@ -170,7 +175,9 @@ public class MainActivity extends AppCompatActivity {
         finish();
     }
 
-    public LinearProgressIndicator getDownloadProgressBar() { return downloadProgressBar; }
+    public LinearProgressIndicator getDownloadProgressBar() {
+        return downloadProgressBar;
+    }
     public LinearProgressIndicator getUploadProgressBar() {
         return uploadProgressBar;
     }

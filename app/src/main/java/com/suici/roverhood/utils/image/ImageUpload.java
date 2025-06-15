@@ -19,9 +19,13 @@ public class ImageUpload {
         void onFailure(Exception e);
     }
 
+    // Uploads a bitmap image to Firebase Storage, resizing if exceeds 1920px
+    // and compressing the image to ensure it's under 1MB.
+    // Shows and updates a progress bar during upload.
     public static void uploadImageToFirebase(Context context, Bitmap originalBitmap, String fileNameHint, imageUploadCallback callback) {
         Bitmap resizedBitmap = resizeIfTooLarge(originalBitmap, 1920);
 
+        // Compress image until its size is less than 1MB
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         int quality = 100;
 
@@ -34,6 +38,7 @@ public class ImageUpload {
         }
         byte[] data = baos.toByteArray();
 
+        // Save on Firebase Storage
         String uniqueFileName = (fileNameHint != null && !fileNameHint.isEmpty() ? fileNameHint : "image")
                 + "_" + UUID.randomUUID().toString() + ".jpg";
 
@@ -76,7 +81,7 @@ public class ImageUpload {
         int height = bitmap.getHeight();
 
         if (width <= maxSize && height <= maxSize) {
-            return bitmap; // no need to resize
+            return bitmap;
         }
 
         float ratio = (float) width / height;

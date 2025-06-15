@@ -54,6 +54,8 @@ public class PostHandler {
         this.offlinePost = offlinePost;
     }
 
+    // All the "bind..." methods are meant to reset the visual elements when a post is loaded,
+    // or add behaviour for user interaction with specific visual elements
     private void bindEditedLabel(TextView editedLabelView) {
         if (post.getVersion() > 0) {
             editedLabelView.setVisibility(View.VISIBLE);
@@ -122,22 +124,31 @@ public class PostHandler {
         });
     }
 
+    // Adding the collapse / expand behaviour to description
     private void bindDescriptionToggle(TextView descriptionView, TextView seeMoreView) {
+
+        // Setting the limit to 6 rows, and consider it collapsed
         descriptionView.setMaxLines(MAX_PREVIEW_ROWS + 1);
         seeMoreView.setVisibility(View.GONE);
         descriptionView.setMovementMethod(null);
         isExpanded = false;
 
         descriptionView.post(() -> {
+            // If the text still exceeds the current limit, add "see more" on the last
+            // line and keep links not working
             if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
                 descriptionView.setMaxLines(MAX_PREVIEW_ROWS);
                 seeMoreView.setVisibility(View.VISIBLE);
+            // If the text doesn't exceed the current limit, consider it expanded
+            // and make links interactable, never having the option to collapse again
             } else {
                 descriptionView.setMovementMethod(LinkMovementMethod.getInstance());
                 isExpanded = true;
             }
         });
 
+        // When clicked, collapse or expand only if the text is longer than
+        // the limit, links are interactable only when expanded
         View.OnClickListener toggleListener = v -> {
             if (isExpanded) {
                 if (descriptionView.getLineCount() > MAX_PREVIEW_ROWS + 1) {
@@ -159,6 +170,9 @@ public class PostHandler {
         seeMoreView.setOnClickListener(toggleListener);
     }
 
+    // Adding the collapse / expand behaviour to the image
+    // When clicked, if original image exceeds ratio 1:1 expand to
+    // full size or collapse to 1:1
     private void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
 
@@ -214,6 +228,9 @@ public class PostHandler {
         });
     }
 
+    // This flair is changing color based on the relation of the post author
+    // with the logged in user: posts made by author = primary color, by team
+    // member = blue accent color, by anyone else = secondary color
     private void bindFlair(View flair) {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
 
@@ -229,6 +246,7 @@ public class PostHandler {
         }
     }
 
+    // Adds special coloring for a post which is marked as announcement
     public void bindAnnouncementFlair(View announcementFlair, View postBG, View flair, TextView userType) {
         if(post.isAnnouncement()) {
             announcementFlair.setVisibility(View.VISIBLE);
@@ -248,33 +266,10 @@ public class PostHandler {
         }
     }
 
-    public void prepareImageView() {
-        imageView = new ImageView(activeFragment.requireContext());
-        imageView.setAdjustViewBounds(true);
-
-        Object imageSource = offlinePost ? new File(post.getImageUrl()) : post.getImageUrl();
-
-        Glide.with(activeFragment.requireContext())
-                .load(imageSource)
-                .signature(offlinePost ? new ObjectKey(System.currentTimeMillis()) : new ObjectKey(post.getImageUrl())) // Invalidates cache for offline
-                .placeholder(R.drawable.image_not_loaded)
-                .override(Target.SIZE_ORIGINAL)
-                .listener(new RequestListener<Drawable>() {
-                    @Override
-                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                        imageLoaded = true;
-                        return false;
-                    }
-
-                    @Override
-                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                        imageLoaded = true;
-                        return false;
-                    }
-                })
-                .into(imageView);
-    }
-
+    // Binds like checkbox button and like counter to current post
+    // Initializes checkbox state based on whether the current user liked the post
+    // Disables interaction if the post is offline
+    // On change, updates local data and syncs status to Firebase
     private void bindLikeButton(CheckBox heartButton, TextView heartNrView) {
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
         heartButton.setOnCheckedChangeListener(null);
@@ -293,6 +288,7 @@ public class PostHandler {
             heartButton.setEnabled(true);
 
             heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                // Avoiding random resets, only adding the logic for visible posts
                 if (!isPostVisible) return;
 
                 Boolean isLiked = post.getLikedBy().get(currentUserId);
@@ -324,6 +320,10 @@ public class PostHandler {
         }
     }
 
+    // Binds the options menu button to the post and only displays it if the user
+    // is the owner, an organiser or an admin. Hides the menu for offline posts.
+    // Sets visibility of 'Edit' and 'Delete' options based on user role, and handles
+    // their actions when an item is selected.
     private void bindMenuButton(ImageButton menuButton) {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
         boolean isOwner = Objects.equals(post.getUser().getId(), currentUser.getId());
@@ -389,6 +389,35 @@ public class PostHandler {
                     dialog.dismiss();
                 })
                 .show();
+    }
+
+    // Loading the image into the ImageView with Glide, only doing so
+    // when this post is loaded in the feed and this method is called
+    public void prepareImageView() {
+        imageView = new ImageView(activeFragment.requireContext());
+        imageView.setAdjustViewBounds(true);
+
+        Object imageSource = offlinePost ? new File(post.getImageUrl()) : post.getImageUrl();
+
+        Glide.with(activeFragment.requireContext())
+                .load(imageSource)
+                .signature(offlinePost ? new ObjectKey(System.currentTimeMillis()) : new ObjectKey(post.getImageUrl())) // Invalidates cache for offline
+                .placeholder(R.drawable.image_not_loaded)
+                .override(Target.SIZE_ORIGINAL)
+                .listener(new RequestListener<Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                        imageLoaded = true;
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                        imageLoaded = true;
+                        return false;
+                    }
+                })
+                .into(imageView);
     }
 
     public void loadIntoView(View itemView) {

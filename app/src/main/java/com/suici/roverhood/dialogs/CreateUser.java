@@ -60,6 +60,7 @@ public class CreateUser extends DialogFragment {
 
             String newUsername = editTextUsername.getText().toString();
 
+            // Enforce the Username criteria:
             if (newUsername.isEmpty()) {
                 Toast.makeText(context, "Username is empty", Toast.LENGTH_SHORT).show();
                 endLoadingUI();
@@ -84,13 +85,16 @@ public class CreateUser extends DialogFragment {
                 return;
             }
 
+            // Fetches codes associated with uninitialised Users. Aborts after 2.5s.
             getAvailableAccessCodes();
-            final int[] counter2 = {0};
+
+            // Insert new username to an uninitialised User with a matching accessCode
+            final int[] counter = {0};
             new android.os.Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    counter2[0]++;
-                    if (isLoading && counter2[0] < 5) {
+                    counter[0]++;
+                    if (isLoading && counter[0] < 5) {
                         new android.os.Handler().postDelayed(this, 500);
                     } else {
                         if(isLoading) {
@@ -99,12 +103,14 @@ public class CreateUser extends DialogFragment {
                             return;
                         }
 
+                        // Check if username is already taken only after fetching all users
                         if (takenUsernames.contains(newUsername.toLowerCase())) {
                             Toast.makeText(context, "Username already taken", Toast.LENGTH_SHORT).show();
                             endLoadingUI();
                             return;
                         }
 
+                        // Check for an uninitialised User with the same accessCode as the input
                         String inputAccessCode = editTextAccessCode.getText().toString().trim();
                         String matchedUserId = null;
 
@@ -149,7 +155,6 @@ public class CreateUser extends DialogFragment {
     @Override
     public void onStart() {
         super.onStart();
-        // Need this or the fragment wont load
         getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
@@ -175,6 +180,9 @@ public class CreateUser extends DialogFragment {
         loadingCreateUser.setVisibility(View.GONE);
     }
 
+
+    // Fetches all users from Firebase, and creates 2 lists, one with
+    // available access codes, and one with taken usernames
     private void getAvailableAccessCodes() {
         accessCodes.clear();
         takenUsernames.clear();
@@ -206,6 +214,7 @@ public class CreateUser extends DialogFragment {
         });
     }
 
+    // Auto Log-in in parent fragment when user creation is completed
     private void updateLogInDetails() {
         String newUsername = editTextUsername.getText().toString();
         String newAccessCode = editTextAccessCode.getText().toString();

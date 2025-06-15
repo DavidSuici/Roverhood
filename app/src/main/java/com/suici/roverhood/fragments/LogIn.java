@@ -39,8 +39,12 @@ public class LogIn extends Fragment {
     ) {
         binding = FragmentLogInBinding.inflate(inflater, container, false);
 
+        // Only activate after manually adding new uninitialised users with new accessCodes
+        // Will stay commented unless needed.
+
         // FirebaseAccessCodeHasher.hashAllAccessCodes();
 
+        // Auto-select the text when clicking on this
         setSelectAllOnFocus(binding.usernameText);
         setSelectAllOnFocus(binding.accessCodeText);
 
@@ -56,7 +60,7 @@ public class LogIn extends Fragment {
         User loggedInUser = localDB.getLoggedInUser();
         User prevUser = localDB.getPrevLoggedInUser();
 
-        // If any user is logged in, set current user information in textboxes
+        // If any user is logged in, sets current user information in textboxes
         if (loggedInUser != null) {
             ((MainActivity) requireActivity()).setCurrentUser(loggedInUser);
             binding.usernameText.setText(loggedInUser.getUsername());
@@ -64,14 +68,14 @@ public class LogIn extends Fragment {
 
             reLogActiveUser(loggedInUser);
         } else {
-            // Set last logged user information in textboxes
+            // Sets last logged user information in textboxes
             if (prevUser != null) {
                 binding.usernameText.setText(prevUser.getUsername());
                 binding.accessCodeText.setText(prevUser.getAccessCode());
             }
         }
 
-        // LogIn when pressed enter in AccessCode textbox
+        // Starts logging in when pressed enter in AccessCode textbox
         binding.accessCodeText.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE ||
                     (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
@@ -95,6 +99,7 @@ public class LogIn extends Fragment {
             String username = binding.usernameText.getText().toString().trim();
             String accessCode = binding.accessCodeText.getText().toString().trim();
 
+            // Waits 2.5s for syncUserDB to finish
             final int[] counter2 = {0};
             new android.os.Handler().postDelayed(new Runnable() {
                 @Override
@@ -103,7 +108,7 @@ public class LogIn extends Fragment {
                     if (isLoading && counter2[0] < 5) {
                         new android.os.Handler().postDelayed(this, 500);
                     } else {
-                        // Log into the previous User if correct data
+                        // Log into the previous User if correct data is introduced
                         User prevUser = localDB.getPrevLoggedInUser();
                         if (prevUser != null && prevUser.getUsername().equals(username)
                             && isBCryptHash(accessCode)) {
@@ -111,7 +116,7 @@ public class LogIn extends Fragment {
                             return;
                         }
 
-                        // Log into the realtime User if correct data
+                        // Log into the realtime User if correct data is introduced
                         User user = localDB.getUserByUsernameAndAccessCode(username, accessCode);
                         if (user != null) {
                             logIn(user);
@@ -126,6 +131,7 @@ public class LogIn extends Fragment {
             }, 500);
         });
 
+        // Opens a dialog for creating a new user
         binding.buttonCreateAccount.setOnClickListener(v -> {
             CreateUser createUserFragment = new CreateUser();
             createUserFragment.setOriginalFragment(this);
@@ -171,6 +177,7 @@ public class LogIn extends Fragment {
                 .navigate(R.id.action_LogIn_to_RoverFeed);
     }
 
+    // Waits maximum of 2.5 seconds and automatically logs in the currently logged user
     private void reLogActiveUser(User loggedInUser) {
         if(!isLoading) {
             startLoadingUI();
@@ -195,6 +202,7 @@ public class LogIn extends Fragment {
         }, 100);
     }
 
+    // Saves all the user information from Firebase in local database
     private void syncUserDB()
     {
         LocalDatabase localDB = LocalDatabase.getInstance(requireContext());

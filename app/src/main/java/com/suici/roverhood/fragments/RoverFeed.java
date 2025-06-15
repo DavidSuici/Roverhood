@@ -113,7 +113,7 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        // Refresh on bottom
+        // Add more posts on reaching the bottom of the feed
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
@@ -132,7 +132,7 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        // Filters - all buttons logic
+        // Filters - finding all buttons and adding their logic
         view.post(() -> {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
@@ -223,18 +223,18 @@ public class RoverFeed extends Fragment {
         }
     }
 
+    // Waits if posts are still loading, then filters the list and displays them
     private void waitThenDrawPosts() {
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                int totalPosts = allPostHandlerList.size();
-                if (firebaseRepository.isLoading() && (totalPosts<POSTS_PER_PAGE + postsLoadedCount)) {
+                if (firebaseRepository.isLoading()) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
                     List<PostHandler> filteredList = FiltersManager.filterPosts(allPostHandlerList, activity);
                     Collections.reverse(filteredList);
 
-                    //Sync current posts
+                    // Save locally the last loaded batch of posts
                     if (!offlineMode) {
                         int startIndex = Math.min(postsLoadedCount, filteredList.size());
                         int endIndex = Math.min(postsLoadedCount + POSTS_PER_PAGE, filteredList.size());
@@ -249,10 +249,12 @@ public class RoverFeed extends Fragment {
         }, 100);
     }
 
+    // Displays the next batch of posts when their image is done loading
     private void drawMorePosts(List<PostHandler> filteredList) {
         if(filterButton != null)
             filterButton.setEnabled(false);
 
+        // Finish if there are no more posts to display
         int totalPosts = filteredList.size();
         if (postsLoadedCount >= totalPosts){
             postAdapter.setLoading(false);
@@ -262,6 +264,7 @@ public class RoverFeed extends Fragment {
 
         int nextLimit = Math.min(postsLoadedCount + POSTS_PER_PAGE, totalPosts);
 
+        // Start loading the image for the next batch of posts
         for (int i = postsLoadedCount; i < nextLimit; i++) {
             filteredList.get(i).prepareImageView();
         }
@@ -270,6 +273,7 @@ public class RoverFeed extends Fragment {
             @Override
             public void run() {
 
+                // Wait for all posts to have their image loaded
                 boolean arePicturesLoading = false;
                 for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
                     if (!filteredList.get(i).isImageLoaded()) {
@@ -285,13 +289,14 @@ public class RoverFeed extends Fragment {
                         finishDrawUI();
                         return;
                     }
-                    // First batch of posts will refresh the list
+
+                    // First batch of posts will refresh the visible posts list
                     if (postsLoadedCount == 0 && nextLimit > 0) {
                         visiblePostHandlerList.clear();
                         visiblePostHandlerList.addAll(filteredList.subList(0, nextLimit));
                         postAdapter.notifyDataSetChanged();
                     }
-                    // Next ones will just add to existing list
+                    // Next ones will just add to the existing list
                     else {
                         for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
                             PostHandler postHandler = filteredList.get(i);
@@ -300,6 +305,7 @@ public class RoverFeed extends Fragment {
                         }
                     }
 
+                    // When all posts have been loaded, disable the spinning loading at the end of the feed
                     postsLoadedCount = nextLimit;
                     if (postsLoadedCount >= totalPosts) {
                         postAdapter.setLoading(false);
@@ -318,9 +324,12 @@ public class RoverFeed extends Fragment {
         binding.buttonLogOut.setEnabled(true);
     }
 
+    // Main refresh logic, triggered by pulling down from the top of
+    // the feed or pressing back while on the feed.
     public void refreshFeed() {
         startRefreshUI();
 
+        // Update the RecyclerView-related information
         postAdapter.detachAllViews(recyclerView);
         visiblePostHandlerList.clear();
         postAdapter.notifyDataSetChanged();
@@ -330,12 +339,13 @@ public class RoverFeed extends Fragment {
         firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
             @Override
             public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
+                // Change the mode from offline to online and vice-versa based on
+                // the callback from loading the posts from Firebase
                 if (isOffline) {
                     if(!offlineMode) {
                         Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_SHORT).show();
                         binding.offlineLabel.setVisibility(View.VISIBLE);
                     }
-
                     Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(postHandlers.size()));
                 } else {
                     if(offlineMode) {
@@ -360,22 +370,18 @@ public class RoverFeed extends Fragment {
             }
         });
 
-        final int[] counter = {0};
-
+        // Wait until the Firebase is done loading and after that start
+        // loading the first batch of posts
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                counter[0]++;
-                // Continue the recurrency, but stop after 20 iterations = 10s
-                if (firebaseRepository.isLoading() && counter[0] < 20) {
-                    new android.os.Handler().postDelayed(this, 500);
-                } else {
-                    if(!firebaseRepository.isLoading()) {
-                        postsLoadedCount = 0;
-                        isLoading = true;
-                        waitThenDrawPosts();
-                    }
 
+                if (firebaseRepository.isLoading()) {
+                    new android.os.Handler().postDelayed(this, 100);
+                } else {
+                    postsLoadedCount = 0;
+                    isLoading = true;
+                    waitThenDrawPosts();
                     finishRefreshUI();
                 }
             }
