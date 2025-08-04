@@ -53,6 +53,27 @@
     <include layout="@layout/content_main" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAnnouncement"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="@dimen/fab_margin"
+        android:layout_marginBottom="155dp"
+        app:fabCustomSize="40dp"
+        app:backgroundTint="?attr/amberBackground"
+        android:src="@drawable/icon_announcements" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabPost"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="@dimen/fab_margin"
+        android:layout_marginBottom="100dp"
+        app:fabCustomSize="40dp"
+        android:src="@drawable/icon_post_add" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -61,5 +82,7 @@
         android:layout_marginBottom="16dp"
         app:srcCompat="@android:drawable/ic_input_add"
         tools:ignore="ContentDescription" />
+
+
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

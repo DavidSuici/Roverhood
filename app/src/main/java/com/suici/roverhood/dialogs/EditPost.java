@@ -22,6 +22,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.annotation.NonNull;
@@ -47,12 +48,12 @@ public class EditPost extends DialogFragment {
     private Button submitPostButton;
     private ImageButton rotateRightButton;
     private TextView titleView;
-    private SwitchCompat switchAnnouncement;
-    private TextView labelAnnouncement;
+    private View background;
 
     private PostHandler postHandler;
     private Fragment activeFragment;
     private Bitmap selectedImage;
+    private boolean isAnnouncement;
     private boolean imageChanged = false;
     private int rotationTimes = 0;
 
@@ -77,12 +78,12 @@ public class EditPost extends DialogFragment {
         submitPostButton = view.findViewById(R.id.submitPostButton);
         rotateRightButton = view.findViewById(R.id.buttonRotateRight);
         titleView = view.findViewById(R.id.titleText);
-        switchAnnouncement = view.findViewById(R.id.switchAnnouncement);
-        labelAnnouncement = view.findViewById(R.id.labelAnnouncement);
+        background = view.findViewById(R.id.background);
 
         editTextDescription.setText(postHandler.getPost().getDescription());
         imagePreview.setImageDrawable(postHandler.getImageView().getDrawable());
         selectedImage = drawableToBitmap(postHandler.getImageView().getDrawable());
+        isAnnouncement = postHandler.getPost().isAnnouncement();
 
         titleView.setText("Edit post");
         submitPostButton.setText("Submit updates");
@@ -91,7 +92,14 @@ public class EditPost extends DialogFragment {
         ConstraintLayout topicSelectGroup = view.findViewById(R.id.topicSelectGroup);
         topicSelectGroup.setVisibility(View.GONE);
 
-        User currentUser = ((MainActivity) getActivity()).getCurrentUser();
+        if(isAnnouncement) {
+            int amber = ContextCompat.getColor(context, R.color.announcements_amber);
+            background.setBackgroundColor(amber);
+            background.setAlpha((float)0.075);
+            titleView.setText("Edit announcement");
+            titleView.setTextColor(amber);
+            submitPostButton.setBackgroundColor(amber);
+        }
 
         // Logic for scrolling by dragging while editing the description
         editTextDescription.setOnTouchListener(new View.OnTouchListener() {
@@ -106,31 +114,6 @@ public class EditPost extends DialogFragment {
                     }
                 }
                 return false;
-            }
-        });
-
-        switchAnnouncement.setChecked(postHandler.getPost().isAnnouncement());
-        if ("ORGANIZER".equals(currentUser.getUserType())
-                || "ADMIN".equals(currentUser.getUserType())) {
-            switchAnnouncement.setVisibility(View.VISIBLE);
-            labelAnnouncement.setVisibility(View.VISIBLE);
-            if (switchAnnouncement.isChecked()) {
-                int secondaryColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorSecondary);
-                labelAnnouncement.setTextColor(secondaryColor);
-            }
-        }
-        else {
-            switchAnnouncement.setVisibility(View.GONE);
-            labelAnnouncement.setVisibility(View.GONE);
-        }
-
-        switchAnnouncement.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                int secondaryColor = ContextCompat.getColor(context, R.color.light_purple);
-                labelAnnouncement.setTextColor(secondaryColor);
-            } else {
-                int defaultColor = MaterialColors.getColor(labelAnnouncement, com.google.android.material.R.attr.colorOnSurface);
-                labelAnnouncement.setTextColor(defaultColor);
             }
         });
 
@@ -186,7 +169,6 @@ public class EditPost extends DialogFragment {
             // Check which element has changed, an image change requires uploading a new image,
             // while only a description or announcement change only requires changes in the Firebase Database.
             boolean descriptionChanged = !description.equals(postHandler.getPost().getDescription());
-            boolean announcementChanged = switchAnnouncement.isChecked() != postHandler.getPost().isAnnouncement();
 
             if (imageChanged) {
                 ImageUpload.uploadImageToFirebase(context, selectedImage, "postImage", new ImageUpload.imageUploadCallback() {
@@ -202,7 +184,7 @@ public class EditPost extends DialogFragment {
                     }
                 });
             } else {
-                if(descriptionChanged || announcementChanged)
+                if(descriptionChanged)
                     updatePost(description, postHandler.getPost().getImageUrl());
                 else  {
                     Toast.makeText(context, "Nothing was changed", Toast.LENGTH_SHORT).show();
@@ -240,8 +222,6 @@ public class EditPost extends DialogFragment {
     }
 
     private void updatePost(String description, String imageUrl) {
-        boolean isAnnouncement = switchAnnouncement.isChecked();
-
         firebaseRepository.updatePost(postHandler, description, imageUrl, isAnnouncement, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {

@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.suici.roverhood.R;
+import com.suici.roverhood.utils.FiltersManager;
 
 import java.util.List;
 
@@ -16,11 +17,13 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int VIEW_TYPE_POST = 0;
     private static final int VIEW_TYPE_SPACE = 1;
+    private static final int VIEW_TYPE_HEADER = 2;
 
     private final List<PostHandler> postHandlerList;
     private final Context context;
 
     private boolean isLoading = false;
+    private int filtersHeight = 0;
 
     public PostAdapter(Context context, List<PostHandler> postHandlerList) {
         this.context = context;
@@ -30,7 +33,9 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     // Last element is reserved for a space with a loading spin
     public int getItemViewType(int position) {
-        if (position == postHandlerList.size()) {
+        if (position == 0) {
+            return VIEW_TYPE_HEADER;
+        } else if (position == postHandlerList.size() + 1) {
             return VIEW_TYPE_SPACE;
         } else {
             return VIEW_TYPE_POST;
@@ -52,31 +57,53 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof PostViewHolder) {
-            PostHandler postHandler = postHandlerList.get(position);
+            PostHandler postHandler = postHandlerList.get(position-1);
             postHandler.loadIntoView(holder.itemView);
         }
         else if (holder instanceof SpaceViewHolder) {
             SpaceViewHolder spaceHolder = (SpaceViewHolder) holder;
 
-            if (isLoading) {
-                spaceHolder.loadingMoreProgress.setVisibility(View.VISIBLE);
-            } else {
+            int viewType = getItemViewType(position);
+            if (viewType == VIEW_TYPE_SPACE) {
+                if (isLoading) {
+                    spaceHolder.loadingMoreProgress.setVisibility(View.VISIBLE);
+                } else {
+                    spaceHolder.loadingMoreProgress.setVisibility(View.GONE);
+                }
+            }
+            else {
                 spaceHolder.loadingMoreProgress.setVisibility(View.GONE);
+                if(FiltersManager.areFiltersOrSortEnabled()) {
+                    ViewGroup.LayoutParams params = spaceHolder.spaceFilters.getLayoutParams();
+                    params.height = filtersHeight;
+                    spaceHolder.spaceFilters.setLayoutParams(params);
+
+                    spaceHolder.spaceFilters.setVisibility(View.VISIBLE);
+                }
+                else
+                    spaceHolder.spaceFilters.setVisibility(View.GONE);
             }
         }
     }
 
     @Override
-    // Adding +1 accounting for the last space element
+    // Adding +2 accounting for the first and last space element
     public int getItemCount() {
-        return postHandlerList.size() + 1;
+        return postHandlerList.size() + 2;
     }
 
     public void setLoading(boolean loading) {
         this.isLoading = loading;
 
         // Updating the loading space element at the end
-        notifyItemChanged(postHandlerList.size());
+        notifyItemChanged(postHandlerList.size() + 1);
+    }
+
+    public void setFiltersHeight(int height) {
+        this.filtersHeight = height;
+
+        // Updating the space element at the start
+        notifyItemChanged(0);
     }
 
     public static class PostViewHolder extends RecyclerView.ViewHolder {
@@ -87,10 +114,12 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public static class SpaceViewHolder extends RecyclerView.ViewHolder {
         ProgressBar loadingMoreProgress;
+        View spaceFilters;
 
         public SpaceViewHolder(@NonNull View itemView) {
             super(itemView);
             loadingMoreProgress = itemView.findViewById(R.id.loadingMoreProgress);
+            spaceFilters = itemView.findViewById(R.id.spaceFilters);
         }
     }
 
@@ -100,8 +129,8 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onViewAttachedToWindow(holder);
 
         int position = holder.getBindingAdapterPosition();
-        if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
-            PostHandler postHandler = postHandlerList.get(position);
+        if (position != RecyclerView.NO_POSITION && position <= postHandlerList.size() && holder instanceof PostViewHolder) {
+            PostHandler postHandler = postHandlerList.get(position-1);
             postHandler.setPostVisible(true);
         }
     }
@@ -111,8 +140,8 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onViewDetachedFromWindow(holder);
 
         int position = holder.getBindingAdapterPosition();
-        if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
-            PostHandler postHandler = postHandlerList.get(position);
+        if (position != RecyclerView.NO_POSITION && position <= postHandlerList.size() && holder instanceof PostViewHolder) {
+            PostHandler postHandler = postHandlerList.get(position-1);
             postHandler.setPostVisible(false);
         }
     }
@@ -124,8 +153,8 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(child);
 
             int position = holder.getBindingAdapterPosition();
-            if (position != RecyclerView.NO_POSITION && position < postHandlerList.size() && holder instanceof PostViewHolder) {
-                PostHandler postHandler = postHandlerList.get(position);
+            if (position != RecyclerView.NO_POSITION && position <= postHandlerList.size() && holder instanceof PostViewHolder) {
+                PostHandler postHandler = postHandlerList.get(position-1);
                 postHandler.setPostVisible(false);
             }
         }

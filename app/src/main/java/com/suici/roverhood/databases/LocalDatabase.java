@@ -33,6 +33,13 @@ public class LocalDatabase extends SQLiteOpenHelper {
         return instance;
     }
 
+    public static synchronized void updateInstance(Context context) {
+        if (instance != null) {
+            instance.close();
+        }
+        instance = new LocalDatabase(context.getApplicationContext());
+    }
+
     public static final String DATABASE_NAME = "roverhood.db";
     public static final int DATABASE_VERSION = 27;
 

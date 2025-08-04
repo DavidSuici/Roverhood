@@ -20,6 +20,7 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.databases.LocalDatabase;
 import com.suici.roverhood.databinding.ActivityMainBinding;
 
 import android.view.Menu;
@@ -39,6 +40,9 @@ public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private FloatingActionButton floatingButton;
+    private FloatingActionButton fabPost;
+    private FloatingActionButton fabAnnouncement;
+    public boolean isFabMenuOpen = false;
     private Menu optionsMenu;
     private LinearProgressIndicator downloadProgressBar;
     private LinearProgressIndicator uploadProgressBar;
@@ -59,7 +63,20 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
         floatingButton =  findViewById(R.id.fab);
+        fabPost = findViewById(R.id.fabPost);
+        fabAnnouncement = findViewById(R.id.fabAnnouncement);
+        floatingButton.setOnClickListener(v -> toggleFabMenu());
         getFloatingButton().setVisibility(View.INVISIBLE);
+
+        floatingButton.post(() -> {
+            float postPos = fabPost.getY() - floatingButton.getY();
+            float announcementPos = fabAnnouncement.getY() - floatingButton.getY();
+
+            fabPost.setTranslationY(-postPos);
+            fabAnnouncement.setTranslationY(-announcementPos);
+            fabPost.setVisibility(View.INVISIBLE);
+            fabAnnouncement.setVisibility(View.INVISIBLE);
+        });
 
         // Initialise App Bar to show logo instead of fragment name, and
         // add logic on interacting with the logo
@@ -104,6 +121,9 @@ public class MainActivity extends AppCompatActivity {
         // Initialize FirebaseRepository
         FirebaseRepository.updateContext(MainActivity.this);
         FirebaseRepository.getInstance(MainActivity.this).signInAnonymously();
+
+        // Initialize SQLite
+        LocalDatabase.updateInstance(MainActivity.this);
 
         // Initialize ProgressBars
         downloadProgressBar = binding.downloadProgressBar;
@@ -175,6 +195,41 @@ public class MainActivity extends AppCompatActivity {
         finish();
     }
 
+    public void toggleFabMenu() {
+        if (isFabMenuOpen) {
+            hideFabMenu();
+        } else {
+            showFabMenu();
+        }
+    }
+
+    public void showFabMenu() {
+        fabPost.setEnabled(true);
+        fabPost.setVisibility(View.VISIBLE);
+        fabPost.animate().translationY(0).alpha(1f).setDuration(200).start();
+
+        fabAnnouncement.setEnabled(true);
+        fabAnnouncement.setVisibility(View.VISIBLE);
+        fabAnnouncement.animate().translationY(0).alpha(1f).setDuration(200).start();
+
+        isFabMenuOpen = true;
+    }
+
+    public void hideFabMenu() {
+        fabPost.setEnabled(false);
+        fabAnnouncement.setEnabled(false);
+
+        float postPos = fabPost.getY() - floatingButton.getY();
+        float announcementPos = fabAnnouncement.getY() - floatingButton.getY();
+
+        fabPost.animate().translationY(-postPos).alpha(0f).setDuration(200).withEndAction(() -> fabPost.setVisibility(View.GONE)).start();
+        fabAnnouncement.animate().translationY(-announcementPos).alpha(0f).setDuration(200).withEndAction(() -> fabAnnouncement.setVisibility(View.GONE)).start();
+
+        isFabMenuOpen = false;
+    }
+
+
+
     public LinearProgressIndicator getDownloadProgressBar() {
         return downloadProgressBar;
     }
@@ -186,6 +241,12 @@ public class MainActivity extends AppCompatActivity {
     }
     public FloatingActionButton getFloatingButton() {
         return floatingButton;
+    }
+    public FloatingActionButton getFabPost() {
+        return fabPost;
+    }
+    public FloatingActionButton getFabAnnouncement() {
+        return fabAnnouncement;
     }
     public void setCurrentUser(User user) {
         this.currentUser = user;

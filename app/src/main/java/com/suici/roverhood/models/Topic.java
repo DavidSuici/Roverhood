@@ -43,6 +43,10 @@ public class Topic {
         }
     }
 
+    public static void deleteTopic(Topic topic) {
+        allTopics.remove(topic);
+    }
+
     public static Topic findTopicByTitle(String title) {
         for (Topic topic : allTopics) {
             if (topic.getTitle().equalsIgnoreCase(title)) {

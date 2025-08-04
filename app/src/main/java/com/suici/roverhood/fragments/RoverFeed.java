@@ -7,10 +7,12 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -22,6 +24,7 @@ import com.suici.roverhood.R;
 import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.databases.LocalDatabase;
 import com.suici.roverhood.databinding.FragmentRoverFeedBinding;
+import com.suici.roverhood.dialogs.AddAnnouncement;
 import com.suici.roverhood.dialogs.AddPost;
 import com.suici.roverhood.dialogs.FilterSelector;
 import com.suici.roverhood.utils.FiltersManager;
@@ -46,6 +49,7 @@ public class RoverFeed extends Fragment {
     private final int POSTS_PER_PAGE = 10;
     private final int PREFETCH_THRESHOLD = 5;
     private boolean isLoading = true;
+    private boolean bannerHidden = false;
 
     private PostAdapter postAdapter;
     private RecyclerView recyclerView;
@@ -96,11 +100,29 @@ public class RoverFeed extends Fragment {
         // Add post - button logic
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setVisibility(View.VISIBLE);
-            activity.getFloatingButton().setOnClickListener(v -> {
+            if ("PARTICIPANT".equalsIgnoreCase(activity.getCurrentUser().getUserType())) {
+                activity.getFloatingButton().setOnClickListener(v -> {
                     AddPost addPostFragment = new AddPost();
                     addPostFragment.setOriginalFeed(this);
                     addPostFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
-            });
+                });
+            }
+            else {
+                activity.getFloatingButton().setOnClickListener(v -> activity.toggleFabMenu());
+                activity.getFabPost().setOnClickListener(v -> {
+                    AddPost addPostFragment = new AddPost();
+                    addPostFragment.setOriginalFeed(this);
+                    addPostFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
+                    activity.hideFabMenu();
+                });
+
+                activity.getFabAnnouncement().setOnClickListener(v -> {
+                    AddAnnouncement addAnnouncementFragment = new AddAnnouncement();
+                    addAnnouncementFragment.setOriginalFeed(this);
+                    addAnnouncementFragment.show(activity.getSupportFragmentManager(), "addAnnouncementFragment");
+                    activity.hideFabMenu();
+                });
+            }
         }
 
         // Log-out - button logic
@@ -123,7 +145,7 @@ public class RoverFeed extends Fragment {
 
                 if (!isLoading && linearLayoutManager != null
                         && linearLayoutManager.findLastCompletelyVisibleItemPosition()
-                        >= visiblePostHandlerList.size() - PREFETCH_THRESHOLD) {
+                        >= visiblePostHandlerList.size() + 1 - PREFETCH_THRESHOLD) {
                     if (!firebaseRepository.isLoading() && !binding.swipeRefresh.isRefreshing()) {
                         isLoading = true;
                         waitThenDrawPosts();
@@ -147,6 +169,42 @@ public class RoverFeed extends Fragment {
             Toast.makeText(requireContext(), "Filters cleared", Toast.LENGTH_SHORT).show();
             if(!binding.swipeRefresh.isRefreshing() && !isLoading)
                 refreshFeed();
+        });
+
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                View banner = binding.banner;
+                View filters = binding.filtersLayout;
+
+                RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+                int firstVisibleItemPosition = 0;
+
+                if (layoutManager instanceof androidx.recyclerview.widget.LinearLayoutManager) {
+                    firstVisibleItemPosition = ((androidx.recyclerview.widget.LinearLayoutManager) layoutManager).findFirstVisibleItemPosition();
+                }
+
+                if (firstVisibleItemPosition == 0 && bannerHidden) {
+                    banner.animate().translationY(0).setDuration(100).start();
+                    filters.animate().translationY(0).setDuration(100).start();
+                    bannerHidden = false;
+                    return;
+                }
+
+                if (dy > 25 && !bannerHidden) {
+                    if (banner.getTranslationY() == 0) {
+                        banner.animate().translationY(-banner.getHeight()).setDuration(100).start();
+                        filters.animate().translationY(-banner.getHeight()).setDuration(100).start();
+                        bannerHidden = true;
+                    }
+                } else if (dy < -25 && bannerHidden) {
+                    if (banner.getTranslationY() != 0) {
+                        banner.animate().translationY(0).setDuration(100).start();
+                        filters.animate().translationY(0).setDuration(100).start();
+                        bannerHidden = false;
+                    }
+                }
+            }
         });
 
         binding.username.setOnClickListener(v -> {
@@ -189,6 +247,9 @@ public class RoverFeed extends Fragment {
 
         if (backCallback != null)
             backCallback.remove();
+
+        if (activity.isFabMenuOpen)
+            activity.hideFabMenu();
 
         super.onDestroyView();
         binding = null;
@@ -301,7 +362,7 @@ public class RoverFeed extends Fragment {
                         for (int i = postsLoadedCount; i < nextLimit && i < filteredList.size(); i++) {
                             PostHandler postHandler = filteredList.get(i);
                             visiblePostHandlerList.add(postHandler);
-                            postAdapter.notifyItemInserted(visiblePostHandlerList.size() - 1);
+                            postAdapter.notifyItemInserted(visiblePostHandlerList.size());
                         }
                     }
 
@@ -336,39 +397,40 @@ public class RoverFeed extends Fragment {
 
         User currentUser = activity.getCurrentUser();
 
-        firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
-            @Override
-            public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
-                // Change the mode from offline to online and vice-versa based on
-                // the callback from loading the posts from Firebase
-                if (isOffline) {
-                    if(!offlineMode) {
-                        Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_SHORT).show();
-                        binding.offlineLabel.setVisibility(View.VISIBLE);
+        if(currentUser != null)
+            firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
+                @Override
+                public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
+                    // Change the mode from offline to online and vice-versa based on
+                    // the callback from loading the posts from Firebase
+                    if (isOffline) {
+                        if(!offlineMode) {
+                            Toast.makeText(requireContext(), "Offline Mode", Toast.LENGTH_SHORT).show();
+                            binding.offlineLabel.setVisibility(View.VISIBLE);
+                        }
+                        Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(postHandlers.size()));
+                    } else {
+                        if(offlineMode) {
+                            Toast.makeText(requireContext(), "Online Mode", Toast.LENGTH_SHORT).show();
+                            binding.offlineLabel.setVisibility(View.GONE);
+                        }
+                        firebaseRepository.deleteUnusedTopics(postHandlers);
+                        Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(postHandlers.size()));
                     }
-                    Log.d("PostDebug", "Loaded in Offline Mode " + String.valueOf(postHandlers.size()));
-                } else {
-                    if(offlineMode) {
-                        Toast.makeText(requireContext(), "Online Mode", Toast.LENGTH_SHORT).show();
-                        binding.offlineLabel.setVisibility(View.GONE);
+
+                    offlineMode = isOffline;
+                    allPostHandlerList.clear();
+                    allPostHandlerList.addAll(postHandlers);
+
+                    for (PostHandler postHandler : allPostHandlerList) {
+                        postHandler.setFragment(RoverFeed.this);
                     }
-                    firebaseRepository.deleteUnusedTopics(postHandlers);
-                    Log.d("PostDebug", "Loaded in Online Mode " + String.valueOf(postHandlers.size()));
                 }
-
-                offlineMode = isOffline;
-                allPostHandlerList.clear();
-                allPostHandlerList.addAll(postHandlers);
-
-                for (PostHandler postHandler : allPostHandlerList) {
-                    postHandler.setFragment(RoverFeed.this);
+                @Override
+                public void onError(String errorMessage) {
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
                 }
-            }
-            @Override
-            public void onError(String errorMessage) {
-                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
-            }
-        });
+            });
 
         // Wait until the Firebase is done loading and after that start
         // loading the first batch of posts
@@ -390,9 +452,12 @@ public class RoverFeed extends Fragment {
 
     private void startRefreshUI() {
         binding.buttonLogOut.setEnabled(false);
+        binding.labelNoPostsAfterFilters.setVisibility(View.GONE);
+
         if(filterButton != null)
             filterButton.setEnabled(false);
         binding.swipeRefresh.setRefreshing(true);
+        
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);
         }
@@ -401,9 +466,29 @@ public class RoverFeed extends Fragment {
         if (FiltersManager.areFiltersOrSortEnabled()) {
             binding.filtersLayout.setVisibility(View.VISIBLE);
             binding.filterList.setText(FiltersManager.getFiltersText());
+            updateFiltersBannerSize();
         }
-        else
+        else {
             binding.filtersLayout.setVisibility(View.GONE);
+        }
+
+        if (binding.banner.getTranslationY() != 0) {
+            binding.banner.animate().translationY(0).setDuration(100).start();
+            binding.filtersLayout.animate().translationY(0).setDuration(100).start();
+            bannerHidden = false;
+        }
+    }
+
+    private void updateFiltersBannerSize() {
+        ConstraintLayout filtersLayout = binding.filtersLayout;
+
+        filtersLayout.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                postAdapter.setFiltersHeight(filtersLayout.getHeight());
+                filtersLayout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+            }
+        });
     }
 
     private void finishRefreshUI() {
@@ -411,6 +496,8 @@ public class RoverFeed extends Fragment {
         if (activity.getFloatingButton() != null && !offlineMode) {
             activity.getFloatingButton().setEnabled(true);
         }
+        if (FiltersManager.filterPosts(allPostHandlerList, activity).isEmpty())
+            binding.labelNoPostsAfterFilters.setVisibility(View.VISIBLE);
         postAdapter.setLoading(true);
     }
 
@@ -418,7 +505,10 @@ public class RoverFeed extends Fragment {
         int index = visiblePostHandlerList.indexOf(postHandler);
         if (index != -1) {
             visiblePostHandlerList.remove(index);
-            postAdapter.notifyItemRemoved(index);
+            postAdapter.notifyItemRemoved(index + 1);
+
+            allPostHandlerList.remove(postHandler);
+            firebaseRepository.deleteUnusedTopics(allPostHandlerList);
         }
     }
 
@@ -426,7 +516,7 @@ public class RoverFeed extends Fragment {
         int index = visiblePostHandlerList.indexOf(postHandler);
         if (index != -1) {
             visiblePostHandlerList.set(index, postHandler);
-            postAdapter.notifyItemChanged(index);
+            postAdapter.notifyItemChanged(index + 1);
         }
     }
 
@@ -437,12 +527,14 @@ public class RoverFeed extends Fragment {
             if (index == -1 && (!binding.swipeRefresh.isRefreshing() && !isLoading)) {
                 if (FiltersManager.getActiveFilters().isOrderAscending()) {
                     visiblePostHandlerList.add(postHandler);
-                    postAdapter.notifyItemInserted(visiblePostHandlerList.size() - 1);
-                    recyclerView.scrollToPosition(visiblePostHandlerList.size()-1);
+                    allPostHandlerList.add(postHandler);
+                    postAdapter.notifyItemInserted(visiblePostHandlerList.size());
+                    recyclerView.scrollToPosition(visiblePostHandlerList.size());
                 } else {
                     visiblePostHandlerList.add(0, postHandler);
-                    postAdapter.notifyItemInserted(0);
-                    recyclerView.scrollToPosition(0);
+                    allPostHandlerList.add(postHandler);
+                    postAdapter.notifyItemInserted(1);
+                    recyclerView.scrollToPosition(1);
                 }
             }
         }

@@ -587,6 +587,7 @@ public class FirebaseRepository {
         for (Topic topic : unusedTopics) {
             localDatabase.removeTopic(topic.getId());
             topicsRef.child(topic.getId()).removeValue();
+            Topic.deleteTopic(topic);
         }
 
         Log.d("removeDeletedTopics", "Finished removing unused topics. Total removed: " + unusedTopics.size());

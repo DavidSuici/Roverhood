@@ -8,5 +8,8 @@
     <color name="heart_fill_purple">#FF994AFF</color>
     <color name="blue_accent">#FF3576C4</color>
     <color name="announcements_amber">#FFFFC107</color>
+    <color name="bg_amber_light">#FFFFE9B3</color>
+    <color name="bg_amber_dark">#FF96711E</color>
     <color name="ic_launcher_background">#FF463063</color>
+    <attr name="amberBackground" format="color" />
 </resources>
