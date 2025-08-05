@@ -247,15 +247,12 @@ public class FirebaseRepository {
         }
 
         long timestamp = System.currentTimeMillis() / 1000L;
-        Map<String, Boolean> likedByMap = new HashMap<>();
-        likedByMap.put(user.getId(), true);
 
         Map<String, Object> postMap = new HashMap<>();
         postMap.put("date", timestamp);
         postMap.put("description", description);
         postMap.put("imageUrl", imageUrl);
-        postMap.put("likedBy", likedByMap);
-        postMap.put("likes", 1);
+        postMap.put("likes", 0);
         postMap.put("announcement", isAnnouncement);
         postMap.put("userId", user.getId());
         if (topic != null) {
@@ -266,7 +263,7 @@ public class FirebaseRepository {
                 .addOnSuccessListener(aVoid -> {
                     Log.d("FirebaseRepository", "Post successfully saved with ID: " + postId);
 
-                    Post post = new Post(postId, user, timestamp, topic, description, imageUrl, 1, likedByMap, isAnnouncement, 0);
+                    Post post = new Post(postId, user, timestamp, topic, description, imageUrl, 0, null, isAnnouncement, 0);
                     PostHandler postHandler = new PostHandler(fragment, post, false);
 
                     new Thread(() -> {
@@ -452,46 +449,49 @@ public class FirebaseRepository {
         });
 
         for (PostHandler postHandler : postsToSave) {
-            String fileName = postHandler.getPost().getId();
-            String imageUrl = postHandler.getPost().getImageUrl();
+            if(localDatabase.isPostChanged(postHandler.getPost().getId(), postHandler.getPost().getVersion())) {
+                String fileName = postHandler.getPost().getId();
+                String imageUrl = postHandler.getPost().getImageUrl();
 
-            ((MainActivity) context).runOnUiThread(() -> {
-                ImageDownload.incrementProgressBarMax(context);
-            });
+                //TO_DO only increment and save the ones that are needed
+                ((MainActivity) context).runOnUiThread(() -> {
+                    ImageDownload.incrementProgressBarMax(context);
+                });
 
-            // Downloads each image, and saves posts with local path instead of URL
-            ImageDownload.saveImageToInternalStorage(context, imageUrl, fileName, new ImageDownload.ImageSaveCallback() {
-                @Override
-                public void onSuccess(String imagePath) {
-                    Log.d("LocalSync", "Image saved at: " + imagePath);
-                    ((MainActivity) context).runOnUiThread(() -> {
-                        ImageDownload.incrementProgressBar(context);
-                    });
+                // Downloads each image, and saves posts with local path instead of URL
+                ImageDownload.saveImageToInternalStorage(context, imageUrl, fileName, new ImageDownload.ImageSaveCallback() {
+                    @Override
+                    public void onSuccess(String imagePath) {
+                        Log.d("LocalSync", "Image saved at: " + imagePath);
+                        ((MainActivity) context).runOnUiThread(() -> {
+                            ImageDownload.incrementProgressBar(context);
+                        });
 
-                    Post adjustedPost = new Post(
-                            postHandler.getPost().getId(),
-                            postHandler.getPost().getUser(),
-                            postHandler.getPost().getDate(),
-                            postHandler.getPost().getTopic(),
-                            postHandler.getPost().getDescription(),
-                            imagePath,
-                            postHandler.getPost().getLikes(),
-                            postHandler.getPost().getLikedBy(),
-                            postHandler.getPost().isAnnouncement(),
-                            postHandler.getPost().getVersion()
-                    );
+                        Post adjustedPost = new Post(
+                                postHandler.getPost().getId(),
+                                postHandler.getPost().getUser(),
+                                postHandler.getPost().getDate(),
+                                postHandler.getPost().getTopic(),
+                                postHandler.getPost().getDescription(),
+                                imagePath,
+                                postHandler.getPost().getLikes(),
+                                postHandler.getPost().getLikedBy(),
+                                postHandler.getPost().isAnnouncement(),
+                                postHandler.getPost().getVersion()
+                        );
 
-                    localDatabase.insertPost(adjustedPost);
-                }
+                        localDatabase.insertPost(adjustedPost);
+                    }
 
-                @Override
-                public void onFailure(Exception e) {
-                    Log.e("LocalSync", "Failed to save image for post " + postHandler.getPost().getId(), e);
-                    ((MainActivity) context).runOnUiThread(() -> {
-                        ImageDownload.incrementProgressBar(context);
-                    });
-                }
-            });
+                    @Override
+                    public void onFailure(Exception e) {
+                        Log.e("LocalSync", "Failed to save image for post " + postHandler.getPost().getId(), e);
+                        ((MainActivity) context).runOnUiThread(() -> {
+                            ImageDownload.incrementProgressBar(context);
+                        });
+                    }
+                });
+            }
         }
     }
 

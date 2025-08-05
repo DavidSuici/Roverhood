@@ -54,6 +54,16 @@ public class PostHandler {
         this.offlinePost = offlinePost;
     }
 
+    private void bindTeamEmoji(TextView teamEmoji) {
+        if (post.getUser().getTeam().equalsIgnoreCase("Topaz")) {
+            teamEmoji.setText("⚜\uFE0F");
+        } else if (post.getUser().getTeam().equalsIgnoreCase("Emerald")) {
+            teamEmoji.setText("\uD83C\uDF4F");
+        } else if (post.getUser().getTeam().equalsIgnoreCase("Sapphire")) {
+            teamEmoji.setText("\uD83D\uDC99");
+        }
+    }
+
     // All the "bind..." methods are meant to reset the visual elements when a post is loaded,
     // or add behaviour for user interaction with specific visual elements
     private void bindEditedLabel(TextView editedLabelView) {
@@ -280,7 +290,7 @@ public class PostHandler {
             heartButton.setChecked(false);
 
         if (offlinePost) {
-            heartButton.setAlpha(0.9f);
+            heartButton.setAlpha(0.5f);
             heartButton.setEnabled(false);
         }
         else {
@@ -426,6 +436,7 @@ public class PostHandler {
         // Find views
         TextView itemUser = itemView.findViewById(R.id.user);
         TextView itemTeam = itemView.findViewById(R.id.team);
+        TextView itemTeamEmoji = itemView.findViewById(R.id.teamEmoji);
         TextView itemUserType = itemView.findViewById(R.id.userType);
         TextView itemDate = itemView.findViewById(R.id.date);
         TextView itemEdited = itemView.findViewById(R.id.editedLabel);
@@ -451,6 +462,7 @@ public class PostHandler {
         itemImage.setImageDrawable(imageView.getDrawable());
         itemHeart.setChecked(post.getLikedBy().containsKey(((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId()));
 
+        bindTeamEmoji(itemTeamEmoji);
         bindEditedLabel(itemEdited);
         bindTopicLabel(itemTopic);
         bindUserAndTeamButtons(itemUser, itemTeam);

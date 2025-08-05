@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
@@ -40,6 +41,7 @@ import com.suici.roverhood.databases.FirebaseRepository;
 import com.suici.roverhood.utils.image.ImageDownload;
 import com.suici.roverhood.utils.image.ImageUpload;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -200,7 +202,12 @@ public class AddPost extends DialogFragment {
             try {
                 Uri imageUri = data.getData();
                 Bitmap rawBitmap = MediaStore.Images.Media.getBitmap(getActivity().getContentResolver(), data.getData());
-                selectedImage = rotateBitmapIfRequired(requireContext(), imageUri, rawBitmap);
+                Bitmap rotatedBitmap = rotateBitmapIfRequired(requireContext(), imageUri, rawBitmap);
+
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
+                byte[] jpegBytes = out.toByteArray();
+                selectedImage = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.length);
                 imagePreview.setImageBitmap(selectedImage);
             } catch (Exception e) {
                 Log.e("AddPost", "Failed to load image from gallery", e);

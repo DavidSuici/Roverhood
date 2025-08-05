@@ -362,6 +362,39 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
+//    public boolean findPost(String postId) {
+//        SQLiteDatabase db = this.getReadableDatabase();
+//
+//        try (Cursor cursor = db.query(
+//                TABLE_POSTS,
+//                new String[]{COLUMN_POST_ID},
+//                COLUMN_POST_ID + " = ?",
+//                new String[]{postId},
+//                null, null, null
+//        )) {
+//            return cursor.moveToFirst();
+//        }
+//    }
+
+    public boolean isPostChanged(String postId, int versionNr) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        try (Cursor cursor = db.query(
+                TABLE_POSTS,
+                new String[]{COLUMN_VERSION},
+                COLUMN_POST_ID + " = ?",
+                new String[]{postId},
+                null, null, null
+        )) {
+            if (cursor.moveToFirst()) {
+                int localVersion = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_VERSION));
+                return localVersion != versionNr;
+            } else {
+                return true;
+            }
+        }
+    }
+
     private static String serializeLikedBy(Map<String, Boolean> likedBy) {
         StringBuilder likedByString = new StringBuilder();
 

@@ -97,9 +97,11 @@ public class MainActivity extends AppCompatActivity {
             if (destination.getId() == R.id.RoverFeed) {
                 // Show toolbar with logo
                 binding.toolbar.setVisibility(View.VISIBLE);
+                binding.bottomFade.setVisibility(View.VISIBLE);
             } else {
                 // Hide toolbar completely
                 binding.toolbar.setVisibility(View.GONE);
+                binding.bottomFade.setVisibility(View.GONE);
             }
         });
 

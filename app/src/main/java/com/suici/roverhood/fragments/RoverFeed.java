@@ -171,6 +171,7 @@ public class RoverFeed extends Fragment {
                 refreshFeed();
         });
 
+        // Hide Banner Logic
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
@@ -224,7 +225,17 @@ public class RoverFeed extends Fragment {
         // User information - cosmetic logic
         if (activity.getCurrentUser() != null) {
             binding.username.setText(activity.getCurrentUser().getUsername());
-            binding.team.setText(activity.getCurrentUser().getTeam());
+
+            String emoji = "";
+            if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Topaz")) {
+                emoji = "⚜\uFE0F";
+            } else if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Emerald")) {
+                emoji = "\uD83C\uDF4F";
+            } else if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Sapphire")) {
+                emoji ="\uD83D\uDC99";
+            }
+
+            binding.team.setText(activity.getCurrentUser().getTeam() + " " + emoji);
             binding.usernameLabel.setText(activity.getCurrentUser().getUserType());
         }
 
@@ -425,6 +436,10 @@ public class RoverFeed extends Fragment {
                     for (PostHandler postHandler : allPostHandlerList) {
                         postHandler.setFragment(RoverFeed.this);
                     }
+
+                    postsLoadedCount = 0;
+                    isLoading = true;
+                    waitThenDrawPosts();
                 }
                 @Override
                 public void onError(String errorMessage) {
@@ -441,9 +456,6 @@ public class RoverFeed extends Fragment {
                 if (firebaseRepository.isLoading()) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
-                    postsLoadedCount = 0;
-                    isLoading = true;
-                    waitThenDrawPosts();
                     finishRefreshUI();
                 }
             }
@@ -460,6 +472,8 @@ public class RoverFeed extends Fragment {
         
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setEnabled(false);
+            if (activity.isFabMenuOpen)
+                activity.hideFabMenu();
         }
         postAdapter.setLoading(false);
 
@@ -507,6 +521,7 @@ public class RoverFeed extends Fragment {
             visiblePostHandlerList.remove(index);
             postAdapter.notifyItemRemoved(index + 1);
 
+            postsLoadedCount--;
             allPostHandlerList.remove(postHandler);
             firebaseRepository.deleteUnusedTopics(allPostHandlerList);
         }
@@ -525,17 +540,18 @@ public class RoverFeed extends Fragment {
             int index = visiblePostHandlerList.indexOf(postHandler);
 
             if (index == -1 && (!binding.swipeRefresh.isRefreshing() && !isLoading)) {
+                // add for sort by likes
                 if (FiltersManager.getActiveFilters().isOrderAscending()) {
                     visiblePostHandlerList.add(postHandler);
-                    allPostHandlerList.add(postHandler);
                     postAdapter.notifyItemInserted(visiblePostHandlerList.size());
                     recyclerView.scrollToPosition(visiblePostHandlerList.size());
                 } else {
                     visiblePostHandlerList.add(0, postHandler);
-                    allPostHandlerList.add(postHandler);
                     postAdapter.notifyItemInserted(1);
                     recyclerView.scrollToPosition(1);
                 }
+                postsLoadedCount++;
+                allPostHandlerList.add(postHandler);
             }
         }
     }
