@@ -34,7 +34,7 @@ import java.util.List;
 
 // Organizers and admins create activation codes (a code + team + role) and see / delete the
 // unused ones. Someone then creates their account with the code (Create account on login).
-// Organizers and moderators can create PARTICIPANT, ORGANIZER and MODERATOR codes; only admins ADMIN codes.
+// Organizers and moderators can create PARTICIPANT, TEAM_LEADER, ORGANIZER and MODERATOR codes; only admins ADMIN codes.
 public class ActivationCodes extends DialogFragment {
 
 
@@ -98,6 +98,7 @@ public class ActivationCodes extends DialogFragment {
         boolean isAdmin = com.suici.roverhood.utils.Roles.isAdmin(currentUser);
         String[] roles = isAdmin ? com.suici.roverhood.utils.Roles.ALL : new String[]{
                 com.suici.roverhood.utils.Roles.PARTICIPANT,
+                com.suici.roverhood.utils.Roles.TEAM_LEADER,
                 com.suici.roverhood.utils.Roles.ORGANIZER,
                 com.suici.roverhood.utils.Roles.MODERATOR};
         roleInput.setSimpleItems(roles);

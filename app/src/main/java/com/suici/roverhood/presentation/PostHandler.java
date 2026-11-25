@@ -519,7 +519,7 @@ public class PostHandler {
         // Populate the views
         itemUser.setText(post.getUser().getUsername());
         itemTeam.setText(Teams.name(post.getUser().getTeam()));
-        itemUserType.setText(post.getUser().getUserType());
+        itemUserType.setText(com.suici.roverhood.utils.Roles.label(post.getUser().getUserType()));
         itemDate.setText(Date.formatTimestamp(post.getDate()) + "\u00A0");
         itemDescription.setText(post.getDescription());
         itemHeartNr.setText(String.valueOf(post.getLikes()));

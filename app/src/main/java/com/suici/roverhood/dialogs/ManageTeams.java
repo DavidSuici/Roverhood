@@ -219,7 +219,7 @@ public class ManageTeams extends DialogFragment {
                 }
                 for (User member : teamMembers) {
                     TextView memberRow = new TextView(context);
-                    memberRow.setText(member.getUsername() + "   " + member.getUserType());
+                    memberRow.setText(member.getUsername() + "   " + com.suici.roverhood.utils.Roles.label(member.getUserType()));
                     memberRow.setTextSize(15);
                     memberRow.setPadding((int) (36 * density), (int) (6 * density), 0, (int) (6 * density));
                     if (canEdit(member)) {

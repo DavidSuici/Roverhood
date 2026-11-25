@@ -122,7 +122,7 @@ public class RoverFeed extends Fragment {
         // Add post - button logic
         if (activity.getFloatingButton() != null) {
             activity.getFloatingButton().setVisibility(View.VISIBLE);
-            if ("PARTICIPANT".equalsIgnoreCase(activity.getCurrentUser().getUserType())) {
+            if (com.suici.roverhood.utils.Roles.isParticipant(activity.getCurrentUser().getUserType())) {
                 activity.getFloatingButton().setOnClickListener(v -> {
                     AddPost addPostFragment = new AddPost();
                     addPostFragment.setOriginalFeed(this);
@@ -268,7 +268,7 @@ public class RoverFeed extends Fragment {
             binding.username.setText(activity.getCurrentUser().getUsername());
 
             binding.team.setText(Teams.label(activity.getCurrentUser().getTeam()));
-            binding.usernameLabel.setText(activity.getCurrentUser().getUserType());
+            binding.usernameLabel.setText(com.suici.roverhood.utils.Roles.label(activity.getCurrentUser().getUserType()));
         }
         bindBannerPhoto();
 
@@ -349,7 +349,7 @@ public class RoverFeed extends Fragment {
 
         UserProfiles.fillInfo(header.findViewById(R.id.userPanelInfo), profileUser.getId());
 
-        role.setText(profileUser.getUserType());
+        role.setText(com.suici.roverhood.utils.Roles.label(profileUser.getUserType()));
         name.setText(profileUser.getUsername());
         team.setText(Teams.label(profileUser.getTeam()));
         team.setOnClickListener(v -> filterByTeam(profileUser.getTeam()));
@@ -420,9 +420,9 @@ public class RoverFeed extends Fragment {
         emojiView.setText(Teams.emoji(team));
         nameView.setText(Teams.name(team));
 
-        // Only admins, organizers and moderators can rename the team or change its emoji (needs internet)
+        // Staff (any team) and the team leader (own team) can rename it or change its emoji (needs internet)
         User currentUser = activity.getCurrentUser();
-        boolean canEdit = com.suici.roverhood.utils.Roles.isStaff(currentUser);
+        boolean canEdit = com.suici.roverhood.utils.Roles.canEditTeam(currentUser, team);
         if (canEdit && !offlineMode) {
             editButton.setVisibility(View.VISIBLE);
             editButton.setOnClickListener(v -> showEditTeamDialog(team, null));
@@ -445,8 +445,34 @@ public class RoverFeed extends Fragment {
             Chip chip = new Chip(requireContext());
             chip.setText(member.getUsername());
             chip.setOnClickListener(v -> filterByUser(member.getUsername()));
+            bindChipPhoto(chip, member.getId());
             membersGroup.addView(chip);
         }
+    }
+
+    // The member's profile photo in front of the name (rounded), when they have one
+    private void bindChipPhoto(Chip chip, String userId) {
+        String url = UserProfiles.photoUrl(userId);
+        if (url.isEmpty()) return;
+        int size = (int) (24 * getResources().getDisplayMetrics().density);
+        chip.setChipIconSize(size);
+        chip.setChipIconVisible(true);
+        com.bumptech.glide.Glide.with(this)
+                .load(url)
+                .signature(new com.bumptech.glide.signature.ObjectKey(UserProfiles.photoVersion(userId)))
+                .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop(),
+                        new com.bumptech.glide.load.resource.bitmap.RoundedCorners(size / 6))
+                .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.drawable.Drawable>(size, size) {
+                    @Override
+                    public void onResourceReady(@NonNull android.graphics.drawable.Drawable resource,
+                                                com.bumptech.glide.request.transition.Transition<? super android.graphics.drawable.Drawable> transition) {
+                        chip.setChipIcon(resource);
+                    }
+                    @Override
+                    public void onLoadCleared(android.graphics.drawable.Drawable placeholder) {
+                        chip.setChipIcon(null);
+                    }
+                });
     }
 
     // Rename a team or change its emoji (organizers/admins). afterSave may be null.

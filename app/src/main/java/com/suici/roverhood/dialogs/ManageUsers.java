@@ -169,7 +169,7 @@ public class ManageUsers extends DialogFragment {
             texts.addView(name);
 
             TextView details = new TextView(context);
-            details.setText(user.getUserType() + " · " + teamLabel);
+            details.setText(com.suici.roverhood.utils.Roles.label(user.getUserType()) + " · " + teamLabel);
             details.setTextSize(13);
             details.setAlpha(0.7f);
             texts.addView(details);
@@ -221,7 +221,7 @@ public class ManageUsers extends DialogFragment {
 
     private boolean canDelete(User user) {
         if (isOffline() || isSelf(user) || !com.suici.roverhood.utils.Roles.isStaff(currentUser)) return false;
-        return isAdmin() || "PARTICIPANT".equals(user.getUserType());
+        return isAdmin() || com.suici.roverhood.utils.Roles.isParticipant(user.getUserType());
     }
 
     private void editUser(User user) {
