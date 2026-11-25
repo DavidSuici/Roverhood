@@ -193,6 +193,10 @@ public class LogIn extends Fragment {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
                     if (loggedInUser != null) {
+                        // Re-read after the sync, so changes made from another phone while the app
+                        // was closed (e.g. a new role) apply right away
+                        User synced = LocalDatabase.getInstance(requireContext()).getLoggedInUser();
+                        if (synced != null) ((MainActivity) requireActivity()).setCurrentUser(synced);
                         NavHostFragment.findNavController(LogIn.this)
                                 .navigate(R.id.action_LogIn_to_RoverFeed);
                     }
@@ -214,9 +218,7 @@ public class LogIn extends Fragment {
                 if(!isLoading)
                     return;
 
-                for (User user : users.values()) {
-                    localDB.insertUser(user);
-                }
+                localDB.syncUsers(users);
                 isLoading = false;
             }
 

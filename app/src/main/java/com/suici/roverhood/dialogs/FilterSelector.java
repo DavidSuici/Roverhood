@@ -60,6 +60,7 @@ public class FilterSelector extends DialogFragment {
     private SwitchCompat switchAnnouncements;
     private SwitchCompat switchSortByLikes;
     private SwitchCompat switchOrderAscending;
+    private SwitchCompat switchInfoBar;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -79,6 +80,7 @@ public class FilterSelector extends DialogFragment {
         saveFiltersButton = view.findViewById(R.id.saveFiltersButton);
         switchSortByLikes = view.findViewById(R.id.switchSortByLikes);
         switchOrderAscending = view.findViewById(R.id.switchOrderAscending);
+        switchInfoBar = view.findViewById(R.id.switchInfoBar);
 
         clearFiltersButton = view.findViewById(R.id.clearFiltersButton);
         clearUsernameButton = view.findViewById(R.id.clearUsernameButton);
@@ -100,6 +102,7 @@ public class FilterSelector extends DialogFragment {
         switchAnnouncements.setChecked(FiltersManager.getActiveFilters().isAnnouncementsOnly());
         switchSortByLikes.setChecked(FiltersManager.getActiveFilters().isSortByLikes());
         switchOrderAscending.setChecked(FiltersManager.getActiveFilters().isOrderAscending());
+        switchInfoBar.setChecked(FiltersManager.isInfoBarEnabled(requireContext()));
 
         // Auto select all the contents when clicking on these text inputs
         setSelectAllOnFocus(userFilter);
@@ -130,6 +133,8 @@ public class FilterSelector extends DialogFragment {
             switchAnnouncements.setChecked(false);
             switchSortByLikes.setChecked(false);
             switchOrderAscending.setChecked(false);
+            // Apply right away (same as Save): refreshes the feed and closes the dialog
+            saveFiltersButton.performClick();
         });
 
         clearUsernameButton.setOnClickListener(v -> {
@@ -174,6 +179,14 @@ public class FilterSelector extends DialogFragment {
                     name -> name.equalsIgnoreCase(newUserFilter))) {
                 userFilter.setError("There is no user with this username");
                 return;
+            }
+
+            // The info bar is a setting (not a filter): saved right away, and the feed is
+            // redrawn so the bar appears / disappears
+            boolean newInfoBar = switchInfoBar.isChecked();
+            if (newInfoBar != FiltersManager.isInfoBarEnabled(requireContext())) {
+                FiltersManager.setInfoBarEnabled(requireContext(), newInfoBar);
+                isChanged = true;
             }
 
             if (isChanged) {

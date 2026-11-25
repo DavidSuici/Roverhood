@@ -1,8 +1,13 @@
 package com.suici.roverhood;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -30,26 +35,43 @@ import android.widget.Toast;
 import com.jakewharton.threetenabp.AndroidThreeTen;
 import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.User;
+import com.suici.roverhood.utils.NotificationTarget;
+import com.suici.roverhood.utils.Notifications;
+import com.suici.roverhood.utils.Teams;
+import com.suici.roverhood.utils.UserProfiles;
 
 public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
 
     private long pressedTime;
     private User currentUser = null;
+    private NotificationTarget pendingNotificationTarget = null;
     private int lastNightMode;
 
     private AppBarConfiguration appBarConfiguration;
     private FloatingActionButton floatingButton;
     private FloatingActionButton fabPost;
     private FloatingActionButton fabAnnouncement;
+    private FloatingActionButton fabCodes;
+    private FloatingActionButton fabUsers;
+    private FloatingActionButton fabTeams;
+    private FloatingActionButton[] menuFabs;
     public boolean isFabMenuOpen = false;
     private Menu optionsMenu;
     private LinearProgressIndicator downloadProgressBar;
     private LinearProgressIndicator uploadProgressBar;
 
+    // Must be registered before the activity starts
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted ->
+                    Log.d("MainActivity", "Notification permission " + (granted ? "granted" : "denied")));
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Notifications.createChannels(this);
+        Teams.init(this);
+        UserProfiles.init(this);
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -65,17 +87,19 @@ public class MainActivity extends AppCompatActivity {
         floatingButton =  findViewById(R.id.fab);
         fabPost = findViewById(R.id.fabPost);
         fabAnnouncement = findViewById(R.id.fabAnnouncement);
+        fabCodes = findViewById(R.id.fabCodes);
+        fabUsers = findViewById(R.id.fabUsers);
+        fabTeams = findViewById(R.id.fabTeams);
+        menuFabs = new FloatingActionButton[]{fabPost, fabAnnouncement, fabCodes, fabUsers, fabTeams};
         floatingButton.setOnClickListener(v -> toggleFabMenu());
         getFloatingButton().setVisibility(View.INVISIBLE);
 
+        // Menu buttons start hidden behind the main + button
         floatingButton.post(() -> {
-            float postPos = fabPost.getY() - floatingButton.getY();
-            float announcementPos = fabAnnouncement.getY() - floatingButton.getY();
-
-            fabPost.setTranslationY(-postPos);
-            fabAnnouncement.setTranslationY(-announcementPos);
-            fabPost.setVisibility(View.INVISIBLE);
-            fabAnnouncement.setVisibility(View.INVISIBLE);
+            for (FloatingActionButton fab : menuFabs) {
+                fab.setTranslationY(-(fab.getY() - floatingButton.getY()));
+                fab.setVisibility(View.INVISIBLE);
+            }
         });
 
         // Initialise App Bar to show logo instead of fragment name, and
@@ -133,6 +157,47 @@ public class MainActivity extends AppCompatActivity {
 
         uploadProgressBar = binding.uploadProgressBar;
         uploadProgressBar.setVisibility(View.GONE);
+
+        handleNotificationIntent(getIntent());
+    }
+
+    // App already running and the user tapped an announcement notification
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent);
+    }
+
+    // Opens the target of a tapped notification: directly if the feed is showing,
+    // otherwise it is kept until the feed is created (after the automatic re-login)
+    private void handleNotificationIntent(Intent intent) {
+        NotificationTarget target = NotificationTarget.takeFrom(intent);
+        if (target == null) return;
+
+        RoverFeed feed = getVisibleRoverFeed();
+        if (feed != null) {
+            feed.openNotificationTarget(target);
+        } else {
+            pendingNotificationTarget = target;
+        }
+    }
+
+    public NotificationTarget consumePendingNotificationTarget() {
+        NotificationTarget target = pendingNotificationTarget;
+        pendingNotificationTarget = null;
+        return target;
+    }
+
+    private RoverFeed getVisibleRoverFeed() {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment == null) return null;
+        for (androidx.fragment.app.Fragment fragment : navHostFragment.getChildFragmentManager().getFragments()) {
+            if (fragment instanceof RoverFeed && fragment.isAdded() && fragment.getView() != null) {
+                return (RoverFeed) fragment;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -144,7 +209,29 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         optionsMenu = menu;
+        filtersBadge = null; // the menu views were recreated
         return true;
+    }
+
+    private com.google.android.material.badge.BadgeDrawable filtersBadge;
+
+    // Small number on the filter button with how many filters differ from the defaults (hidden at 0)
+    @androidx.annotation.OptIn(markerClass = com.google.android.material.badge.ExperimentalBadgeUtils.class)
+    public void updateFiltersBadge(int count) {
+        // The menu item's view exists only after the toolbar is laid out
+        binding.toolbar.post(() -> {
+            if (binding.toolbar.findViewById(R.id.filters) == null) return;
+            if (filtersBadge == null) {
+                if (count == 0) return;
+                filtersBadge = com.google.android.material.badge.BadgeDrawable.create(this);
+                filtersBadge.setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(
+                        binding.toolbar, com.google.android.material.R.attr.colorPrimary));
+                filtersBadge.setBadgeTextColor(android.graphics.Color.WHITE);
+                com.google.android.material.badge.BadgeUtils.attachBadgeDrawable(filtersBadge, binding.toolbar, R.id.filters);
+            }
+            filtersBadge.setNumber(count);
+            filtersBadge.setVisible(count > 0);
+        });
     }
 
     @Override
@@ -206,27 +293,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showFabMenu() {
-        fabPost.setEnabled(true);
-        fabPost.setVisibility(View.VISIBLE);
-        fabPost.animate().translationY(0).alpha(1f).setDuration(200).start();
-
-        fabAnnouncement.setEnabled(true);
-        fabAnnouncement.setVisibility(View.VISIBLE);
-        fabAnnouncement.animate().translationY(0).alpha(1f).setDuration(200).start();
-
+        for (FloatingActionButton fab : menuFabs) {
+            fab.setEnabled(true);
+            fab.setVisibility(View.VISIBLE);
+            fab.animate().translationY(0).alpha(1f).setDuration(200).start();
+        }
         isFabMenuOpen = true;
     }
 
     public void hideFabMenu() {
-        fabPost.setEnabled(false);
-        fabAnnouncement.setEnabled(false);
-
-        float postPos = fabPost.getY() - floatingButton.getY();
-        float announcementPos = fabAnnouncement.getY() - floatingButton.getY();
-
-        fabPost.animate().translationY(-postPos).alpha(0f).setDuration(200).withEndAction(() -> fabPost.setVisibility(View.GONE)).start();
-        fabAnnouncement.animate().translationY(-announcementPos).alpha(0f).setDuration(200).withEndAction(() -> fabAnnouncement.setVisibility(View.GONE)).start();
-
+        for (FloatingActionButton fab : menuFabs) {
+            fab.setEnabled(false);
+            float offset = fab.getY() - floatingButton.getY();
+            fab.animate().translationY(-offset).alpha(0f).setDuration(200)
+                    .withEndAction(() -> fab.setVisibility(View.GONE)).start();
+        }
         isFabMenuOpen = false;
     }
 
@@ -250,8 +331,35 @@ public class MainActivity extends AppCompatActivity {
     public FloatingActionButton getFabAnnouncement() {
         return fabAnnouncement;
     }
+    public FloatingActionButton getFabCodes() {
+        return fabCodes;
+    }
+    public FloatingActionButton getFabUsers() {
+        return fabUsers;
+    }
+    public FloatingActionButton getFabTeams() {
+        return fabTeams;
+    }
+    // Logging in subscribes this phone to announcements and to the user's personal
+    // notifications (and asks for the notification permission on Android 13+);
+    // logging out unsubscribes it, so the next user doesn't get the previous one's notifications
     public void setCurrentUser(User user) {
+        User previousUser = this.currentUser;
         this.currentUser = user;
+
+        String previousId = previousUser != null ? previousUser.getId() : null;
+        String newId = user != null ? user.getId() : null;
+        if (java.util.Objects.equals(previousId, newId)) return;
+
+        if (previousId != null) {
+            Notifications.unsubscribe(previousId);
+        }
+        if (newId != null) {
+            Notifications.subscribe(newId);
+            if (!Notifications.hasPermission(this) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
     }
     public User getCurrentUser() {
         return this.currentUser;

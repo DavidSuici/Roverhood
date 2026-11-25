@@ -11,5 +11,12 @@
     <color name="bg_amber_light">#FFFFE9B3</color>
     <color name="bg_amber_dark">#FF96711E</color>
     <color name="ic_launcher_background">#FF463063</color>
+    <color name="bg_red_light">#FFF8CFCF</color>
+    <color name="bg_red_dark">#FF8A3B3B</color>
+    <color name="bg_blue_light">#FFCDE0F7</color>
+    <color name="bg_blue_dark">#FF2E5A8A</color>
     <attr name="amberBackground" format="color" />
+    <!-- Background of the + menu buttons: activation codes (pale red), users and teams (pale blue) -->
+    <attr name="codesBackground" format="color" />
+    <attr name="peopleBackground" format="color" />
 </resources>

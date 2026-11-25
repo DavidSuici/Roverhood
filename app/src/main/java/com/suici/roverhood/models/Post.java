@@ -14,6 +14,7 @@ public class Post {
     private Map<String, Boolean> likedBy;
     private boolean announcement;
     private int version;
+    private int commentCount = 0;
 
     public Post(String id, User user, Long date, Topic topic, String description, String imageUrl, int likes, Map<String, Boolean> likedBy, Boolean announcement, int version) {
         this.id = id;
@@ -59,4 +60,8 @@ public class Post {
 
     public int getVersion() { return version; }
     public void incrementVersion() { this.version++; }
+
+    // Kept separate from version, so new comments don't force the post to be re-downloaded
+    public int getCommentCount() { return commentCount; }
+    public void setCommentCount(int commentCount) { this.commentCount = Math.max(0, commentCount); }
 }

@@ -52,6 +52,19 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:tint="?android:textColorSecondary" />
 
+            <!-- Current user's profile photo (if any), between the name and the log out button -->
+            <ImageView
+                android:id="@+id/bannerPhoto"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="2dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="Profile photo"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/buttonLogOut" />
+
             <TextView
                 android:id="@+id/team_label"
                 android:layout_width="wrap_content"
@@ -89,7 +102,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/buttonLogOut"
+                app:layout_constraintEnd_toStartOf="@id/bannerPhoto"
                 android:layout_marginTop="3dp"
                 android:layout_marginEnd="10dp"
                 />
@@ -109,7 +122,7 @@
                 android:focusable="true"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/buttonLogOut"
+                app:layout_constraintEnd_toStartOf="@id/bannerPhoto"
                 app:layout_constraintStart_toEndOf="@+id/team"
                 android:layout_marginTop="8dp"
                 android:layout_marginStart="4dp"

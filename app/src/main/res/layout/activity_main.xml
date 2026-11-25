@@ -62,6 +62,45 @@
 
     <include layout="@layout/content_main" />
 
+    <!-- Teams list (organizers and admins) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabTeams"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="@dimen/fab_margin"
+        android:layout_marginBottom="320dp"
+        app:fabCustomSize="40dp"
+        android:contentDescription="Teams"
+        app:backgroundTint="?attr/peopleBackground"
+        android:src="@drawable/icon_teams" />
+
+    <!-- Users list (organizers and admins) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabUsers"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="@dimen/fab_margin"
+        android:layout_marginBottom="265dp"
+        app:fabCustomSize="40dp"
+        android:contentDescription="Users"
+        app:backgroundTint="?attr/peopleBackground"
+        android:src="@drawable/icon_users" />
+
+    <!-- Activation codes (organizers and admins) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabCodes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="@dimen/fab_margin"
+        android:layout_marginBottom="210dp"
+        app:fabCustomSize="40dp"
+        android:contentDescription="Activation codes"
+        app:backgroundTint="?attr/codesBackground"
+        android:src="@drawable/icon_key" />
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAnnouncement"
         android:layout_width="wrap_content"

@@ -9,6 +9,22 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.Toast;
+import android.text.InputFilter;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import androidx.appcompat.app.AlertDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.suici.roverhood.utils.Teams;
+import com.suici.roverhood.utils.UserProfiles;
+import com.suici.roverhood.dialogs.EditProfile;
+import com.suici.roverhood.dialogs.ActivationCodes;
+import com.suici.roverhood.dialogs.ManageUsers;
+import com.suici.roverhood.dialogs.ManageTeams;
+import android.widget.ImageView;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.signature.ObjectKey;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -28,13 +44,16 @@ import com.suici.roverhood.dialogs.AddAnnouncement;
 import com.suici.roverhood.dialogs.AddPost;
 import com.suici.roverhood.dialogs.FilterSelector;
 import com.suici.roverhood.utils.FiltersManager;
+import com.suici.roverhood.utils.NetworkStatus;
+import com.suici.roverhood.utils.NotificationTarget;
+import com.suici.roverhood.dialogs.Comments;
 import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.presentation.PostAdapter;
 import com.suici.roverhood.models.User;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class RoverFeed extends Fragment {
     private FragmentRoverFeedBinding binding;
@@ -50,6 +69,7 @@ public class RoverFeed extends Fragment {
     private final int PREFETCH_THRESHOLD = 5;
     private boolean isLoading = true;
     private boolean bannerHidden = false;
+    private NotificationTarget notificationTarget = null; // set when opened from a notification
 
     private PostAdapter postAdapter;
     private RecyclerView recyclerView;
@@ -95,6 +115,7 @@ public class RoverFeed extends Fragment {
         recyclerView = binding.recyclerView;
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         postAdapter = new PostAdapter(getContext(), visiblePostHandlerList);
+        postAdapter.setHeaderBinder(this::bindHeaderPanels);
         recyclerView.setAdapter(postAdapter);
 
         // Add post - button logic
@@ -113,6 +134,21 @@ public class RoverFeed extends Fragment {
                     AddPost addPostFragment = new AddPost();
                     addPostFragment.setOriginalFeed(this);
                     addPostFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
+                    activity.hideFabMenu();
+                });
+
+                activity.getFabCodes().setOnClickListener(v -> {
+                    new ActivationCodes().show(activity.getSupportFragmentManager(), "activationCodes");
+                    activity.hideFabMenu();
+                });
+
+                activity.getFabUsers().setOnClickListener(v -> {
+                    new ManageUsers(this).show(activity.getSupportFragmentManager(), "manageUsers");
+                    activity.hideFabMenu();
+                });
+
+                activity.getFabTeams().setOnClickListener(v -> {
+                    new ManageTeams(this).show(activity.getSupportFragmentManager(), "manageTeams");
                     activity.hideFabMenu();
                 });
 
@@ -226,28 +262,440 @@ public class RoverFeed extends Fragment {
         if (activity.getCurrentUser() != null) {
             binding.username.setText(activity.getCurrentUser().getUsername());
 
-            String emoji = "";
-            if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Topaz")) {
-                emoji = "⚜\uFE0F";
-            } else if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Emerald")) {
-                emoji = "\uD83C\uDF4F";
-            } else if (activity.getCurrentUser().getTeam().equalsIgnoreCase("Sapphire")) {
-                emoji ="\uD83D\uDC99";
-            }
-
-            binding.team.setText(activity.getCurrentUser().getTeam() + " " + emoji);
+            binding.team.setText(Teams.label(activity.getCurrentUser().getTeam()));
             binding.usernameLabel.setText(activity.getCurrentUser().getUserType());
         }
+        bindBannerPhoto();
 
         // Refresh - cosmetic logic
         SwipeRefreshLayout swipeRefreshLayout = binding.swipeRefresh;
         swipeRefreshLayout.setProgressViewOffset(true, 100, 250);
         swipeRefreshLayout.setOnRefreshListener(this::refreshFeed);
 
-        // Refresh feed for the first load
+        // Refresh feed for the first load. If the app was opened from a notification,
+        // start in that notification's filter, focused on its post.
+        // The list keeps focus itself, so it isn't handed to the first clickable view
+        // (the first post's name), which would show it highlighted as if selected
+        binding.recyclerView.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        binding.recyclerView.setFocusable(true);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            binding.recyclerView.setDefaultFocusHighlightEnabled(false);
+        }
         binding.recyclerView.requestFocus();
         FiltersManager.resetFilters();
+        NotificationTarget target = activity.consumePendingNotificationTarget();
+        if (target != null) {
+            notificationTarget = target;
+            applyNotificationFilter(target);
+        }
         refreshFeed();
+    }
+
+    // Filters used from other places (comments, likes list, team panel). Ignored while the
+    // feed is refreshing, same as tapping a username or team on a post.
+    public void filterByUser(String username) {
+        if (binding == null || binding.swipeRefresh.isRefreshing() || isLoading) return;
+        FiltersManager.resetFilters();
+        FiltersManager.getActiveFilters().setUsername(username);
+        refreshFeed();
+    }
+
+    public void filterByTeam(String team) {
+        if (binding == null || binding.swipeRefresh.isRefreshing() || isLoading) return;
+        FiltersManager.resetFilters();
+        FiltersManager.getActiveFilters().setTeam(team);
+        refreshFeed();
+    }
+
+    // Top of the feed: the profile panel when filtered by a user, otherwise the team panel
+    // when filtered by a team (each hides itself when its filter isn't active)
+    private void bindHeaderPanels(View header) {
+        boolean userFilter = !FiltersManager.getActiveFilters().getUsername().isEmpty();
+        bindUserPanel(header, userFilter);
+        if (userFilter) {
+            header.findViewById(R.id.teamPanel).setVisibility(View.GONE);
+        } else {
+            bindTeamPanel(header);
+        }
+    }
+
+    // USER PANEL
+    // Shown at the top of the feed when it is filtered by a user: photo (if any), role, name,
+    // team (tap to filter by team) and Edit for the user themself, organizers and admins.
+    // Only filled-in information is shown.
+    private void bindUserPanel(View header, boolean visible) {
+        View panel = header.findViewById(R.id.userPanel);
+        User profileUser = visible ? findUserByUsername(FiltersManager.getActiveFilters().getUsername()) : null;
+        if (profileUser == null) {
+            panel.setVisibility(View.GONE);
+            return;
+        }
+        panel.setVisibility(View.VISIBLE);
+
+        ImageView photo = header.findViewById(R.id.userPanelPhoto);
+        TextView role = header.findViewById(R.id.userPanelRole);
+        TextView name = header.findViewById(R.id.userPanelName);
+        TextView team = header.findViewById(R.id.userPanelTeam);
+        TextView editButton = header.findViewById(R.id.userPanelEdit);
+
+        UserProfiles.loadPhoto(photo, profileUser.getId());
+        photo.setOnClickListener(v -> UserProfiles.showPhotoLarge(requireContext(), profileUser.getId()));
+
+        UserProfiles.fillInfo(header.findViewById(R.id.userPanelInfo), profileUser.getId());
+
+        role.setText(profileUser.getUserType());
+        name.setText(profileUser.getUsername());
+        team.setText(Teams.label(profileUser.getTeam()));
+        team.setOnClickListener(v -> filterByTeam(profileUser.getTeam()));
+
+        User currentUser = activity.getCurrentUser();
+        boolean isSelf = currentUser != null && profileUser.getId().equals(currentUser.getId());
+        boolean isModerator = com.suici.roverhood.utils.Roles.isStaff(currentUser);
+        if ((isSelf || isModerator) && !offlineMode) {
+            editButton.setVisibility(View.VISIBLE);
+            editButton.setOnClickListener(v -> {
+                EditProfile dialog = new EditProfile(profileUser, isSelf, isModerator, this::onProfileSaved);
+                dialog.show(getParentFragmentManager(), "editProfile");
+            });
+        } else {
+            editButton.setVisibility(View.GONE);
+        }
+    }
+
+    private User findUserByUsername(String username) {
+        for (User user : LocalDatabase.getInstance(requireContext()).getAllUsers().values()) {
+            if (user.getUsername().equalsIgnoreCase(username)) return user;
+        }
+        return null;
+    }
+
+    // After a profile edit: keep showing the same person (under the new name if renamed),
+    // update the logged-in user if they renamed themself, and reload the posts
+    public void onProfileSaved(String oldUsername, String newUsername) {
+        if (binding == null) return;
+        User currentUser = activity.getCurrentUser();
+        if (currentUser != null && currentUser.getUsername().equalsIgnoreCase(oldUsername)) {
+            currentUser.setUsername(newUsername);
+            binding.username.setText(newUsername);
+            // The team may have changed too (organizers/admins editing themselves)
+            User saved = LocalDatabase.getInstance(requireContext()).getUserById(currentUser.getId());
+            if (saved != null) {
+                currentUser.setTeam(saved.getTeam());
+                binding.team.setText(Teams.label(saved.getTeam()));
+            }
+        }
+        FiltersManager.getActiveFilters().setUsername(newUsername);
+        bindBannerPhoto();
+        if (!binding.swipeRefresh.isRefreshing() && !isLoading) {
+            refreshFeed();
+        } else {
+            onTeamsChanged();
+        }
+    }
+
+    // TEAM PANEL
+    // Shown at the top of the feed (scrolling with the posts) when it is filtered by a team:
+    // name and emoji (editable by admins), members (tap to filter by that person), then the posts.
+    private void bindTeamPanel(View header) {
+        View panel = header.findViewById(R.id.teamPanel);
+        String team = FiltersManager.getActiveFilters().getTeam();
+        if (team.isEmpty()) {
+            panel.setVisibility(View.GONE);
+            return;
+        }
+        panel.setVisibility(View.VISIBLE);
+
+        TextView emojiView = header.findViewById(R.id.teamPanelEmoji);
+        TextView nameView = header.findViewById(R.id.teamPanelName);
+        TextView editButton = header.findViewById(R.id.teamPanelEdit);
+        TextView membersLabel = header.findViewById(R.id.teamPanelMembersLabel);
+        ChipGroup membersGroup = header.findViewById(R.id.teamPanelMembers);
+
+        emojiView.setText(Teams.emoji(team));
+        nameView.setText(Teams.name(team));
+
+        // Only admins, organizers and moderators can rename the team or change its emoji (needs internet)
+        User currentUser = activity.getCurrentUser();
+        boolean canEdit = com.suici.roverhood.utils.Roles.isStaff(currentUser);
+        if (canEdit && !offlineMode) {
+            editButton.setVisibility(View.VISIBLE);
+            editButton.setOnClickListener(v -> showEditTeamDialog(team, null));
+            emojiView.setOnClickListener(v -> showEditTeamDialog(team, null));
+        } else {
+            editButton.setVisibility(View.GONE);
+            emojiView.setOnClickListener(null);
+            emojiView.setClickable(false);
+        }
+
+        List<User> members = new ArrayList<>();
+        for (User user : LocalDatabase.getInstance(requireContext()).getAllUsers().values()) {
+            if (team.equals(user.getTeam())) members.add(user);
+        }
+        members.sort((a, b) -> a.getUsername().compareToIgnoreCase(b.getUsername()));
+
+        membersLabel.setText("Members (" + members.size() + ")");
+        membersGroup.removeAllViews();
+        for (User member : members) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(member.getUsername());
+            chip.setOnClickListener(v -> filterByUser(member.getUsername()));
+            membersGroup.addView(chip);
+        }
+    }
+
+    // Rename a team or change its emoji (organizers/admins). afterSave may be null.
+    public void showEditTeamDialog(String team, Runnable afterSave) {
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+
+        LinearLayout form = new LinearLayout(requireContext());
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(padding, padding / 2, padding, 0);
+
+        EditText nameInput = new EditText(requireContext());
+        nameInput.setHint("Team name");
+        nameInput.setSingleLine(true);
+        nameInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(20)});
+        nameInput.setText(Teams.name(team));
+        form.addView(nameInput);
+
+        EditText emojiInput = new EditText(requireContext());
+        emojiInput.setHint("Emoji");
+        emojiInput.setSingleLine(true);
+        emojiInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(16)});
+        emojiInput.setText(Teams.emoji(team));
+        form.addView(emojiInput);
+
+        // Live validation: exactly one emoji
+        emojiInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                String value = s.toString().trim();
+                emojiInput.setError(value.isEmpty() || Teams.isSingleEmoji(value) ? null : "Only one emoji allowed");
+            }
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setTitle("Edit team")
+                .setView(form)
+                .setPositiveButton("Save", null)
+                .setNegativeButton("Cancel", (d, which) -> d.dismiss())
+                .create();
+
+        // Overriding the click so the dialog stays open on validation errors
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String name = nameInput.getText().toString().trim();
+            String emoji = emojiInput.getText().toString().trim();
+            if (name.isEmpty()) {
+                nameInput.setError("Name cannot be empty");
+                return;
+            }
+            if (emoji.isEmpty()) {
+                emojiInput.setError("Pick an emoji");
+                return;
+            }
+            if (!Teams.isSingleEmoji(emoji)) {
+                emojiInput.setError("Only one emoji allowed");
+                return;
+            }
+
+            firebaseRepository.updateTeam(team, name, emoji, new FirebaseRepository.PostOperationCallback() {
+                @Override
+                public void onSuccess() {
+                    if (binding == null) return;
+                    Toast.makeText(requireContext(), "Team updated", Toast.LENGTH_SHORT).show();
+                    onTeamsChanged();
+                    if (afterSave != null) afterSave.run();
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    if (binding == null) return;
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
+                }
+            });
+            dialog.dismiss();
+        }));
+        dialog.show();
+    }
+
+    // Team names/emojis or profiles changed: refresh the banner, the filters bar, the panels and the posts
+    private void onTeamsChanged() {
+        if (binding == null) return;
+        if (activity.getCurrentUser() != null) {
+            binding.team.setText(Teams.label(activity.getCurrentUser().getTeam()));
+        }
+        bindBannerPhoto();
+        if (FiltersManager.areFiltersOrSortEnabled()) {
+            binding.filterList.setText(FiltersManager.getFiltersText());
+        }
+        postAdapter.notifyItemRangeChanged(0, visiblePostHandlerList.size() + 1);
+    }
+
+    // The logged in user's photo in the banner (hidden if they have none); tap opens their profile
+    private void bindBannerPhoto() {
+        if (binding == null) return;
+        User currentUser = activity.getCurrentUser();
+        if (currentUser == null) {
+            binding.bannerPhoto.setVisibility(View.GONE);
+            return;
+        }
+        UserProfiles.loadPhoto(binding.bannerPhoto, currentUser.getId());
+        binding.bannerPhoto.setOnClickListener(v -> filterByUser(currentUser.getUsername()));
+    }
+
+    // On every online refresh: make the offline users table match Firebase (new accounts,
+    // renames, team changes, deletions), which also clears the "offline user" flag left by a
+    // login without internet. If the logged-in account was deleted, log out.
+    private void syncUsersFromServer() {
+        LocalDatabase localDB = LocalDatabase.getInstance(requireContext());
+        firebaseRepository.getAllUsers(new FirebaseRepository.UsersCallback() {
+            @Override
+            public void onUsersFetched(Map<String, User> users) {
+                if (binding == null) return;
+                localDB.syncUsers(users);
+                Log.d("RoverFeed", "Users synced: " + users.size());
+
+                User currentUser = activity.getCurrentUser();
+                if (currentUser == null) return;
+                currentUser.setOfflineUser(false);
+
+                User fresh = users.get(currentUser.getId());
+                if (fresh == null) {
+                    Toast.makeText(requireContext(), "Your account was deleted", Toast.LENGTH_LONG).show();
+                    localDB.markLoggedOut();
+                    activity.setCurrentUser(null);
+                    NavHostFragment.findNavController(RoverFeed.this).navigate(R.id.action_RoverFeed_to_LogIn);
+                    return;
+                }
+
+                // A role changed by an admin is saved locally by syncUsers and applies the next
+                // time the app is opened (no restart in the middle of using it)
+
+                // Renamed or moved to another team from another phone
+                if (!fresh.getUsername().equals(currentUser.getUsername())
+                        || !java.util.Objects.equals(fresh.getTeam(), currentUser.getTeam())) {
+                    currentUser.setUsername(fresh.getUsername());
+                    currentUser.setTeam(fresh.getTeam());
+                    binding.username.setText(fresh.getUsername());
+                    binding.team.setText(Teams.label(fresh.getTeam()));
+                }
+                onTeamsChanged();
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Log.e("RoverFeed", "Users sync failed: " + errorMessage);
+            }
+        });
+    }
+
+    // Called when a notification is tapped while the feed is showing.
+    // Waits for any running refresh, then opens the notification's filter on its post.
+    public void openNotificationTarget(NotificationTarget target) {
+        notificationTarget = target;
+        new android.os.Handler().post(new Runnable() {
+            @Override
+            public void run() {
+                if (binding == null) return;
+                if (isLoading || binding.swipeRefresh.isRefreshing()) {
+                    new android.os.Handler().postDelayed(this, 200);
+                    return;
+                }
+                FiltersManager.resetFilters();
+                applyNotificationFilter(target);
+                refreshFeed();
+            }
+        });
+    }
+
+    // Which feed each notification opens:
+    // - announcement: announcements only
+    // - comment on / likes of your post: your posts
+    // - likes of your comment: whole feed (the post may belong to someone else)
+    // - post on your topic: that topic, oldest first (same as tapping a topic label)
+    // - any new post (moderators and admins): whole feed
+    // - reported post: the author's profile; reported comment: whole feed, comments opened on it
+    private void applyNotificationFilter(NotificationTarget target) {
+        switch (target.type) {
+            case NotificationTarget.TYPE_ANNOUNCEMENT:
+                FiltersManager.getActiveFilters().setAnnouncementsOnly(true);
+                break;
+            case NotificationTarget.TYPE_COMMENT:
+            case NotificationTarget.TYPE_POST_LIKES:
+                if (activity.getCurrentUser() != null)
+                    FiltersManager.getActiveFilters().setUsername(activity.getCurrentUser().getUsername());
+                break;
+            case NotificationTarget.TYPE_REPORT_POST:
+                // The author's profile, with the reported post highlighted
+                if (target.username != null && !target.username.isEmpty())
+                    FiltersManager.getActiveFilters().setUsername(target.username);
+                break;
+            case NotificationTarget.TYPE_TOPIC_POST:
+                if (target.topicTitle != null && !target.topicTitle.isEmpty()) {
+                    FiltersManager.getActiveFilters().setTopic(target.topicTitle);
+                    FiltersManager.getActiveFilters().setOrderAscending(true);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    // After each batch of posts is drawn: if a post should be focused and is visible,
+    // scroll it just below the banner, briefly highlight it and open its comments if
+    // needed. If it isn't loaded yet, load the next batch; if it doesn't exist, say so.
+    private void tryFocusPendingPost(boolean allPostsLoaded) {
+        if (notificationTarget == null || binding == null) return;
+        NotificationTarget target = notificationTarget;
+        for (int i = 0; i < visiblePostHandlerList.size(); i++) {
+            PostHandler postHandler = visiblePostHandlerList.get(i);
+            if (target.postId.equals(postHandler.getPost().getId())) {
+                notificationTarget = null;
+                int position = i + 1; // position 0 is the header space of the adapter
+
+                int offset = binding.banner.getHeight();
+                if (binding.filtersLayout.getVisibility() == View.VISIBLE)
+                    offset += binding.filtersLayout.getHeight();
+
+                LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+                if (layoutManager != null) layoutManager.scrollToPositionWithOffset(position, offset);
+                recyclerView.postDelayed(() -> highlightPost(position), 300);
+
+                if (target.opensComments()) {
+                    recyclerView.postDelayed(() -> {
+                        if (binding == null) return;
+                        Comments commentsDialog = new Comments(postHandler, this, postHandler.isOfflinePost());
+                        commentsDialog.setFocusCommentId(target.commentId);
+                        commentsDialog.show(getParentFragmentManager(), "commentsDialog");
+                    }, 900);
+                }
+                return;
+            }
+        }
+
+        if (allPostsLoaded) {
+            notificationTarget = null;
+            Toast.makeText(requireContext(), "This post is no longer available", Toast.LENGTH_SHORT).show();
+        } else {
+            isLoading = true;
+            waitThenDrawPosts();
+        }
+    }
+
+    private void highlightPost(int position) {
+        if (binding == null) return;
+        RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
+        if (holder == null) return;
+        View item = holder.itemView;
+        item.animate().alpha(0.35f).setDuration(250).withEndAction(() ->
+                item.animate().alpha(1f).setDuration(250).withEndAction(() ->
+                        item.animate().alpha(0.35f).setDuration(250).withEndAction(() ->
+                                item.animate().alpha(1f).setDuration(250).start()
+                        ).start()
+                ).start()
+        ).start();
     }
 
     @Override
@@ -303,8 +751,8 @@ public class RoverFeed extends Fragment {
                 if (firebaseRepository.isLoading()) {
                     new android.os.Handler().postDelayed(this, 100);
                 } else {
+                    // Already in display order (see FiltersManager.filterPosts)
                     List<PostHandler> filteredList = FiltersManager.filterPosts(allPostHandlerList, activity);
-                    Collections.reverse(filteredList);
 
                     // Save locally the last loaded batch of posts
                     if (!offlineMode) {
@@ -331,6 +779,7 @@ public class RoverFeed extends Fragment {
         if (postsLoadedCount >= totalPosts){
             postAdapter.setLoading(false);
             finishDrawUI();
+            tryFocusPendingPost(true);
             return;
         }
 
@@ -384,6 +833,7 @@ public class RoverFeed extends Fragment {
                     }
 
                     finishDrawUI();
+                    tryFocusPendingPost(postsLoadedCount >= totalPosts);
                 }
             }
         }, 400);
@@ -408,10 +858,21 @@ public class RoverFeed extends Fragment {
 
         User currentUser = activity.getCurrentUser();
 
+        // A user who logged in without internet is an "offline user". When the phone has internet
+        // again, still try online instead of staying offline for the whole session.
+        boolean stayOfflineUser = currentUser != null && currentUser.isOfflineUser()
+                && !NetworkStatus.isOnline(requireContext());
+
         if(currentUser != null)
-            firebaseRepository.loadPosts(offlineMode, currentUser.isOfflineUser(), new FirebaseRepository.PostRepositoryCallback() {
+            firebaseRepository.loadPosts(offlineMode, stayOfflineUser, new FirebaseRepository.PostRepositoryCallback() {
                 @Override
                 public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
+                    if (!isOffline) {
+                        syncUsersFromServer();
+                        firebaseRepository.fetchTeams(RoverFeed.this::onTeamsChanged);
+                        firebaseRepository.fetchUserInfo(RoverFeed.this::onTeamsChanged);
+                    }
+
                     // Change the mode from offline to online and vice-versa based on
                     // the callback from loading the posts from Firebase
                     if (isOffline) {
@@ -430,6 +891,13 @@ public class RoverFeed extends Fragment {
                     }
 
                     offlineMode = isOffline;
+
+                    // The add button follows the mode; normally finishRefreshUI() sets it, but if
+                    // the refresh UI already finished, update it here so it can't stay disabled
+                    if (activity.getFloatingButton() != null && !binding.swipeRefresh.isRefreshing()) {
+                        activity.getFloatingButton().setEnabled(!isOffline);
+                    }
+
                     allPostHandlerList.clear();
                     allPostHandlerList.addAll(postHandlers);
 
@@ -477,7 +945,8 @@ public class RoverFeed extends Fragment {
         }
         postAdapter.setLoading(false);
 
-        if (FiltersManager.areFiltersOrSortEnabled()) {
+        activity.updateFiltersBadge(FiltersManager.activeFilterCount());
+        if (FiltersManager.showInfoBar(requireContext())) {
             binding.filtersLayout.setVisibility(View.VISIBLE);
             binding.filterList.setText(FiltersManager.getFiltersText());
             updateFiltersBannerSize();

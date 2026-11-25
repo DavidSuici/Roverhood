@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.fragment.app.Fragment;
 
+import com.suici.roverhood.models.Comment;
 import com.suici.roverhood.models.Post;
 import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.models.Topic;
@@ -17,6 +18,7 @@ import com.suici.roverhood.models.User;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,7 +43,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     }
 
     public static final String DATABASE_NAME = "roverhood.db";
-    public static final int DATABASE_VERSION = 27;
+    public static final int DATABASE_VERSION = 29;
 
     public static final String TABLE_USERS = "users";
     public static final String COLUMN_ID = "id";
@@ -82,6 +84,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_ANNOUNCEMENT = "announcement";
     public static final String COLUMN_USERID = "userId";
     public static final String COLUMN_VERSION = "version";
+    public static final String COLUMN_COMMENT_COUNT = "commentCount";
 
     private static final String CREATE_TABLE_POSTS =
             "CREATE TABLE " + TABLE_POSTS + " (" +
@@ -94,7 +97,23 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     COLUMN_LIKED_BY + " TEXT, " +
                     COLUMN_ANNOUNCEMENT + " INTEGER DEFAULT 0, " +
                     COLUMN_USERID + " TEXT, " +
-                    COLUMN_VERSION + " INTEGER DEFAULT 0);";
+                    COLUMN_VERSION + " INTEGER DEFAULT 0, " +
+                    COLUMN_COMMENT_COUNT + " INTEGER DEFAULT 0);";
+
+    public static final String TABLE_COMMENTS = "comments";
+    public static final String COLUMN_COMMENT_ID = "commentId";
+    public static final String COLUMN_COMMENT_TEXT = "text";
+    public static final String COLUMN_COMMENT_EDITED = "edited";
+
+    private static final String CREATE_TABLE_COMMENTS =
+            "CREATE TABLE " + TABLE_COMMENTS + " (" +
+                    COLUMN_COMMENT_ID + " TEXT PRIMARY KEY, " +
+                    COLUMN_POST_ID + " TEXT, " +
+                    COLUMN_USERID + " TEXT, " +
+                    COLUMN_COMMENT_TEXT + " TEXT, " +
+                    COLUMN_DATE + " INTEGER, " +
+                    COLUMN_COMMENT_EDITED + " INTEGER DEFAULT 0, " +
+                    COLUMN_LIKED_BY + " TEXT DEFAULT '');";
 
     public static final String TABLE_TOPICS = "topics";
     public static final String COLUMN_TOPIC_TITLE = "title";
@@ -116,6 +135,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_SESSION);
         db.execSQL(CREATE_TABLE_POSTS);
         db.execSQL(CREATE_TABLE_TOPICS);
+        db.execSQL(CREATE_TABLE_COMMENTS);
 
         // Initialize with empty session row
         ContentValues values = new ContentValues();
@@ -127,10 +147,23 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        // 27 -> 28 adds comments, 28 -> 29 adds comment likes.
+        // Both keep the existing data (session, cached posts).
+        if (oldVersion == 27 || oldVersion == 28) {
+            if (oldVersion == 27) {
+                db.execSQL("ALTER TABLE " + TABLE_POSTS + " ADD COLUMN " + COLUMN_COMMENT_COUNT + " INTEGER DEFAULT 0");
+                db.execSQL(CREATE_TABLE_COMMENTS);
+            } else {
+                db.execSQL("ALTER TABLE " + TABLE_COMMENTS + " ADD COLUMN " + COLUMN_LIKED_BY + " TEXT DEFAULT ''");
+            }
+            return;
+        }
+
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_SESSION);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_POSTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_TOPICS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_COMMENTS);
         onCreate(db);
     }
 
@@ -157,6 +190,22 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_OFFLINE_USER, 0);
 
         db.insertWithOnConflict(TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    // Makes the local users table match Firebase: saves every account and removes the ones that
+    // were deleted (e.g. by an organizer) or renamed away. Only call with a complete user list.
+    public void syncUsers(Map<String, User> users) {
+        for (User user : users.values()) {
+            insertUser(user);
+        }
+        for (String localId : getAllUsers().keySet()) {
+            if (!users.containsKey(localId)) deleteUser(localId);
+        }
+    }
+
+    public void deleteUser(String userId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_USERS, COLUMN_ID + " = ?", new String[]{userId});
     }
 
     public void setUsersOffline() {
@@ -358,6 +407,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
         values.put(COLUMN_ANNOUNCEMENT, post.isAnnouncement() ? 1 : 0);
         values.put(COLUMN_USERID, post.getUser().getId());
         values.put(COLUMN_VERSION, post.getVersion());
+        values.put(COLUMN_COMMENT_COUNT, post.getCommentCount());
 
         db.insertWithOnConflict(TABLE_POSTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
@@ -410,11 +460,14 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     private static Map<String, Boolean> deserializeLikedBy(String likedByString) {
         Map<String, Boolean> likedBy = new HashMap<>();
+        if (likedByString == null || likedByString.isEmpty()) {
+            return likedBy;
+        }
 
         String[] userIds = likedByString.split(",");
 
         for (String userId : userIds) {
-            likedBy.put(userId, true);
+            if (!userId.isEmpty()) likedBy.put(userId, true);
         }
 
         return likedBy;
@@ -497,6 +550,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                     int announcement = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ANNOUNCEMENT));
                     String userId = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERID));
                     int version = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_VERSION));
+                    int commentCount = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COMMENT_COUNT));
 
                     Map<String, Boolean> likedBy = deserializeLikedBy(likedByString);
                     User user = usersMap.get(userId);
@@ -515,6 +569,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
                                 announcement == 1,
                                 version
                         );
+                        post.setCommentCount(commentCount);
 
                         PostHandler postHandler = new PostHandler(fragment, post, true);
                         postsMap.put(postId, postHandler);
@@ -538,6 +593,107 @@ public class LocalDatabase extends SQLiteOpenHelper {
         String[] selectionArgs = { postId };
 
         db.update(TABLE_POSTS, values, selection, selectionArgs);
+    }
+
+    public void updatePostCommentCount(String postId, int commentCount) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_COMMENT_COUNT, Math.max(0, commentCount));
+
+        db.update(TABLE_POSTS, values, COLUMN_POST_ID + " = ?", new String[]{postId});
+    }
+
+
+    // COMMENTS TABLE ACTIONS
+    // Local "clone" of comments/{postId}, refreshed every time a post's comments are opened online
+
+    public void insertComment(Comment comment) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_COMMENT_ID, comment.getId());
+        values.put(COLUMN_POST_ID, comment.getPostId());
+        values.put(COLUMN_USERID, comment.getUserId());
+        values.put(COLUMN_COMMENT_TEXT, comment.getText());
+        values.put(COLUMN_DATE, comment.getDate());
+        values.put(COLUMN_COMMENT_EDITED, comment.isEdited() ? 1 : 0);
+        values.put(COLUMN_LIKED_BY, serializeLikedBy(comment.getLikedBy()));
+
+        db.insertWithOnConflict(TABLE_COMMENTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    // Replaces all cached comments of a post, so comments deleted online also disappear locally
+    public void replaceCommentsOfPost(String postId, List<Comment> comments) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_COMMENTS, COLUMN_POST_ID + " = ?", new String[]{postId});
+            for (Comment comment : comments) {
+                insertComment(comment);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    // Replaces the whole local comments table with the online copy
+    public void replaceAllComments(List<Comment> comments) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_COMMENTS, null, null);
+            for (Comment comment : comments) {
+                insertComment(comment);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public List<Comment> getCommentsOfPost(String postId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        List<Comment> comments = new ArrayList<>();
+
+        try (Cursor cursor = db.query(
+                TABLE_COMMENTS,
+                null,
+                COLUMN_POST_ID + " = ?",
+                new String[]{postId},
+                null,
+                null,
+                COLUMN_DATE + " ASC"
+        )) {
+            while (cursor.moveToNext()) {
+                comments.add(new Comment(
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_COMMENT_ID)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_POST_ID)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_USERID)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_COMMENT_TEXT)),
+                        cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DATE)),
+                        cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COMMENT_EDITED)) == 1,
+                        deserializeLikedBy(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LIKED_BY)))
+                ));
+            }
+        }
+        return comments;
+    }
+
+    public void deleteComment(String commentId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_COMMENTS, COLUMN_COMMENT_ID + " = ?", new String[]{commentId});
+    }
+
+    public void deleteCommentsOfUser(String userId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_COMMENTS, COLUMN_USERID + " = ?", new String[]{userId});
+    }
+
+    public void deleteCommentsOfPost(String postId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_COMMENTS, COLUMN_POST_ID + " = ?", new String[]{postId});
     }
 
 

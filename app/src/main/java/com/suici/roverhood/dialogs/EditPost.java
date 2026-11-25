@@ -56,6 +56,8 @@ public class EditPost extends DialogFragment {
     private boolean isAnnouncement;
     private boolean imageChanged = false;
     private int rotationTimes = 0;
+    private Long newDate = null;   // staff only: new date of the post (seconds), null = unchanged
+    private TextView dateButton;
 
     public EditPost(PostHandler postHandler, Fragment activeFragment) {
         this.postHandler = postHandler;
@@ -132,9 +134,38 @@ public class EditPost extends DialogFragment {
             }
         });
 
+        bindDateButton(view);
         bindSubmitPostButton();
 
         return view;
+    }
+
+    // Staff (organizers, moderators, admins) can change the post's date
+    private void bindDateButton(View view) {
+        dateButton = view.findViewById(R.id.postDateButton);
+        User currentUser = ((MainActivity) requireActivity()).getCurrentUser();
+        if (!com.suici.roverhood.utils.Roles.isStaff(currentUser) || postHandler.getPost().getDate() == null) return;
+
+        dateButton.setVisibility(View.VISIBLE);
+        showDate(postHandler.getPost().getDate());
+        dateButton.setOnClickListener(v -> com.suici.roverhood.utils.Date.pickDateTime(context,
+                newDate != null ? newDate : postHandler.getPost().getDate(), picked -> {
+                    newDate = picked == postHandler.getPost().getDate() ? null : Long.valueOf(picked);
+                    showDate(picked);
+                }));
+    }
+
+    private void showDate(long seconds) {
+        String label = "Date: ";
+        String change = "  ·  Change";
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(
+                label + com.suici.roverhood.utils.Date.formatTimestamp(seconds) + change);
+        text.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                0, label.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        text.setSpan(new android.text.style.ForegroundColorSpan(
+                        MaterialColors.getColor(dateButton, com.google.android.material.R.attr.colorPrimary)),
+                text.length() - change.length(), text.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        dateButton.setText(text);
     }
 
     private void bindSubmitPostButton() {
@@ -184,7 +215,7 @@ public class EditPost extends DialogFragment {
                     }
                 });
             } else {
-                if(descriptionChanged)
+                if(descriptionChanged || newDate != null)
                     updatePost(description, postHandler.getPost().getImageUrl());
                 else  {
                     Toast.makeText(context, "Nothing was changed", Toast.LENGTH_SHORT).show();
@@ -222,13 +253,14 @@ public class EditPost extends DialogFragment {
     }
 
     private void updatePost(String description, String imageUrl) {
-        firebaseRepository.updatePost(postHandler, description, imageUrl, isAnnouncement, new FirebaseRepository.PostOperationCallback() {
+        firebaseRepository.updatePost(postHandler, description, imageUrl, isAnnouncement, newDate, new FirebaseRepository.PostOperationCallback() {
             @Override
             public void onSuccess() {
 
                 postHandler.getPost().setDescription(description);
                 postHandler.getPost().setImageUrl(imageUrl);
                 postHandler.getPost().setAnnouncement(isAnnouncement);
+                if (newDate != null) postHandler.getPost().setDate(newDate);
                 postHandler.setImageView(imagePreview);
 
                 RoverFeed roverFeed = (RoverFeed) activeFragment;

@@ -48,6 +48,9 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (viewType == VIEW_TYPE_POST) {
             View view = LayoutInflater.from(context).inflate(R.layout.item_post, parent, false);
             return new PostViewHolder(view);
+        } else if (viewType == VIEW_TYPE_HEADER) {
+            View view = LayoutInflater.from(context).inflate(R.layout.item_header, parent, false);
+            return new HeaderViewHolder(view);
         } else {
             View view = LayoutInflater.from(context).inflate(R.layout.item_space, parent, false);
             return new SpaceViewHolder(view);
@@ -60,29 +63,47 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             PostHandler postHandler = postHandlerList.get(position-1);
             postHandler.loadIntoView(holder.itemView);
         }
+        else if (holder instanceof HeaderViewHolder) {
+            HeaderViewHolder headerHolder = (HeaderViewHolder) holder;
+            if(FiltersManager.showInfoBar(context)) {
+                ViewGroup.LayoutParams params = headerHolder.spaceFilters.getLayoutParams();
+                params.height = filtersHeight;
+                headerHolder.spaceFilters.setLayoutParams(params);
+
+                headerHolder.spaceFilters.setVisibility(View.VISIBLE);
+            }
+            else
+                headerHolder.spaceFilters.setVisibility(View.GONE);
+
+            if (headerBinder != null) headerBinder.bindHeader(headerHolder.itemView);
+        }
         else if (holder instanceof SpaceViewHolder) {
             SpaceViewHolder spaceHolder = (SpaceViewHolder) holder;
-
-            int viewType = getItemViewType(position);
-            if (viewType == VIEW_TYPE_SPACE) {
-                if (isLoading) {
-                    spaceHolder.loadingMoreProgress.setVisibility(View.VISIBLE);
-                } else {
-                    spaceHolder.loadingMoreProgress.setVisibility(View.GONE);
-                }
-            }
-            else {
+            if (isLoading) {
+                spaceHolder.loadingMoreProgress.setVisibility(View.VISIBLE);
+            } else {
                 spaceHolder.loadingMoreProgress.setVisibility(View.GONE);
-                if(FiltersManager.areFiltersOrSortEnabled()) {
-                    ViewGroup.LayoutParams params = spaceHolder.spaceFilters.getLayoutParams();
-                    params.height = filtersHeight;
-                    spaceHolder.spaceFilters.setLayoutParams(params);
-
-                    spaceHolder.spaceFilters.setVisibility(View.VISIBLE);
-                }
-                else
-                    spaceHolder.spaceFilters.setVisibility(View.GONE);
             }
+        }
+    }
+
+    // Lets the feed fill the header (e.g. the team panel) every time it is bound
+    public interface HeaderBinder {
+        void bindHeader(View header);
+    }
+
+    private HeaderBinder headerBinder;
+
+    public void setHeaderBinder(HeaderBinder headerBinder) {
+        this.headerBinder = headerBinder;
+    }
+
+    public static class HeaderViewHolder extends RecyclerView.ViewHolder {
+        View spaceFilters;
+
+        public HeaderViewHolder(@NonNull View itemView) {
+            super(itemView);
+            spaceFilters = itemView.findViewById(R.id.spaceFilters);
         }
     }
 

@@ -11,8 +11,8 @@ android {
         applicationId = "com.suici.roverhood"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage:20.3.0")
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.4")
     implementation("com.github.bumptech.glide:glide:4.16.0")

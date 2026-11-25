@@ -4,6 +4,8 @@
     package="com.suici.roverhood">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -20,13 +22,28 @@
             android:screenOrientation="portrait"
             android:exported="true"
             android:theme="@style/Theme.Roverhood"
-            android:configChanges="uiMode|orientation|screenSize|keyboardHidden" >
+            android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout|density|keyboardHidden" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".utils.RoverhoodMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="announcements" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/icon_announcements" />
     </application>
 
 

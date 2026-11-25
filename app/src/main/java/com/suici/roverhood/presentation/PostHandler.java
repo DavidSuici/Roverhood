@@ -2,6 +2,7 @@ package com.suici.roverhood.presentation;
 
 import android.graphics.drawable.Drawable;
 import android.text.method.LinkMovementMethod;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
@@ -26,11 +27,15 @@ import com.suici.roverhood.MainActivity;
 import com.suici.roverhood.R;
 import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.databases.FirebaseRepository;
+import com.suici.roverhood.dialogs.Comments;
 import com.suici.roverhood.dialogs.EditPost;
+import com.suici.roverhood.dialogs.LikesList;
 import com.suici.roverhood.utils.FiltersManager;
 import com.suici.roverhood.models.Post;
 import com.suici.roverhood.models.User;
 import com.suici.roverhood.utils.Date;
+import com.suici.roverhood.utils.Teams;
+import com.suici.roverhood.utils.UserProfiles;
 
 import java.io.File;
 import java.util.Objects;
@@ -55,13 +60,7 @@ public class PostHandler {
     }
 
     private void bindTeamEmoji(TextView teamEmoji) {
-        if (post.getUser().getTeam().equalsIgnoreCase("Topaz")) {
-            teamEmoji.setText("⚜\uFE0F");
-        } else if (post.getUser().getTeam().equalsIgnoreCase("Emerald")) {
-            teamEmoji.setText("\uD83C\uDF4F");
-        } else if (post.getUser().getTeam().equalsIgnoreCase("Sapphire")) {
-            teamEmoji.setText("\uD83D\uDC99");
-        }
+        teamEmoji.setText(Teams.emoji(post.getUser().getTeam()));
     }
 
     // All the "bind..." methods are meant to reset the visual elements when a post is loaded,
@@ -180,61 +179,70 @@ public class PostHandler {
         seeMoreView.setOnClickListener(toggleListener);
     }
 
-    // Adding the collapse / expand behaviour to the image
-    // When clicked, if original image exceeds ratio 1:1 expand to
-    // full size or collapse to 1:1
-    private void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
+    // Width:height ratio of the collapsed image preview. On regular phones it is 1:1 (as before).
+    // On wide / squarish screens (e.g. unfolded foldables) a 1:1 preview would fill the whole
+    // screen, so the preview gets flatter to stay at most this fraction of the screen height.
+    // Screens taller than ~2.1 x their width (most current phones, 19.5:9 / 20:9) are unaffected.
+    private static final float MAX_PREVIEW_SCREEN_FRACTION = 0.48f;
+
+    private float getPreviewRatio() {
+        DisplayMetrics displayMetrics = activeFragment.getResources().getDisplayMetrics();
+        float maxPreviewHeight = displayMetrics.heightPixels * MAX_PREVIEW_SCREEN_FRACTION;
+        return Math.max(1f, displayMetrics.widthPixels / maxPreviewHeight);
+    }
+
+    // Returns the width / height ratio of the loaded image, or -1 if not available yet
+    private float getImageRatio(ImageView imageView) {
+        if (imageView.getDrawable() == null) return -1;
+        int width = imageView.getDrawable().getIntrinsicWidth();
+        int height = imageView.getDrawable().getIntrinsicHeight();
+        if (width <= 0 || height <= 0) return -1;
+        return (float) width / height;
+    }
+
+    private void setImageCollapsed(ImageView imageView, ImageButton fullScreenIcon, boolean collapsed, float previewRatio) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
+        if (collapsed) {
+            params.dimensionRatio = previewRatio + ":1";
+            params.width = 0;
+            params.height = 0;
+            imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            fullScreenIcon.setVisibility(View.VISIBLE);
+        } else {
+            params.dimensionRatio = null;
+            params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
+            params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
+            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            fullScreenIcon.setVisibility(View.GONE);
+        }
+        imageView.setLayoutParams(params);
+        imageView.requestLayout();
+    }
 
-        if (imageView.getDrawable() != null) {
-            int width = imageView.getDrawable().getIntrinsicWidth();
-            int height = imageView.getDrawable().getIntrinsicHeight();
+    // Adding the collapse / expand behaviour to the image
+    // Images taller than the preview ratio start collapsed (cropped to the preview),
+    // and clicking toggles between the preview and the full image
+    private void bindImageClickToggle(ImageView imageView, ImageButton fullScreenIcon) {
+        float previewRatio = getPreviewRatio();
+        float imageRatio = getImageRatio(imageView);
 
-            if (width > 0 && height > 0) {
-                float ratio = (float) width / height;
-                if (ratio < 1) {
-                    params.dimensionRatio = "1:1";
-                    params.width = 0;
-                    params.height = 0;
-                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    imageView.setLayoutParams(params);
-                    imageView.requestLayout();
-                    fullScreenIcon.setVisibility(View.VISIBLE);
-                }
-                else {
-                    params.dimensionRatio = null;
-                    params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
-                    params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
-                    imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                    imageView.setLayoutParams(params);
-                    imageView.requestLayout();
-                    fullScreenIcon.setVisibility(View.GONE);
-                }
-            }
+        if (imageRatio > 0) {
+            setImageCollapsed(imageView, fullScreenIcon, imageRatio < previewRatio, previewRatio);
         }
 
         imageView.setOnClickListener(v -> {
-            if ("1:1".equals(params.dimensionRatio)) {
-                params.dimensionRatio = null;
-                params.width = ConstraintLayout.LayoutParams.MATCH_PARENT;
-                params.height = ConstraintLayout.LayoutParams.WRAP_CONTENT;
-                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                fullScreenIcon.setVisibility(View.GONE);
+            ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
+            boolean isCollapsed = params.dimensionRatio != null;
+            float currentPreviewRatio = getPreviewRatio();
+
+            if (isCollapsed) {
+                setImageCollapsed(imageView, fullScreenIcon, false, currentPreviewRatio);
             } else {
-                int width = imageView.getDrawable().getIntrinsicWidth();
-                int height = imageView.getDrawable().getIntrinsicHeight();
-                float ratio = (float) width / height;
-                if (ratio < 1) {
-                    params.dimensionRatio = "1:1";
-                    params.width = 0;
-                    params.height = 0;
-                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    fullScreenIcon.setVisibility(View.VISIBLE);
+                float ratio = getImageRatio(imageView);
+                if (ratio > 0 && ratio < currentPreviewRatio) {
+                    setImageCollapsed(imageView, fullScreenIcon, true, currentPreviewRatio);
                 }
             }
-
-            imageView.setLayoutParams(params);
-            imageView.requestLayout();
         });
     }
 
@@ -245,15 +253,27 @@ public class PostHandler {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
 
         if (Objects.equals(currentUser.getId(), post.getUser().getId())) {
-            int primaryColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorPrimary);
-            flair.setBackgroundColor(primaryColor);
+            flairColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorPrimary);
         } else if (Objects.equals(currentUser.getTeam(), post.getUser().getTeam())) {
-            int accentColor = activeFragment.requireContext().getResources().getColor(R.color.blue_accent, null);
-            flair.setBackgroundColor(accentColor);
+            flairColor = activeFragment.requireContext().getResources().getColor(R.color.blue_accent, null);
         } else {
-            int secondaryColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorSecondary);
-            flair.setBackgroundColor(secondaryColor);
+            flairColor = MaterialColors.getColor(flair, com.google.android.material.R.attr.colorSecondary);
         }
+        // Same height as the photo frame, so both right corners are rounded (with a photo the
+        // frame of the same color is behind it)
+        flair.setBackground(roundedRight(flair, flairColor, true));
+    }
+
+    private int flairColor;
+
+    // Background with only the right corners rounded (top one optional)
+    private static android.graphics.drawable.GradientDrawable roundedRight(View view, int color, boolean roundTop) {
+        float radius = 3 * view.getResources().getDisplayMetrics().density;
+        float top = roundTop ? radius : 0;
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(color);
+        background.setCornerRadii(new float[]{0, 0, top, top, radius, radius, 0, 0});
+        return background;
     }
 
     // Adds special coloring for a post which is marked as announcement
@@ -262,6 +282,10 @@ public class PostHandler {
             announcementFlair.setVisibility(View.VISIBLE);
             flair.setVisibility(View.GONE);
             int amberColor = userType.getContext().getResources().getColor(R.color.announcements_amber, userType.getContext().getTheme());
+            // Longer than the photo frame: with a photo its top continues the frame, so only
+            // the bottom-right corner is rounded
+            boolean hasPhoto = !UserProfiles.photoUrl(post.getUser().getId()).isEmpty();
+            announcementFlair.setBackground(roundedRight(announcementFlair, amberColor, !hasPhoto));
             userType.setTextColor(amberColor);
             userType.setText("ANNOUNCEMENT");
             postBG.setBackgroundColor(amberColor);
@@ -280,7 +304,7 @@ public class PostHandler {
     // Initializes checkbox state based on whether the current user liked the post
     // Disables interaction if the post is offline
     // On change, updates local data and syncs status to Firebase
-    private void bindLikeButton(CheckBox heartButton, TextView heartNrView) {
+    private void bindLikeButton(CheckBox heartButton, View heartPadding, TextView heartNrView) {
         String currentUserId = ((MainActivity) activeFragment.requireActivity()).getCurrentUser().getId();
         heartButton.setOnCheckedChangeListener(null);
 
@@ -289,13 +313,29 @@ public class PostHandler {
         else
             heartButton.setChecked(false);
 
+        // Long press on the heart or the number shows who liked the post (also offline).
+        // Returning true keeps the long press from also toggling the like.
+        View.OnLongClickListener showLikes = v -> {
+            LikesList.show(activeFragment.requireContext(), post.getLikedBy(),
+                    activeFragment instanceof RoverFeed ? (RoverFeed) activeFragment : null, null);
+            return true;
+        };
+        heartButton.setOnLongClickListener(showLikes);
+        heartPadding.setOnLongClickListener(showLikes);
+        heartNrView.setOnLongClickListener(showLikes);
+
         if (offlinePost) {
             heartButton.setAlpha(0.5f);
             heartButton.setEnabled(false);
+            // A disabled but clickable view swallows touches; let them reach heartPadding instead
+            heartButton.setClickable(false);
+            heartButton.setLongClickable(false);
         }
         else {
             heartButton.setAlpha(1.0f);
             heartButton.setEnabled(true);
+            heartButton.setClickable(true);
+            heartButton.setLongClickable(true);
 
             heartButton.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 // Avoiding random resets, only adding the logic for visible posts
@@ -330,17 +370,30 @@ public class PostHandler {
         }
     }
 
-    // Binds the options menu button to the post and only displays it if the user
-    // is the owner, an organiser or an admin. Hides the menu for offline posts.
-    // Sets visibility of 'Edit' and 'Delete' options based on user role, and handles
-    // their actions when an item is selected.
+    // Opens the comments of this post. Works offline too (read-only, from the local cache)
+    private void bindCommentButton(View commentButton, View commentPadding, TextView commentNrView) {
+        commentNrView.setText(String.valueOf(post.getCommentCount()));
+
+        View.OnClickListener openComments = v -> {
+            Comments commentsDialog = new Comments(this, activeFragment, offlinePost);
+            commentsDialog.show(activeFragment.getParentFragmentManager(), "commentsDialog");
+        };
+        commentButton.setOnClickListener(openComments);
+        commentPadding.setOnClickListener(openComments);
+    }
+
+    // Binds the options menu button of the post (hidden for offline posts):
+    // Edit for the owner, Delete for the owner and staff, Report for everyone else.
     private void bindMenuButton(ImageButton menuButton) {
         User currentUser = ((MainActivity) activeFragment.requireActivity()).getCurrentUser();
         boolean isOwner = Objects.equals(post.getUser().getId(), currentUser.getId());
-        boolean isOrganizer = "ORGANIZER".equals(currentUser.getUserType());
-        boolean isAdmin = "ADMIN".equals(currentUser.getUserType());
+        // Organizers, moderators and admins can edit / delete any post
+        boolean isOrganizer = com.suici.roverhood.utils.Roles.isStaff(currentUser);
+        boolean isAdmin = com.suici.roverhood.utils.Roles.isAdmin(currentUser);
 
-        if ((!isOwner && !isOrganizer && !isAdmin) || offlinePost) {
+        // Everyone else can report the post, so the menu is shown on every online post
+        boolean canReport = !isOwner;
+        if ((!isOwner && !isOrganizer && !isAdmin && !canReport) || offlinePost) {
             menuButton.setVisibility(View.GONE);
             return;
         } else {
@@ -353,6 +406,7 @@ public class PostHandler {
 
             popup.getMenu().findItem(R.id.action_edit).setVisible(isOwner);
             popup.getMenu().findItem(R.id.action_delete).setVisible(isOwner || isAdmin || isOrganizer);
+            popup.getMenu().findItem(R.id.action_report).setVisible(canReport);
 
             popup.setOnMenuItemClickListener(item -> {
                 int id = item.getItemId();
@@ -361,6 +415,10 @@ public class PostHandler {
                     return true;
                 } else if (id == R.id.action_delete) {
                     deletePost();
+                    return true;
+                } else if (id == R.id.action_report) {
+                    com.suici.roverhood.dialogs.Report.show(activeFragment.requireContext(),
+                            post.getId(), null, post.getUser().getId(), currentUser.getId());
                     return true;
                 }
                 return false;
@@ -451,10 +509,13 @@ public class PostHandler {
         View itemPostBg = itemView.findViewById(R.id.postBG);
         ImageButton itemMenuButton = itemView.findViewById(R.id.postMenuButton);
         ImageButton itemFullScreenIcon = itemView.findViewById(R.id.viewFullScreenIcon);
+        View itemCommentButton = itemView.findViewById(R.id.commentButton);
+        View itemCommentPadding = itemView.findViewById(R.id.commentPadding);
+        TextView itemCommentNr = itemView.findViewById(R.id.commentNr);
 
         // Populate the views
         itemUser.setText(post.getUser().getUsername());
-        itemTeam.setText(post.getUser().getTeam());
+        itemTeam.setText(Teams.name(post.getUser().getTeam()));
         itemUserType.setText(post.getUser().getUserType());
         itemDate.setText(Date.formatTimestamp(post.getDate()) + "\u00A0");
         itemDescription.setText(post.getDescription());
@@ -468,15 +529,39 @@ public class PostHandler {
         bindUserAndTeamButtons(itemUser, itemTeam);
         bindDescriptionToggle(itemDescription, itemSeeMore);
         bindImageClickToggle(itemImage, itemFullScreenIcon);
-        bindLikeButton(itemHeart, itemHeartNr);
+        bindLikeButton(itemHeart, itemView.findViewById(R.id.heartPadding), itemHeartNr);
+        bindCommentButton(itemCommentButton, itemCommentPadding, itemCommentNr);
         bindMenuButton(itemMenuButton);
         bindFlair(itemFlair);
         bindAnnouncementFlair(itemAnnouncementFlair, itemPostBg, itemFlair, itemUserType);
+        bindProfilePhoto(itemView.findViewById(R.id.profilePhoto), itemFlair);
+        // Tapping the photo opens the author, like tapping their name
+        itemView.findViewById(R.id.profilePhoto).setOnClickListener(v -> itemUser.performClick());
+    }
+
+    // Optional profile photo of the author, framed in the color of the flair (amber for
+    // announcements). Without a photo it is hidden and the post looks as before.
+    private void bindProfilePhoto(ImageView photo, View flair) {
+        if (!UserProfiles.loadPhoto(photo, post.getUser().getId())) return;
+
+        int frameColor;
+        if (post.isAnnouncement()) {
+            frameColor = photo.getContext().getResources().getColor(R.color.announcements_amber, photo.getContext().getTheme());
+        } else {
+            frameColor = flairColor;
+        }
+        // Only the right corners are rounded: the left side continues the flair
+        float radius = 5 * photo.getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable frame = new android.graphics.drawable.GradientDrawable();
+        frame.setColor(frameColor);
+        frame.setCornerRadii(new float[]{0, 0, radius, radius, radius, radius, 0, 0});
+        photo.setBackground(frame);
     }
 
     public boolean isImageLoaded() { return imageLoaded; }
     public ImageView getImageView() { return imageView; }
     public Post getPost() { return post; }
+    public boolean isOfflinePost() { return offlinePost; }
 
     public void setImageView(ImageView imageView) { this.imageView = imageView; }
     public void setFragment(Fragment fragment) { this.activeFragment = fragment; }

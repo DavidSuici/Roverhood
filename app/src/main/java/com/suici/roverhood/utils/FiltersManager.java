@@ -5,12 +5,31 @@ import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.models.Filters;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 public class FiltersManager {
     private static Filters activeFilters = new Filters();
+
+    // "Filter info bar" setting (the bar under the banner listing the active filters).
+    // Off by default, remembered between sessions.
+    private static final String PREFS = "roverhood_settings";
+    private static final String KEY_INFO_BAR = "filterInfoBar";
+
+    public static boolean isInfoBarEnabled(android.content.Context context) {
+        return context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+                .getBoolean(KEY_INFO_BAR, false);
+    }
+
+    public static void setInfoBarEnabled(android.content.Context context, boolean enabled) {
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_INFO_BAR, enabled).apply();
+    }
+
+    // The bar is shown only if the setting is on and some filter/sort differs from the defaults
+    public static boolean showInfoBar(android.content.Context context) {
+        return areFiltersOrSortEnabled() && isInfoBarEnabled(context);
+    }
 
     public static Filters getActiveFilters() {
         return activeFilters;
@@ -22,6 +41,20 @@ public class FiltersManager {
 
     public static void resetFilters() {
         activeFilters = new Filters();
+    }
+
+    // How many filters / sort options differ from the defaults (shown as a badge on the filter button)
+    public static int activeFilterCount() {
+        int count = 0;
+        if (activeFilters.isAnnouncementsOnly()) count++;
+        if (!activeFilters.getUsername().isEmpty()) count++;
+        if (!activeFilters.getTeam().isEmpty()) count++;
+        if (!activeFilters.getTopic().isEmpty()) count++;
+        if (activeFilters.isOnlyLiked()) count++;
+        if (activeFilters.getMinLikes() > 0) count++;
+        if (activeFilters.isSortByLikes()) count++;
+        if (activeFilters.isOrderAscending()) count++;
+        return count;
     }
 
     public static boolean areFiltersOrSortEnabled() {
@@ -44,13 +77,13 @@ public class FiltersManager {
             filtered.add(postHandler);
         }
 
-        if (activeFilters.isSortByLikes()) {
-            filtered.sort(Comparator.comparing(handler -> handler.getPost().getLikes()));
-        }
-
-        if (activeFilters.isOrderAscending()) {
-            Collections.reverse(filtered);
-        }
+        // Returns the posts in display order: newest / most liked first, or the opposite
+        // when ascending. Likes ties are ordered by date.
+        Comparator<PostHandler> byDate = Comparator.comparing(handler -> handler.getPost().getDate());
+        Comparator<PostHandler> order = activeFilters.isSortByLikes()
+                ? Comparator.<PostHandler, Integer>comparing(handler -> handler.getPost().getLikes()).thenComparing(byDate)
+                : byDate;
+        filtered.sort(activeFilters.isOrderAscending() ? order : order.reversed());
 
         return filtered;
     }
@@ -91,7 +124,7 @@ public class FiltersManager {
             filtersText.append("User: ").append(activeFilters.getUsername()).append(", ");
         }
         if (!activeFilters.getTeam().isEmpty()) {
-            filtersText.append("Team: ").append(activeFilters.getTeam()).append(", ");
+            filtersText.append("Team: ").append(Teams.name(activeFilters.getTeam())).append(", ");
         }
         if (activeFilters.getMinLikes() > 0) {
             filtersText.append("Min Likes: ").append(activeFilters.getMinLikes()).append(", ");

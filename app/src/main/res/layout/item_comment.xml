@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <!-- Author's profile photo (only if they have one), left of the name and date -->
+    <ImageView
+        android:id="@+id/commentPhoto"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_marginTop="1dp"
+        android:scaleType="centerCrop"
+        android:contentDescription="Profile photo"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/commentUser"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="username"
+        android:textColor="?attr/colorPrimary"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:layout_marginStart="8dp"
+        app:layout_goneMarginStart="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/commentPhoto" />
+
+    <TextView
+        android:id="@+id/commentTeamEmoji"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:textSize="12sp"
+        android:alpha="0.6"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintHorizontal_bias="0"
+        app:layout_constraintBaseline_toBaselineOf="@id/commentUser"
+        app:layout_constraintStart_toEndOf="@id/commentUser"
+        app:layout_constraintEnd_toStartOf="@id/commentHeart" />
+
+    <TextView
+        android:id="@+id/commentDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="01 Jan 2025 - 00:00"
+        android:textSize="11sp"
+        android:textStyle="italic"
+        android:alpha="0.7"
+        android:paddingEnd="4dp"
+        app:layout_constraintTop_toBottomOf="@id/commentUser"
+        app:layout_constraintStart_toStartOf="@id/commentUser" />
+
+    <TextView
+        android:id="@+id/commentEdited"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="(edited)"
+        android:textSize="11sp"
+        android:textStyle="italic"
+        android:alpha="0.5"
+        android:paddingEnd="4dp"
+        android:visibility="gone"
+        app:layout_constraintBaseline_toBaselineOf="@id/commentDate"
+        app:layout_constraintStart_toEndOf="@id/commentDate" />
+
+    <ImageButton
+        android:id="@+id/commentMenuButton"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/icon_more_vert"
+        android:contentDescription="Comment options"
+        app:tint="?attr/colorPrimary"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ImageButton
+        android:id="@+id/commentHeart"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:padding="7dp"
+        android:scaleType="fitCenter"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/heart_outline"
+        android:contentDescription="Like comment"
+        app:tint="?attr/colorPrimary"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/commentMenuButton" />
+
+    <TextView
+        android:id="@+id/commentHeartNr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:textSize="12sp"
+        android:translationY="-7dp"
+        app:layout_constraintTop_toBottomOf="@id/commentHeart"
+        app:layout_constraintStart_toStartOf="@id/commentHeart"
+        app:layout_constraintEnd_toEndOf="@id/commentHeart" />
+
+    <TextView
+        android:id="@+id/commentText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="4dp"
+        android:autoLink="web"
+        android:textSize="15sp"
+        app:layout_constraintTop_toBottomOf="@id/commentHeaderBottom"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/commentHeart" />
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/commentHeaderBottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="commentDate,commentPhoto" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -17,6 +17,28 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginBottom="-8dp"/>
 
+    <!-- Optional profile photo, next to the flair at the height of the name and date.
+         When GONE the texts fall back to their original positions (goneMarginStart). -->
+    <!-- Continuation of the flair: starts at the left edge (the flair is drawn over its first 4dp
+         in the same color) and has the same height as the flair (role + name rows).
+         The date stays aligned to the left. Fixed width, so the texts' position doesn't depend
+         on the photo's height (avoids a measuring loop). -->
+    <ImageView
+        android:id="@+id/profilePhoto"
+        android:layout_width="32dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="4dp"
+        android:paddingStart="5dp"
+        android:paddingEnd="2dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:scaleType="centerCrop"
+        android:contentDescription="Profile photo"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/userType"
+        app:layout_constraintBottom_toBottomOf="@id/team" />
+
     <TextView
         android:id="@+id/user"
         android:layout_width="wrap_content"
@@ -26,9 +48,10 @@
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/profilePhoto"
         android:layout_marginTop="20dp"
-        android:layout_marginStart="8dp" />
+        android:layout_marginStart="8dp"
+        app:layout_goneMarginStart="8dp" />
 
     <TextView
         android:id="@+id/teamEmoji"
@@ -50,6 +73,7 @@
         android:text="Team Name"
         android:textStyle="bold"
         android:textSize="14sp"
+        android:alpha="0.7"
         android:ellipsize="end"
         android:gravity="start"
         android:maxLines="1"
@@ -65,9 +89,10 @@
         android:text="USER TYPE"
         android:textSize="10sp"
         app:layout_constraintBottom_toTopOf="@id/user"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/profilePhoto"
         android:translationY="5dp"
-        android:layout_marginStart="9dp" />
+        android:layout_marginStart="9dp"
+        app:layout_goneMarginStart="9dp" />
 
     <View
         android:id="@+id/flair"
@@ -93,7 +118,7 @@
 
     <TextView
         android:id="@+id/date"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="01 Jan 2025 - 00:00"
         android:textSize="12sp"
@@ -256,6 +281,7 @@
         app:layout_constraintEnd_toStartOf="@id/heartPadding">
 
         <FrameLayout
+            android:id="@+id/commentButton"
             android:layout_width="28dp"
             android:layout_height="28dp"
             android:layout_gravity="center"
