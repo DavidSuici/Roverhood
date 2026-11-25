@@ -80,6 +80,18 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/access_code_label" />
 
+            <!-- Shows / hides the access code while typing -->
+            <ImageButton
+                android:id="@+id/toggleAccessCode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/icon_visibility"
+                android:contentDescription="Show access code"
+                app:layout_constraintStart_toEndOf="@+id/access_code_text"
+                app:layout_constraintTop_toTopOf="@+id/access_code_text"
+                app:layout_constraintBottom_toBottomOf="@+id/access_code_text" />
+
             <Button
                 android:id="@+id/buttonCreateAccount"
                 android:layout_width="271dp"

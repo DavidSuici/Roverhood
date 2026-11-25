@@ -201,4 +201,17 @@
             android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <!-- Shown when the filters leave no posts: under the profile / team panel, not above it -->
+    <TextView
+        android:id="@+id/headerNoPosts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:alpha="0.7"
+        android:text="No posts"
+        android:textSize="14sp"
+        android:visibility="gone" />
 </LinearLayout>

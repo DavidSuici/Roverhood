@@ -49,6 +49,7 @@ import com.suici.roverhood.utils.NotificationTarget;
 import com.suici.roverhood.dialogs.Comments;
 import com.suici.roverhood.presentation.PostHandler;
 import com.suici.roverhood.presentation.PostAdapter;
+import com.suici.roverhood.models.Post;
 import com.suici.roverhood.models.User;
 
 import java.util.ArrayList;
@@ -59,7 +60,6 @@ public class RoverFeed extends Fragment {
     private FragmentRoverFeedBinding binding;
     private MainActivity activity;
     private MenuItem filterButton;
-    private MenuItem likedPostsButton;
     private MenuItem announcementsButton;
     private OnBackPressedCallback backCallback;
     private boolean offlineMode = false;
@@ -116,6 +116,7 @@ public class RoverFeed extends Fragment {
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         postAdapter = new PostAdapter(getContext(), visiblePostHandlerList);
         postAdapter.setHeaderBinder(this::bindHeaderPanels);
+        postAdapter.setOnAnnouncementSeen(this::updateAnnouncementsBadge);
         recyclerView.setAdapter(postAdapter);
 
         // Add post - button logic
@@ -138,7 +139,7 @@ public class RoverFeed extends Fragment {
                 });
 
                 activity.getFabCodes().setOnClickListener(v -> {
-                    new ActivationCodes().show(activity.getSupportFragmentManager(), "activationCodes");
+                    ActivationCodes.newInstance(offlineMode).show(activity.getSupportFragmentManager(), "activationCodes");
                     activity.hideFabMenu();
                 });
 
@@ -149,6 +150,11 @@ public class RoverFeed extends Fragment {
 
                 activity.getFabTeams().setOnClickListener(v -> {
                     new ManageTeams(this).show(activity.getSupportFragmentManager(), "manageTeams");
+                    activity.hideFabMenu();
+                });
+
+                activity.getFabReports().setOnClickListener(v -> {
+                    new com.suici.roverhood.dialogs.ManageReports(this).show(activity.getSupportFragmentManager(), "manageReports");
                     activity.hideFabMenu();
                 });
 
@@ -195,7 +201,6 @@ public class RoverFeed extends Fragment {
             Menu optionsMenu = activity.getOptionsMenu();
             if (optionsMenu != null) {
                 filterButton = optionsMenu.findItem(R.id.filters);
-                likedPostsButton = optionsMenu.findItem(R.id.likedPosts);
                 announcementsButton = optionsMenu.findItem(R.id.announcements);
             }
         });
@@ -340,6 +345,7 @@ public class RoverFeed extends Fragment {
 
         UserProfiles.loadPhoto(photo, profileUser.getId());
         photo.setOnClickListener(v -> UserProfiles.showPhotoLarge(requireContext(), profileUser.getId()));
+        com.suici.roverhood.utils.PinchZoom.attach(photo);
 
         UserProfiles.fillInfo(header.findViewById(R.id.userPanelInfo), profileUser.getId());
 
@@ -720,15 +726,46 @@ public class RoverFeed extends Fragment {
         filterSelectorFragment.show(activity.getSupportFragmentManager(), "addPostFragment");
     }
 
-    public void applyLikedPostsFilter() {
-        if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
-            FiltersManager.resetFilters();
-            FiltersManager.getActiveFilters().setOnlyLiked(true);
-            refreshFeed();
-        }
+    // Search button: the users list (staff also get Edit / Delete there; participants only
+    // search and tap someone to see their profile)
+    public void openSearch() {
+        new com.suici.roverhood.dialogs.ManageUsers(this).show(activity.getSupportFragmentManager(), "manageUsers");
     }
 
+    // Announcements not seen yet on this phone (your own count as seen), oldest first
+    private List<PostHandler> unseenAnnouncements() {
+        List<PostHandler> unseen = new ArrayList<>();
+        User currentUser = activity.getCurrentUser();
+        for (PostHandler postHandler : allPostHandlerList) {
+            Post post = postHandler.getPost();
+            if (!post.isAnnouncement()) continue;
+            if (currentUser != null && post.getUser() != null && currentUser.getId().equals(post.getUser().getId())) continue;
+            if (com.suici.roverhood.utils.AnnouncementsSeen.isSeen(requireContext(), post.getId())) continue;
+            unseen.add(postHandler);
+        }
+        unseen.sort((a, b) -> Long.compare(dateOf(a), dateOf(b)));
+        return unseen;
+    }
+
+    private static long dateOf(PostHandler postHandler) {
+        Long date = postHandler.getPost().getDate();
+        return date != null ? date : 0;
+    }
+
+    private void updateAnnouncementsBadge() {
+        if (binding == null) return;
+        activity.updateAnnouncementsBadge(unseenAnnouncements().size());
+    }
+
+    // Announcements button: with unseen announcements, show the announcements and go to the
+    // oldest one not seen yet; otherwise just show the announcements
     public void applyAnnouncementsFilter() {
+        List<PostHandler> unseen = unseenAnnouncements();
+        if (!unseen.isEmpty()) {
+            openNotificationTarget(new NotificationTarget(NotificationTarget.TYPE_ANNOUNCEMENT,
+                    unseen.get(0).getPost().getId(), null, null));
+            return;
+        }
         if(!binding.swipeRefresh.isRefreshing() && !isLoading) {
             FiltersManager.resetFilters();
             FiltersManager.getActiveFilters().setAnnouncementsOnly(true);
@@ -869,6 +906,7 @@ public class RoverFeed extends Fragment {
                 public void onPostsLoaded(List<PostHandler> postHandlers, boolean isOffline) {
                     if (!isOffline) {
                         syncUsersFromServer();
+                        refreshStaffCaches();
                         firebaseRepository.fetchTeams(RoverFeed.this::onTeamsChanged);
                         firebaseRepository.fetchUserInfo(RoverFeed.this::onTeamsChanged);
                     }
@@ -894,12 +932,14 @@ public class RoverFeed extends Fragment {
 
                     // The add button follows the mode; normally finishRefreshUI() sets it, but if
                     // the refresh UI already finished, update it here so it can't stay disabled
+                    activity.setPostingDisabled(isOffline);
                     if (activity.getFloatingButton() != null && !binding.swipeRefresh.isRefreshing()) {
-                        activity.getFloatingButton().setEnabled(!isOffline);
+                        activity.getFloatingButton().setEnabled(isAddButtonUsable());
                     }
 
                     allPostHandlerList.clear();
                     allPostHandlerList.addAll(postHandlers);
+                    updateAnnouncementsBadge();
 
                     for (PostHandler postHandler : allPostHandlerList) {
                         postHandler.setFragment(RoverFeed.this);
@@ -932,7 +972,7 @@ public class RoverFeed extends Fragment {
 
     private void startRefreshUI() {
         binding.buttonLogOut.setEnabled(false);
-        binding.labelNoPostsAfterFilters.setVisibility(View.GONE);
+        postAdapter.setShowNoPosts(false);
 
         if(filterButton != null)
             filterButton.setEnabled(false);
@@ -976,12 +1016,14 @@ public class RoverFeed extends Fragment {
 
     private void finishRefreshUI() {
         binding.swipeRefresh.setRefreshing(false);
-        if (activity.getFloatingButton() != null && !offlineMode) {
+        if (activity.getFloatingButton() != null && isAddButtonUsable()) {
             activity.getFloatingButton().setEnabled(true);
         }
-        if (FiltersManager.filterPosts(allPostHandlerList, activity).isEmpty())
-            binding.labelNoPostsAfterFilters.setVisibility(View.VISIBLE);
-        postAdapter.setLoading(true);
+        // Nothing to show: say so under the profile / team panel and don't leave the
+        // "loading more" spinner running
+        boolean noPosts = FiltersManager.filterPosts(allPostHandlerList, activity).isEmpty();
+        postAdapter.setShowNoPosts(noPosts);
+        postAdapter.setLoading(!noPosts);
     }
 
     public void removePostFromUI(PostHandler postHandler) {
@@ -1026,4 +1068,26 @@ public class RoverFeed extends Fragment {
     }
 
     public boolean isLoading() { return isLoading; }
+    // True while the feed shows the offline (saved) data: the staff lists then open read-only
+    public boolean isOfflineMode() { return offlineMode; }
+
+    // Staff: keep the reports and the unused codes saved on the phone (loading them saves them),
+    // so their lists also open offline, even if they were never opened online on this phone
+    private void refreshStaffCaches() {
+        if (!com.suici.roverhood.utils.Roles.isStaff(activity.getCurrentUser())) return;
+        firebaseRepository.loadReports(new FirebaseRepository.ReportsCallback() {
+            @Override public void onLoaded(List<FirebaseRepository.Report> reports) { }
+            @Override public void onError(String errorMessage) { }
+        });
+        firebaseRepository.loadUnusedCodes(new FirebaseRepository.UnusedCodesCallback() {
+            @Override public void onLoaded(List<FirebaseRepository.UnusedCode> codes) { }
+            @Override public void onError(String errorMessage) { }
+        });
+    }
+
+    // The + button: online for everyone; offline only for staff, whose menu then opens the
+    // read-only lists (Reports, Codes, Users, Teams) while Post and Announcement stay disabled
+    private boolean isAddButtonUsable() {
+        return !offlineMode || com.suici.roverhood.utils.Roles.isStaff(activity.getCurrentUser());
+    }
 }

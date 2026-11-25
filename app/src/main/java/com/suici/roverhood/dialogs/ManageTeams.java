@@ -68,6 +68,8 @@ public class ManageTeams extends DialogFragment {
         loading = view.findViewById(R.id.teamsLoading);
         list = view.findViewById(R.id.teamsList);
         view.findViewById(R.id.newTeamButton).setOnClickListener(v -> showNewTeamDialog());
+        // Offline: read-only (no creating, editing or deleting)
+        if (isOffline()) view.findViewById(R.id.newTeamButton).setVisibility(View.GONE);
 
         loadTeams();
         return view;
@@ -82,33 +84,24 @@ public class ManageTeams extends DialogFragment {
         }
     }
 
-    // Fresh team names/emojis and users from Firebase
+    // Fresh team names/emojis and users from Firebase.
+    // Offline (the feed shows saved data): read-only, from the local database
+    private boolean isOffline() {
+        return feed != null && feed.isOfflineMode();
+    }
+
     private void loadTeams() {
+        if (isOffline()) {
+            applyUsers(com.suici.roverhood.databases.LocalDatabase.getInstance(context).getAllUsers());
+            return;
+        }
         loading.setVisibility(View.VISIBLE);
         firebaseRepository.fetchTeams(() -> { });
         firebaseRepository.getAllUsers(new FirebaseRepository.UsersCallback() {
             @Override
             public void onUsersFetched(Map<String, User> users) {
                 if (!isAdded()) return;
-                members.clear();
-                unusedCodes.clear();
-                for (String key : Teams.allKeys(context)) members.put(key, new ArrayList<>());
-
-                for (User user : users.values()) {
-                    String team = user.getTeam();
-                    if (team == null || team.isEmpty()) continue;
-                    if (user.getUsername() == null || user.getUsername().isEmpty()) {
-                        unusedCodes.merge(team, 1, Integer::sum);
-                        members.computeIfAbsent(team, k -> new ArrayList<>());
-                    } else {
-                        members.computeIfAbsent(team, k -> new ArrayList<>()).add(user);
-                    }
-                }
-                for (List<User> teamMembers : members.values()) {
-                    teamMembers.sort((a, b) -> a.getUsername().compareToIgnoreCase(b.getUsername()));
-                }
-                loading.setVisibility(View.GONE);
-                showTeams();
+                applyUsers(users);
             }
 
             @Override
@@ -120,10 +113,39 @@ public class ManageTeams extends DialogFragment {
         });
     }
 
+    private void applyUsers(Map<String, User> users) {
+        members.clear();
+        unusedCodes.clear();
+        for (String key : Teams.allKeys(context)) members.put(key, new ArrayList<>());
+
+        for (User user : users.values()) {
+            String team = user.getTeam();
+            if (team == null || team.isEmpty()) continue;
+            if (user.getUsername() == null || user.getUsername().isEmpty()) {
+                unusedCodes.merge(team, 1, Integer::sum);
+                members.computeIfAbsent(team, k -> new ArrayList<>());
+            } else {
+                members.computeIfAbsent(team, k -> new ArrayList<>()).add(user);
+            }
+        }
+        if (isOffline()) {
+            for (FirebaseRepository.UnusedCode code : firebaseRepository.loadCachedUnusedCodes()) {
+                if (code.team == null || code.team.isEmpty()) continue;
+                unusedCodes.merge(code.team, 1, Integer::sum);
+                members.computeIfAbsent(code.team, k -> new ArrayList<>());
+            }
+        }
+        for (List<User> teamMembers : members.values()) {
+            teamMembers.sort((a, b) -> a.getUsername().compareToIgnoreCase(b.getUsername()));
+        }
+        loading.setVisibility(View.GONE);
+        showTeams();
+    }
+
     private void showTeams() {
         list.removeAllViews();
         float density = getResources().getDisplayMetrics().density;
-        title.setText("Teams (" + members.size() + ")");
+        title.setText("Teams (" + members.size() + ")" + (isOffline() ? " · offline" : ""));
 
         for (Map.Entry<String, List<User>> entry : members.entrySet()) {
             String team = entry.getKey();
@@ -169,9 +191,9 @@ public class ManageTeams extends DialogFragment {
             edit.setOnClickListener(v -> {
                 if (feed != null) feed.showEditTeamDialog(team, () -> { if (isAdded()) showTeams(); });
             });
-            row.addView(edit);
+            if (!isOffline()) row.addView(edit);
 
-            if (teamMembers.isEmpty()) {
+            if (teamMembers.isEmpty() && !isOffline()) {
                 ImageButton delete = new ImageButton(context);
                 delete.setImageResource(android.R.drawable.ic_menu_delete);
                 delete.setBackgroundResource(android.R.color.transparent);
@@ -210,9 +232,68 @@ public class ManageTeams extends DialogFragment {
                 }
             }
         }
+
+        // At the end: copy all unused codes (grouped by team) without showing them
+        int totalCodes = 0;
+        for (int count : unusedCodes.values()) totalCodes += count;
+        if (totalCodes > 0) {
+            TextView copyCodes = new TextView(context);
+            copyCodes.setText("Copy all unused codes (" + totalCodes + ")");
+            copyCodes.setTextColor(MaterialColors.getColor(copyCodes, com.google.android.material.R.attr.colorPrimary));
+            copyCodes.setTypeface(null, android.graphics.Typeface.BOLD);
+            copyCodes.setTextSize(15);
+            copyCodes.setPadding(0, (int) (16 * density), 0, (int) (8 * density));
+            copyCodes.setOnClickListener(v -> copyAllUnusedCodes());
+            list.addView(copyCodes);
+        }
+    }
+
+    // Copies every readable unused code, grouped by team: the team name, its codes, a blank line.
+    // Online: fresh from Firebase; offline: the codes saved at the last online refresh.
+    private void copyAllUnusedCodes() {
+        if (isOffline()) {
+            copyCodes(firebaseRepository.loadCachedUnusedCodes());
+            return;
+        }
+        firebaseRepository.loadUnusedCodes(new FirebaseRepository.UnusedCodesCallback() {
+            @Override
+            public void onLoaded(List<FirebaseRepository.UnusedCode> codes) {
+                if (isAdded()) copyCodes(codes);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                if (isAdded()) Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void copyCodes(List<FirebaseRepository.UnusedCode> codes) {
+        Map<String, List<String>> byTeam = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        int copied = 0;
+        for (FirebaseRepository.UnusedCode code : codes) {
+            if (code.code == null) continue;   // older codes: only the hash exists
+            byTeam.computeIfAbsent(code.team != null ? code.team : "", k -> new ArrayList<>()).add(code.code);
+            copied++;
+        }
+        if (copied == 0) {
+            Toast.makeText(context, "No readable unused codes", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        StringBuilder text = new StringBuilder();
+        for (Map.Entry<String, List<String>> entry : byTeam.entrySet()) {
+            if (text.length() > 0) text.append('\n');
+            text.append(Teams.name(entry.getKey())).append('\n');
+            for (String code : entry.getValue()) text.append(code).append('\n');
+        }
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
+                context.getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Activation codes", text.toString().trim()));
+        Toast.makeText(context, "Copied " + copied + " codes", Toast.LENGTH_SHORT).show();
     }
 
     private boolean canEdit(User user) {
+        if (isOffline()) return false;
         boolean isAdmin = currentUser != null && "ADMIN".equals(currentUser.getUserType());
         boolean isSelf = currentUser != null && user.getId().equals(currentUser.getId());
         return isAdmin || isSelf || !"ADMIN".equals(user.getUserType());

@@ -9,7 +9,7 @@
 // - notifyPostLikes:     post likes 5, 10, 15.. -> author of the post
 // - notifyCommentLikes:  comment likes 5, 10..  -> author of the comment
 // - notifyNewPost:       any new post           -> every MODERATOR and ADMIN (not the author)
-// - notifyReport:        reported post/comment  -> every MODERATOR and ADMIN (not the reporter)
+// - notifyReport:        reported post/comment  -> every ORGANIZER, MODERATOR and ADMIN (not the reporter)
 //
 // Personal notifications go to the topic "user_<userId>", which the app subscribes to at login.
 // Like milestones are remembered in /notified so likes going 5 -> 4 -> 5 notify only once.
@@ -114,6 +114,12 @@ exports.notifyTopicPost = onValueCreated(trigger("/posts/{postId}"), async (even
   });
 
   if (!owner || !owner.userId || owner.userId === post.userId) return;
+
+  // Moderators and admins already get every new post (notifyNewPost) and every announcement,
+  // so they don't also get "new post on your topic"
+  const ownerTypeSnap = await getDatabase().ref(`users/${owner.userId}/userType`).get();
+  const ownerType = ownerTypeSnap.exists() ? String(ownerTypeSnap.val()) : "";
+  if (ownerType === "MODERATOR" || ownerType === "ADMIN") return;
 
   const topicTitle = await getTopicTitle(post.topicId);
   const author = await getUsername(post.userId);
@@ -240,7 +246,7 @@ exports.notifyReport = onValueCreated(trigger("/reports/{reportId}"), async (eve
   usersSnap.forEach((child) => {
     const user = child.val();
     if (!user || !user.username || child.key === report.reporterId) return;
-    if (user.userType === "MODERATOR" || user.userType === "ADMIN") recipients.push(child.key);
+    if (user.userType === "ORGANIZER" || user.userType === "MODERATOR" || user.userType === "ADMIN") recipients.push(child.key);
   });
   if (recipients.length === 0) return;
 
@@ -263,5 +269,5 @@ exports.notifyReport = onValueCreated(trigger("/reports/{reportId}"), async (eve
     body: `${reporter}${reason}: ${excerpt(text, 200)}`,
   })));
 
-  logger.info(`Report notification sent to ${recipients.length} moderators/admins for ${event.params.reportId}`);
+  logger.info(`Report notification sent to ${recipients.length} staff for ${event.params.reportId}`);
 });

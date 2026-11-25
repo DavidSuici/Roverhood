@@ -20,6 +20,7 @@ import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.suici.roverhood.utils.FiltersManager;
+import com.suici.roverhood.utils.Teams;
 import com.suici.roverhood.R;
 import com.suici.roverhood.fragments.RoverFeed;
 import com.suici.roverhood.models.Topic;
@@ -95,7 +96,8 @@ public class FilterSelector extends DialogFragment {
         dateLabel = view.findViewById(R.id.labelSortByDate);
 
         userFilter.setText(FiltersManager.getActiveFilters().getUsername());
-        teamDropdown.setText(FiltersManager.getActiveFilters().getTeam());
+        String activeTeam = FiltersManager.getActiveFilters().getTeam();
+        teamDropdown.setText(activeTeam.isEmpty() ? "" : Teams.name(activeTeam));
         topicDropdown.setText(FiltersManager.getActiveFilters().getTopic());
         minLikesInput.setText(String.valueOf(FiltersManager.getActiveFilters().getMinLikes()));
         switchOnlyLiked.setChecked(FiltersManager.getActiveFilters().isOnlyLiked());
@@ -157,7 +159,10 @@ public class FilterSelector extends DialogFragment {
     private void bindSaveFiltersButton() {
         saveFiltersButton.setOnClickListener(v -> {
             String newUserFilter = userFilter.getText().toString();
-            String newTeamFilter = teamDropdown.getText().toString();
+            // The dropdown shows team names; the filter uses the team's key
+            String typedTeam = teamDropdown.getText().toString();
+            String teamKey = Teams.keyForName(requireContext(), typedTeam);
+            String newTeamFilter = teamKey != null ? teamKey : typedTeam;
             String newTopicFilter = topicDropdown.getText().toString();
             String minLikesText = minLikesInput.getText().toString();
             int newMinLikes = minLikesText.isEmpty() ? 0 : Integer.parseInt(minLikesText);
@@ -358,6 +363,7 @@ public class FilterSelector extends DialogFragment {
         Set<String> teams = users.values().stream()
                 .map(User::getTeam)
                 .filter(team -> team != null && !team.isEmpty())
+                .map(Teams::name)
                 .collect(Collectors.toCollection(TreeSet::new));
 
         Set<String> topics = Topic.getAllTopics().stream()

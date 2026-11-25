@@ -52,6 +52,7 @@ public class CreateUser extends DialogFragment {
 
         editTextUsername = view.findViewById(R.id.username_text);
         editTextAccessCode = view.findViewById(R.id.access_code_text);
+        com.suici.roverhood.utils.PasswordToggle.bind(editTextAccessCode, view.findViewById(R.id.toggleAccessCode));
         createUserButton = view.findViewById(R.id.buttonCreateAccount);
         loadingCreateUser = view.findViewById(R.id.loadingCreateUser);
 

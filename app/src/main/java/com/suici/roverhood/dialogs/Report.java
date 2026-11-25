@@ -12,7 +12,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.suici.roverhood.databases.FirebaseRepository;
 
 // "Report" on a post or comment: asks for an optional reason and sends the report to the
-// moderators and admins (they get a notification, see notifyReport in functions/index.js).
+// organizers, moderators and admins (they get a notification, see notifyReport in functions/index.js).
 public class Report {
 
     public static void show(Context context, String postId, String commentId,
@@ -34,7 +34,7 @@ public class Report {
 
         new AlertDialog.Builder(context)
                 .setTitle(isComment ? "Report comment" : "Report post")
-                .setMessage("The moderators and admins will be notified and can review it.")
+                .setMessage("The organizers, moderators and admins will be notified and can review it.")
                 .setView(form)
                 .setPositiveButton("Report", (dialog, which) -> {
                     String reason = reasonInput.getText().toString().trim();

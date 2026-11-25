@@ -97,8 +97,8 @@ public class EditProfile extends DialogFragment {
         teamInput = view.findViewById(R.id.teamInput);
         if (canEditTeam) {
             teamLayout.setVisibility(View.VISIBLE);
-            teamInput.setText(user.getTeam(), false);
-            teamInput.setSimpleItems(Teams.allKeys(context).toArray(new String[0]));
+            teamInput.setText(Teams.name(user.getTeam()), false);
+            teamInput.setSimpleItems(Teams.allNames(context).toArray(new String[0]));
         }
 
         // Role: only someone with the ADMIN role, and not for themself (so they can't lock
@@ -313,13 +313,14 @@ public class EditProfile extends DialogFragment {
 
         String newTeam = user.getTeam();
         if (canEditTeam) {
-            String typedTeam = teamInput.getText().toString().trim();
-            if (!Teams.allKeys(context).contains(typedTeam)) {
+            // The dropdown shows team names; the user stores the team's key
+            String teamKey = Teams.keyForName(context, teamInput.getText().toString());
+            if (teamKey == null) {
                 teamLayout.setError("Pick one of the existing teams");
                 return;
             }
             teamLayout.setError(null);
-            newTeam = typedTeam;
+            newTeam = teamKey;
         }
         boolean teamChanged = !newTeam.equals(user.getTeam());
         String finalTeam = newTeam;

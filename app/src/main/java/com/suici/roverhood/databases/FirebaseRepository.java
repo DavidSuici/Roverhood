@@ -1200,6 +1200,109 @@ public class FirebaseRepository {
                 () -> callback.onError("Could not connect to server."));
     }
 
+    // One entry of /reports, for the Reports list (staff)
+    public static class Report {
+        public String key;
+        public String postId;
+        public String commentId;       // null for a reported post
+        public String reportedUserId;
+        public String reporterId;
+        public String reason;
+        public long createdAt;
+    }
+
+    public interface ReportsCallback {
+        void onLoaded(List<Report> reports);
+        void onError(String errorMessage);
+    }
+
+    // All reports, newest first
+    public void loadReports(ReportsCallback callback) {
+        ensureSignedIn(() -> rootRef.child("reports").get()
+                .addOnSuccessListener(snapshot -> {
+                    List<Report> reports = new ArrayList<>();
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        Report report = new Report();
+                        report.key = child.getKey();
+                        report.postId = child.child("postId").getValue(String.class);
+                        report.commentId = child.child("commentId").getValue(String.class);
+                        report.reportedUserId = child.child("reportedUserId").getValue(String.class);
+                        report.reporterId = child.child("reporterId").getValue(String.class);
+                        report.reason = child.child("reason").getValue(String.class);
+                        Long createdAt = child.child("createdAt").getValue(Long.class);
+                        report.createdAt = createdAt != null ? createdAt : 0;
+                        if (report.postId != null) reports.add(report);
+                    }
+                    reports.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+                    saveReportsCache(reports);
+                    callback.onLoaded(reports);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("FirebaseRepository", "Failed to load reports", e);
+                    callback.onError("Failed to load the reports.");
+                }),
+                () -> callback.onError("Could not connect to server."));
+    }
+
+    // The last loaded reports are kept on the phone, so staff can see them offline too
+    private static final String REPORTS_PREFS = "reportsCache";
+
+    private void saveReportsCache(List<Report> reports) {
+        try {
+            org.json.JSONArray array = new org.json.JSONArray();
+            for (Report report : reports) {
+                org.json.JSONObject item = new org.json.JSONObject();
+                item.put("key", report.key);
+                item.put("postId", report.postId);
+                if (report.commentId != null) item.put("commentId", report.commentId);
+                if (report.reportedUserId != null) item.put("reportedUserId", report.reportedUserId);
+                if (report.reporterId != null) item.put("reporterId", report.reporterId);
+                if (report.reason != null) item.put("reason", report.reason);
+                item.put("createdAt", report.createdAt);
+                array.put(item);
+            }
+            context.getSharedPreferences(REPORTS_PREFS, Context.MODE_PRIVATE)
+                    .edit().putString("reports", array.toString()).apply();
+        } catch (org.json.JSONException e) {
+            Log.e("FirebaseRepository", "Failed to cache reports", e);
+        }
+    }
+
+    public List<Report> loadCachedReports() {
+        List<Report> reports = new ArrayList<>();
+        String json = context.getSharedPreferences(REPORTS_PREFS, Context.MODE_PRIVATE).getString("reports", null);
+        if (json == null) return reports;
+        try {
+            org.json.JSONArray array = new org.json.JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                org.json.JSONObject item = array.getJSONObject(i);
+                Report report = new Report();
+                report.key = item.optString("key");
+                report.postId = item.optString("postId");
+                report.commentId = item.has("commentId") ? item.optString("commentId") : null;
+                report.reportedUserId = item.has("reportedUserId") ? item.optString("reportedUserId") : null;
+                report.reporterId = item.has("reporterId") ? item.optString("reporterId") : null;
+                report.reason = item.has("reason") ? item.optString("reason") : null;
+                report.createdAt = item.optLong("createdAt");
+                reports.add(report);
+            }
+        } catch (org.json.JSONException e) {
+            Log.e("FirebaseRepository", "Failed to read cached reports", e);
+        }
+        return reports;
+    }
+
+    // Removes a report once it was handled
+    public void deleteReport(String key, PostOperationCallback callback) {
+        ensureSignedIn(() -> rootRef.child("reports").child(key).removeValue()
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> {
+                    Log.e("FirebaseRepository", "Failed to delete report", e);
+                    callback.onError("Failed to delete the report.");
+                }),
+                () -> callback.onError("Could not connect to server."));
+    }
+
     // Changes the role (PARTICIPANT / ORGANIZER / MODERATOR / ADMIN); only admins can do this
     public void updateUserType(User user, String userType, PostOperationCallback callback) {
         ensureSignedIn(() -> usersRef.child(user.getId()).child("userType").setValue(userType)
@@ -1258,6 +1361,47 @@ public class FirebaseRepository {
     // For codes created from the app, the readable code is also kept in pendingCodes/{id}, so
     // organizers can see it in "Unused codes"; it is deleted as soon as the account is created.
     // Older codes only exist as hashes, so they are listed without the code.
+
+    // The last loaded unused codes are kept on the phone (app-private), so staff can see them offline
+    private static final String CODES_PREFS = "unusedCodesCache";
+
+    private void saveUnusedCodesCache(List<UnusedCode> codes) {
+        try {
+            org.json.JSONArray array = new org.json.JSONArray();
+            for (UnusedCode code : codes) {
+                org.json.JSONObject item = new org.json.JSONObject();
+                item.put("userId", code.userId);
+                if (code.code != null) item.put("code", code.code);
+                if (code.team != null) item.put("team", code.team);
+                if (code.userType != null) item.put("userType", code.userType);
+                item.put("createdAt", code.createdAt);
+                array.put(item);
+            }
+            context.getSharedPreferences(CODES_PREFS, Context.MODE_PRIVATE)
+                    .edit().putString("codes", array.toString()).apply();
+        } catch (org.json.JSONException e) {
+            Log.e("FirebaseRepository", "Failed to cache codes", e);
+        }
+    }
+
+    public List<UnusedCode> loadCachedUnusedCodes() {
+        List<UnusedCode> codes = new ArrayList<>();
+        String json = context.getSharedPreferences(CODES_PREFS, Context.MODE_PRIVATE).getString("codes", null);
+        if (json == null) return codes;
+        try {
+            org.json.JSONArray array = new org.json.JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                org.json.JSONObject item = array.getJSONObject(i);
+                codes.add(new UnusedCode(item.optString("userId"),
+                        item.has("code") ? item.optString("code") : null,
+                        item.optString("team", ""), item.optString("userType", ""),
+                        item.optLong("createdAt")));
+            }
+        } catch (org.json.JSONException e) {
+            Log.e("FirebaseRepository", "Failed to read cached codes", e);
+        }
+        return codes;
+    }
 
     public static class UnusedCode {
         public final String userId;
@@ -1388,6 +1532,7 @@ public class FirebaseRepository {
                             }
                             // Newest first, older codes without a date at the end
                             codes.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+                            saveUnusedCodesCache(codes);
                             callback.onLoaded(codes);
                         })
                         .addOnFailureListener(e -> {

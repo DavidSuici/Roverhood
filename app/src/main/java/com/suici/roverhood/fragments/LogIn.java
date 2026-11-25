@@ -47,6 +47,7 @@ public class LogIn extends Fragment {
         // Auto-select the text when clicking on this
         setSelectAllOnFocus(binding.usernameText);
         setSelectAllOnFocus(binding.accessCodeText);
+        com.suici.roverhood.utils.PasswordToggle.bind(binding.accessCodeText, binding.toggleAccessCode);
 
         return binding.getRoot();
     }

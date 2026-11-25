@@ -230,6 +230,9 @@ public class PostHandler {
             setImageCollapsed(imageView, fullScreenIcon, imageRatio < previewRatio, previewRatio);
         }
 
+        // Pinch to zoom (collapsed or expanded); a tap still expands / collapses
+        com.suici.roverhood.utils.PinchZoom.attach(imageView);
+
         imageView.setOnClickListener(v -> {
             ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) imageView.getLayoutParams();
             boolean isCollapsed = params.dimensionRatio != null;

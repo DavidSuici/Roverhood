@@ -152,16 +152,24 @@ public class UserProfiles {
         int linkColor = com.google.android.material.color.MaterialColors.getColor(
                 container, com.google.android.material.R.attr.colorPrimary);
         boolean any = false;
+        boolean socialStarted = false;
 
         for (String field : INFO_FIELDS) {
             String value = get(userId, field).trim();
             if (value.isEmpty()) continue;
+
+            // A small gap before the description and before the social accounts (groups)
+            boolean isDescription = field.equals(FIELD_DESCRIPTION);
+            boolean firstSocial = isSocial(field) && !socialStarted;
+            if (isSocial(field)) socialStarted = true;
+            int gap = any && (isDescription || firstSocial) ? (int) (10 * density) : 0;
             any = true;
 
             android.widget.TextView row = new android.widget.TextView(context);
             row.setTextSize(15);
-            row.setPadding(0, (int) (3 * density), 0, (int) (3 * density));
-            String label = infoLabel(field) + ": ";
+            row.setPadding(0, (int) (3 * density) + gap, 0, (int) (3 * density));
+            // The description is shown as plain text, without "Descriere:"
+            String label = isDescription ? "" : infoLabel(field) + ": ";
             String shown = isSocial(field) ? socialText(field, value) : value;
             android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(label + shown);
             text.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
@@ -237,6 +245,7 @@ public class UserProfiles {
         image.setBackgroundColor(0xE6000000);
         image.setContentDescription("Profile photo");
         image.setOnClickListener(v -> dialog.dismiss());
+        PinchZoom.attach(image);
         dialog.setContentView(image);
         com.bumptech.glide.Glide.with(context)
                 .load(url)

@@ -55,8 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton fabCodes;
     private FloatingActionButton fabUsers;
     private FloatingActionButton fabTeams;
+    private FloatingActionButton fabReports;
     private FloatingActionButton[] menuFabs;
     public boolean isFabMenuOpen = false;
+    private boolean postingDisabled = false;   // offline: Post and Announcement can't be used
     private Menu optionsMenu;
     private LinearProgressIndicator downloadProgressBar;
     private LinearProgressIndicator uploadProgressBar;
@@ -90,7 +92,8 @@ public class MainActivity extends AppCompatActivity {
         fabCodes = findViewById(R.id.fabCodes);
         fabUsers = findViewById(R.id.fabUsers);
         fabTeams = findViewById(R.id.fabTeams);
-        menuFabs = new FloatingActionButton[]{fabPost, fabAnnouncement, fabCodes, fabUsers, fabTeams};
+        fabReports = findViewById(R.id.fabReports);
+        menuFabs = new FloatingActionButton[]{fabPost, fabAnnouncement, fabCodes, fabUsers, fabTeams, fabReports};
         floatingButton.setOnClickListener(v -> toggleFabMenu());
         getFloatingButton().setVisibility(View.INVISIBLE);
 
@@ -209,28 +212,39 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         optionsMenu = menu;
-        filtersBadge = null; // the menu views were recreated
+        menuBadges.clear(); // the menu views were recreated
         return true;
     }
 
-    private com.google.android.material.badge.BadgeDrawable filtersBadge;
+    private final java.util.Map<Integer, com.google.android.material.badge.BadgeDrawable> menuBadges = new java.util.HashMap<>();
 
     // Small number on the filter button with how many filters differ from the defaults (hidden at 0)
-    @androidx.annotation.OptIn(markerClass = com.google.android.material.badge.ExperimentalBadgeUtils.class)
     public void updateFiltersBadge(int count) {
+        updateMenuBadge(R.id.filters, count);
+    }
+
+    // Number of announcements not seen yet on this phone (hidden at 0)
+    public void updateAnnouncementsBadge(int count) {
+        updateMenuBadge(R.id.announcements, count);
+    }
+
+    @androidx.annotation.OptIn(markerClass = com.google.android.material.badge.ExperimentalBadgeUtils.class)
+    private void updateMenuBadge(int itemId, int count) {
         // The menu item's view exists only after the toolbar is laid out
         binding.toolbar.post(() -> {
-            if (binding.toolbar.findViewById(R.id.filters) == null) return;
-            if (filtersBadge == null) {
+            if (binding.toolbar.findViewById(itemId) == null) return;
+            com.google.android.material.badge.BadgeDrawable badge = menuBadges.get(itemId);
+            if (badge == null) {
                 if (count == 0) return;
-                filtersBadge = com.google.android.material.badge.BadgeDrawable.create(this);
-                filtersBadge.setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(
+                badge = com.google.android.material.badge.BadgeDrawable.create(this);
+                badge.setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(
                         binding.toolbar, com.google.android.material.R.attr.colorPrimary));
-                filtersBadge.setBadgeTextColor(android.graphics.Color.WHITE);
-                com.google.android.material.badge.BadgeUtils.attachBadgeDrawable(filtersBadge, binding.toolbar, R.id.filters);
+                badge.setBadgeTextColor(android.graphics.Color.WHITE);
+                com.google.android.material.badge.BadgeUtils.attachBadgeDrawable(badge, binding.toolbar, itemId);
+                menuBadges.put(itemId, badge);
             }
-            filtersBadge.setNumber(count);
-            filtersBadge.setVisible(count > 0);
+            badge.setNumber(count);
+            badge.setVisible(count > 0);
         });
     }
 
@@ -243,8 +257,8 @@ public class MainActivity extends AppCompatActivity {
             if (fragment != null) {
                 if (item.getItemId() == R.id.filters)
                     fragment.openFiltersDialog();
-                if (item.getItemId() == R.id.likedPosts)
-                    fragment.applyLikedPostsFilter();
+                if (item.getItemId() == R.id.search)
+                    fragment.openSearch();
                 if (item.getItemId() == R.id.announcements)
                     fragment.applyAnnouncementsFilter();
             }
@@ -294,11 +308,17 @@ public class MainActivity extends AppCompatActivity {
 
     public void showFabMenu() {
         for (FloatingActionButton fab : menuFabs) {
-            fab.setEnabled(true);
+            boolean posting = fab == fabPost || fab == fabAnnouncement;
+            boolean usable = !(posting && postingDisabled);
+            fab.setEnabled(usable);
             fab.setVisibility(View.VISIBLE);
-            fab.animate().translationY(0).alpha(1f).setDuration(200).start();
+            fab.animate().translationY(0).alpha(usable ? 1f : 0.35f).setDuration(200).start();
         }
         isFabMenuOpen = true;
+    }
+
+    public void setPostingDisabled(boolean disabled) {
+        postingDisabled = disabled;
     }
 
     public void hideFabMenu() {
@@ -339,6 +359,9 @@ public class MainActivity extends AppCompatActivity {
     }
     public FloatingActionButton getFabTeams() {
         return fabTeams;
+    }
+    public FloatingActionButton getFabReports() {
+        return fabReports;
     }
     // Logging in subscribes this phone to announcements and to the user's personal
     // notifications (and asks for the notification permission on Android 13+);

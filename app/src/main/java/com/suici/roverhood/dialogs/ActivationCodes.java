@@ -54,6 +54,21 @@ public class ActivationCodes extends DialogFragment {
     private LinearLayout unusedList;
     private TextView unusedLabel;
 
+    private static final String ARG_OFFLINE = "offline";
+
+    // offline = the feed shows saved data: read-only (saved unused codes, no creating/deleting)
+    public static ActivationCodes newInstance(boolean offline) {
+        ActivationCodes dialog = new ActivationCodes();
+        Bundle args = new Bundle();
+        args.putBoolean(ARG_OFFLINE, offline);
+        dialog.setArguments(args);
+        return dialog;
+    }
+
+    private boolean isOffline() {
+        return getArguments() != null && getArguments().getBoolean(ARG_OFFLINE, false);
+    }
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.dialog_activation_codes, container, false);
@@ -76,8 +91,8 @@ public class ActivationCodes extends DialogFragment {
         codeInput.setText(randomCode());
         view.findViewById(R.id.newRandomCodeButton).setOnClickListener(v -> codeInput.setText(randomCode()));
 
-        teamInput.setSimpleItems(Teams.allKeys(context).toArray(new String[0]));
-        if (currentUser != null && currentUser.getTeam() != null) teamInput.setText(currentUser.getTeam(), false);
+        teamInput.setSimpleItems(Teams.allNames(context).toArray(new String[0]));
+        if (currentUser != null && currentUser.getTeam() != null) teamInput.setText(Teams.name(currentUser.getTeam()), false);
 
         // Staff can create Participant, Organizer and Moderator codes; only admins also Admin codes
         boolean isAdmin = com.suici.roverhood.utils.Roles.isAdmin(currentUser);
@@ -89,6 +104,11 @@ public class ActivationCodes extends DialogFragment {
         roleInput.setText(roles[0], false);
 
         createButton.setOnClickListener(v -> createCode());
+        if (isOffline()) {
+            createButton.setEnabled(false);
+            createButton.setText("Offline - can't create codes");
+            view.findViewById(R.id.newRandomCodeButton).setEnabled(false);
+        }
         view.findViewById(R.id.copyCodeButton).setOnClickListener(v -> {
             String code = (String) createdCodeText.getTag();
             ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -137,13 +157,13 @@ public class ActivationCodes extends DialogFragment {
         }
         codeLayout.setError(null);
 
-        String typedTeam = teamInput.getText().toString().trim();
-        if (!Teams.allKeys(context).contains(typedTeam)) {
+        // The dropdown shows team names; codes store the team's key
+        String team = Teams.keyForName(context, teamInput.getText().toString());
+        if (team == null) {
             teamLayout.setError("Pick one of the existing teams");
             return;
         }
         teamLayout.setError(null);
-        String team = typedTeam;
         String role = roleInput.getText().toString();
 
         createButton.setEnabled(false);
@@ -179,6 +199,11 @@ public class ActivationCodes extends DialogFragment {
     }
 
     private void loadUnusedCodes() {
+        if (isOffline()) {
+            unusedLoading.setVisibility(View.GONE);
+            showUnusedCodes(firebaseRepository.loadCachedUnusedCodes());
+            return;
+        }
         unusedLoading.setVisibility(View.VISIBLE);
         firebaseRepository.loadUnusedCodes(new FirebaseRepository.UnusedCodesCallback() {
             @Override
@@ -198,7 +223,7 @@ public class ActivationCodes extends DialogFragment {
     }
 
     private void showUnusedCodes(List<FirebaseRepository.UnusedCode> codes) {
-        unusedLabel.setText("Unused codes (" + codes.size() + ")");
+        unusedLabel.setText("Unused codes (" + codes.size() + ")" + (isOffline() ? " · offline" : ""));
         unusedList.removeAllViews();
         float density = getResources().getDisplayMetrics().density;
 
@@ -239,7 +264,7 @@ public class ActivationCodes extends DialogFragment {
             delete.setBackgroundResource(android.R.color.transparent);
             delete.setContentDescription("Delete code");
             delete.setOnClickListener(v -> confirmDelete(unused));
-            row.addView(delete);
+            if (!isOffline()) row.addView(delete);
 
             unusedList.addView(row);
         }

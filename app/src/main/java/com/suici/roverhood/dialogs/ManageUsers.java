@@ -34,8 +34,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// List of all created accounts for organizers and admins: photo, name, role and team, with
-// Edit (username, photo, team) and Delete. Tapping a name shows that person's posts.
+// List of all created accounts: photo, name, role and team, with search. Opened from the
+// search button (everyone) and the + menu (staff). Staff also get Edit and Delete; participants
+// only search and tap a name to see that person's posts and profile.
 // Admins can edit/delete anyone but themselves (they can edit themselves); organizers can edit
 // non-admins and delete only participants.
 public class ManageUsers extends DialogFragment {
@@ -88,21 +89,23 @@ public class ManageUsers extends DialogFragment {
         }
     }
 
-    // Always fresh from Firebase, so edits from other phones are visible
+    // Offline (the feed shows saved data): read-only list from the local database
+    private boolean isOffline() {
+        return feed != null && feed.isOfflineMode();
+    }
+
+    // Always fresh from Firebase, so edits from other phones are visible; offline from the phone
     private void loadUsers() {
+        if (isOffline()) {
+            applyUsers(com.suici.roverhood.databases.LocalDatabase.getInstance(context).getAllUsers());
+            return;
+        }
         loading.setVisibility(View.VISIBLE);
         firebaseRepository.getAllUsers(new FirebaseRepository.UsersCallback() {
             @Override
             public void onUsersFetched(Map<String, User> fetched) {
                 if (!isAdded()) return;
-                users.clear();
-                for (User user : fetched.values()) {
-                    // Accounts without a username are unused activation codes (see Activation codes)
-                    if (user.getUsername() != null && !user.getUsername().isEmpty()) users.add(user);
-                }
-                users.sort((a, b) -> a.getUsername().compareToIgnoreCase(b.getUsername()));
-                loading.setVisibility(View.GONE);
-                showUsers();
+                applyUsers(fetched);
             }
 
             @Override
@@ -112,6 +115,17 @@ public class ManageUsers extends DialogFragment {
                 Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void applyUsers(Map<String, User> fetched) {
+        users.clear();
+        for (User user : fetched.values()) {
+            // Accounts without a username are unused activation codes (see Activation codes)
+            if (user.getUsername() != null && !user.getUsername().isEmpty()) users.add(user);
+        }
+        users.sort((a, b) -> a.getUsername().compareToIgnoreCase(b.getUsername()));
+        loading.setVisibility(View.GONE);
+        showUsers();
     }
 
     private void showUsers() {
@@ -189,7 +203,7 @@ public class ManageUsers extends DialogFragment {
             list.addView(row);
         }
 
-        title.setText("Users (" + shown + ")");
+        title.setText("Users (" + shown + ")" + (isOffline() ? " · offline" : ""));
     }
 
     private boolean isAdmin() {
@@ -201,11 +215,12 @@ public class ManageUsers extends DialogFragment {
     }
 
     private boolean canEdit(User user) {
+        if (isOffline() || !com.suici.roverhood.utils.Roles.isStaff(currentUser)) return false;
         return isAdmin() || isSelf(user) || !"ADMIN".equals(user.getUserType());
     }
 
     private boolean canDelete(User user) {
-        if (isSelf(user)) return false;
+        if (isOffline() || isSelf(user) || !com.suici.roverhood.utils.Roles.isStaff(currentUser)) return false;
         return isAdmin() || "PARTICIPANT".equals(user.getUserType());
     }
 

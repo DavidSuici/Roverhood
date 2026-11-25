@@ -107,6 +107,27 @@ public class Teams {
         return new java.util.ArrayList<>(keys);
     }
 
+    // Dropdowns show the teams' display names (a renamed team keeps its original key in Firebase,
+    // e.g. key "Roverhood 2018" shown as "Roverhoods"); these convert between the two.
+    public static java.util.List<String> allNames(Context context) {
+        java.util.TreeSet<String> names = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        for (String key : allKeys(context)) names.add(name(key));
+        return new java.util.ArrayList<>(names);
+    }
+
+    // The key of the team with this display name (or key); null if there is none
+    public static String keyForName(Context context, String text) {
+        if (text == null || text.trim().isEmpty()) return null;
+        String value = text.trim();
+        for (String key : allKeys(context)) {
+            if (name(key).equalsIgnoreCase(value)) return key;
+        }
+        for (String key : allKeys(context)) {
+            if (key.equalsIgnoreCase(value)) return key;
+        }
+        return null;
+    }
+
     // A team key is used as a key in Firebase (teams/{key}), so no . # $ [ ] /
     public static String validateTeamKey(String team) {
         if (team.length() < 2) return "Team name is too short";
@@ -129,11 +150,17 @@ public class Teams {
             return false; // empty or more than one character
         }
 
+        // Keycap emojis (0️⃣-9️⃣, #️⃣, *️⃣) are a digit / # / * + U+FE0F + U+20E3 (combining keycap)
         int firstCodePoint = text.codePointAt(first);
-        if (Character.getType(firstCodePoint) != Character.OTHER_SYMBOL) return false;
+        boolean keycap = text.indexOf('⃣') >= 0 && "0123456789#*".indexOf(firstCodePoint) >= 0;
+        if (!keycap && Character.getType(firstCodePoint) != Character.OTHER_SYMBOL) return false;
 
         for (int i = first; i < end; ) {
             int codePoint = text.codePointAt(i);
+            if (keycap && i == first) {   // the digit / # / * of the keycap
+                i += Character.charCount(codePoint);
+                continue;
+            }
             int type = Character.getType(codePoint);
             boolean allowed = type == Character.OTHER_SYMBOL      // emoji, regional indicators
                     || type == Character.MODIFIER_SYMBOL          // skin tones

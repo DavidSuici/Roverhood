@@ -3,16 +3,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="com.suici.roverhood.MainActivity">
 
+    <!-- Search people: opens the users list (read-only for participants) -->
     <item
-        android:id="@+id/announcements"
-        android:title="Filters"
-        android:icon="@drawable/icon_announcements"
+        android:id="@+id/search"
+        android:title="Search"
+        android:icon="@drawable/icon_search"
         app:showAsAction="always" />
 
     <item
-        android:id="@+id/likedPosts"
-        android:title="Filters"
-        android:icon="@drawable/icon_liked_posts"
+        android:id="@+id/announcements"
+        android:title="Announcements"
+        android:icon="@drawable/icon_announcements"
         app:showAsAction="always" />
 
     <item

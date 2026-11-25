@@ -62,6 +62,12 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (holder instanceof PostViewHolder) {
             PostHandler postHandler = postHandlerList.get(position-1);
             postHandler.loadIntoView(holder.itemView);
+            // An announcement shown on screen counts as seen (announcements button count)
+            if (postHandler.getPost().isAnnouncement()
+                    && com.suici.roverhood.utils.AnnouncementsSeen.markSeen(context, postHandler.getPost().getId())
+                    && onAnnouncementSeen != null) {
+                onAnnouncementSeen.run();
+            }
         }
         else if (holder instanceof HeaderViewHolder) {
             HeaderViewHolder headerHolder = (HeaderViewHolder) holder;
@@ -75,6 +81,7 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             else
                 headerHolder.spaceFilters.setVisibility(View.GONE);
 
+            headerHolder.noPosts.setVisibility(showNoPosts ? View.VISIBLE : View.GONE);
             if (headerBinder != null) headerBinder.bindHeader(headerHolder.itemView);
         }
         else if (holder instanceof SpaceViewHolder) {
@@ -100,10 +107,12 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public static class HeaderViewHolder extends RecyclerView.ViewHolder {
         View spaceFilters;
+        View noPosts;
 
         public HeaderViewHolder(@NonNull View itemView) {
             super(itemView);
             spaceFilters = itemView.findViewById(R.id.spaceFilters);
+            noPosts = itemView.findViewById(R.id.headerNoPosts);
         }
     }
 
@@ -111,6 +120,21 @@ public class PostAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     // Adding +2 accounting for the first and last space element
     public int getItemCount() {
         return postHandlerList.size() + 2;
+    }
+
+    private Runnable onAnnouncementSeen;
+
+    public void setOnAnnouncementSeen(Runnable onAnnouncementSeen) {
+        this.onAnnouncementSeen = onAnnouncementSeen;
+    }
+
+    // "No posts" under the header panels when the filters leave nothing to show
+    private boolean showNoPosts = false;
+
+    public void setShowNoPosts(boolean show) {
+        if (showNoPosts == show) return;
+        showNoPosts = show;
+        notifyItemChanged(0);
     }
 
     public void setLoading(boolean loading) {
